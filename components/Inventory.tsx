@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig } from '../types';
-import { Package, Search, Plus, Edit3, Trash2 } from 'lucide-react';
+import { Package, Search, Plus, Edit3, Trash2, AlertTriangle, X } from 'lucide-react';
 
 interface Props {
   products: Product[];
@@ -11,6 +11,7 @@ interface Props {
 
 const Inventory: React.FC<Props> = ({ products, onUpdate, config }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
 
   const filteredProducts = useMemo(() => {
     return products
@@ -21,8 +22,44 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config }) => {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [products, searchTerm]);
 
+  const handleDelete = () => {
+    if (deleteConfirm) {
+      onUpdate(products.filter(p => p.id !== deleteConfirm.id));
+      setDeleteConfirm(null);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
+      {/* Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800 p-8 flex flex-col items-center">
+            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2 text-center">Confirmation</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center mb-8">
+              Voulez-vous vraiment supprimer <span className="font-bold text-slate-900 dark:text-slate-100">"{deleteConfirm.name}"</span> ? Cette action est irréversible.
+            </p>
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button 
+                onClick={() => setDeleteConfirm(null)}
+                className="py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase tracking-widest"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={handleDelete}
+                className="py-3 px-4 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 shadow-lg shadow-rose-900/20 transition-all text-xs uppercase tracking-widest"
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Gestion des Stocks</h1>
@@ -106,7 +143,12 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config }) => {
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button className="p-1.5 text-slate-400 hover:text-purple-600 transition-colors"><Edit3 size={16} /></button>
-                      <button className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
+                      <button 
+                        onClick={() => setDeleteConfirm({ id: product.id, name: product.name })}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>

@@ -15,9 +15,11 @@ import {
   FileText,
   UserCheck,
   ArrowRight,
-  // Added missing LogIn and LogOut imports
   LogIn,
-  LogOut
+  LogOut,
+  Trash2,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 
 interface Props {
@@ -33,6 +35,7 @@ const HR: React.FC<Props> = ({ employees, onUpdate, attendance, config }) => {
   const [activeTab, setActiveTab] = useState<HRTab>('directory');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeDept, setActiveDept] = useState<string>('Tous');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
 
   const depts = ['Tous', 'Cuisine', 'Salle', 'Livraison', 'Administration'];
 
@@ -46,8 +49,34 @@ const HR: React.FC<Props> = ({ employees, onUpdate, attendance, config }) => {
   const totalPayroll = employees.reduce((acc, curr) => acc + curr.salary, 0);
   const presentCount = employees.filter(e => e.status === 'active' || e.isClockedIn).length;
 
+  const handleDelete = () => {
+    if (deleteConfirm) {
+      onUpdate(employees.filter(e => e.id !== deleteConfirm.id));
+      setDeleteConfirm(null);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col space-y-6 animate-fadeIn pb-10">
+      {/* Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800 p-8 flex flex-col items-center">
+            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2 text-center">Suppression Employé</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center mb-8">
+              Êtes-vous sûr de vouloir supprimer <span className="font-bold text-slate-900 dark:text-slate-100">"{deleteConfirm.name}"</span> ? Ses données historiques seront conservées mais il n'apparaîtra plus dans l'annuaire.
+            </p>
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button onClick={() => setDeleteConfirm(null)} className="py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase tracking-widest">Annuler</button>
+              <button onClick={handleDelete} className="py-3 px-4 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 shadow-lg shadow-rose-900/20 transition-all text-xs uppercase tracking-widest">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Ressources Humaines</h1>
@@ -162,7 +191,12 @@ const HR: React.FC<Props> = ({ employees, onUpdate, attendance, config }) => {
                   <div className="w-full flex items-center justify-between border-t border-slate-50 dark:border-slate-800 pt-4">
                     <button className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"><Mail size={16} /></button>
                     <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"><Phone size={16} /></button>
-                    <button className="p-2 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg transition-colors"><MoreVertical size={16} /></button>
+                    <button 
+                      onClick={() => setDeleteConfirm({ id: emp.id, name: emp.name })}
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
               </div>

@@ -21,7 +21,15 @@ import {
   Check,
   ShieldAlert,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle,
+  LayoutDashboard, 
+  Monitor, 
+  FileText, 
+  ShoppingCart, 
+  Package, 
+  BarChart3, 
+  IdCard
 } from 'lucide-react';
 
 interface Props {
@@ -39,6 +47,7 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
   const [subView, setSubView] = useState<SubView>('menu');
   const [isEditing, setIsEditing] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product> | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
   
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
   const [saveStatus, setSaveStatus] = useState(false);
@@ -62,9 +71,10 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
     setIsEditing(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm("Voulez-vous vraiment supprimer ce plat ?")) {
-      onUpdateProducts(products.filter(p => p.id !== id));
+  const handleDelete = () => {
+    if (deleteConfirm) {
+      onUpdateProducts(products.filter(p => p.id !== deleteConfirm.id));
+      setDeleteConfirm(null);
     }
   };
 
@@ -220,6 +230,25 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
 
   return (
     <div className="h-full flex flex-col md:flex-row bg-slate-50 dark:bg-slate-950 animate-fadeIn transition-colors pb-10">
+      {/* Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800 p-8 flex flex-col items-center">
+            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2 text-center">Confirmation</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center mb-8">
+              Voulez-vous vraiment supprimer le plat <span className="font-bold text-slate-900 dark:text-slate-100">"{deleteConfirm.name}"</span> ? Cette action est irréversible.
+            </p>
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button onClick={() => setDeleteConfirm(null)} className="py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase tracking-widest">Annuler</button>
+              <button onClick={handleDelete} className="py-3 px-4 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 shadow-lg shadow-rose-900/20 transition-all text-xs uppercase tracking-widest">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="w-full md:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 space-y-2 flex flex-col">
         <h2 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-6 px-3">Configuration</h2>
         
@@ -253,7 +282,7 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
                   <thead>
                     <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800"><th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Plat</th><th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Prix</th><th className="px-6 py-4 text-right px-6">Actions</th></tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50 dark:divide-slate-800">{products.map((product) => (<tr key={product.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group"><td className="px-6 py-4 flex items-center space-x-3"><div className="w-8 h-8 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center text-purple-600"><UtensilsCrossed size={14} /></div><span className="font-bold text-sm text-slate-700 dark:text-slate-200">{product.name}</span></td><td className="px-6 py-4 font-black text-slate-900 dark:text-white">{product.price} {config.currency}</td><td className="px-6 py-4 text-right"><button onClick={() => handleEdit(product)} className="p-2 text-slate-400 hover:text-purple-600"><Edit3 size={16} /></button><button onClick={() => handleDelete(product.id)} className="p-2 text-slate-400 hover:text-rose-600"><Trash2 size={16} /></button></td></tr>))}</tbody>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-800">{products.map((product) => (<tr key={product.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group"><td className="px-6 py-4 flex items-center space-x-3"><div className="w-8 h-8 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center text-purple-600"><UtensilsCrossed size={14} /></div><span className="font-bold text-sm text-slate-700 dark:text-slate-200">{product.name}</span></td><td className="px-6 py-4 font-black text-slate-900 dark:text-white">{product.price} {config.currency}</td><td className="px-6 py-4 text-right"><button onClick={() => handleEdit(product)} className="p-2 text-slate-400 hover:text-purple-600"><Edit3 size={16} /></button><button onClick={() => setDeleteConfirm({ id: product.id, name: product.name })} className="p-2 text-slate-400 hover:text-rose-600"><Trash2 size={16} /></button></td></tr>))}</tbody>
                 </table>
               </div>
             )}
@@ -263,8 +292,5 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
     </div>
   );
 };
-
-// Simple imports for layout
-import { LayoutDashboard, Monitor, FileText, ShoppingCart, Package, BarChart3, IdCard } from 'lucide-react';
 
 export default Settings;

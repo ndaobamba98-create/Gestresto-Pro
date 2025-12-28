@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { SaleOrder, ERPConfig } from '../types';
-import { ShoppingCart, Filter, Download, Plus, CheckCircle2, Clock, Truck, X, Printer, Mail, DownloadCloud, RotateCcw, Calendar, ChefHat } from 'lucide-react';
+import { ShoppingCart, Filter, Download, Plus, CheckCircle2, Clock, Truck, X, Printer, Mail, DownloadCloud, RotateCcw, Calendar, ChefHat, Trash2, AlertTriangle } from 'lucide-react';
 
 interface Props {
   sales: SaleOrder[];
@@ -12,15 +12,22 @@ interface Props {
 const Sales: React.FC<Props> = ({ sales, onUpdate, config }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'quotation' | 'confirmed' | 'delivered' | 'refunded'>('all');
   const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, customer: string } | null>(null);
 
   const filteredSales = activeTab === 'all' ? sales : sales.filter(s => s.status === activeTab);
 
   const handleRefund = (id: string) => {
-    if (window.confirm("Voulez-vous vraiment rembourser cette commande ? Cette action est irréversible.")) {
-      const updatedSales = sales.map(s => 
-        s.id === id ? { ...s, status: 'refunded' as const, invoiceStatus: 'refunded' as const } : s
-      );
-      onUpdate(updatedSales);
+    const updatedSales = sales.map(s => 
+      s.id === id ? { ...s, status: 'refunded' as const, invoiceStatus: 'refunded' as const } : s
+    );
+    onUpdate(updatedSales);
+    setSelectedSale(null);
+  };
+
+  const handleDelete = () => {
+    if (deleteConfirm) {
+      onUpdate(sales.filter(s => s.id !== deleteConfirm.id));
+      setDeleteConfirm(null);
     }
   };
 
@@ -52,7 +59,6 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config }) => {
         <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800">
           <div className={`p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between ${sale.status === 'refunded' ? 'bg-rose-50 dark:bg-rose-900/20' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
             <div className="flex items-center space-x-4">
-               {/* LOGO GESTRESTO PRO SUR FACTURE */}
                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                   <ChefHat size={24} className="text-white" />
                </div>
@@ -94,7 +100,6 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config }) => {
               <p className="text-sm text-slate-500">Client Direct</p>
             </div>
 
-            {/* Items Table */}
             <div className="space-y-4">
               <div className="grid grid-cols-12 px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800">
                 <div className="col-span-6">Désignation</div>
@@ -113,7 +118,6 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config }) => {
               ))}
             </div>
 
-            {/* Totals */}
             <div className="flex justify-end pt-4">
               <div className="w-64 space-y-3">
                 <div className="flex justify-between text-sm">
@@ -129,7 +133,6 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config }) => {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="pt-10 text-center border-t border-dashed border-slate-200 dark:border-slate-800">
               <p className="text-slate-500 text-sm font-medium italic mb-2">"{config.receiptFooter}"</p>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Logiciel de Gestion Gestresto Pro - Système Intégré</p>
@@ -139,7 +142,9 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config }) => {
           <div className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end space-x-3">
             {sale.status !== 'refunded' && (
               <button 
-                onClick={() => handleRefund(sale.id)}
+                onClick={() => {
+                  if (window.confirm("Créer un avoir pour cette vente ?")) handleRefund(sale.id);
+                }}
                 className="bg-rose-100 text-rose-700 px-6 py-2 rounded-xl font-bold hover:bg-rose-200 transition-all flex items-center"
               >
                 <RotateCcw size={18} className="mr-2" /> Rembourser
@@ -155,6 +160,25 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config }) => {
   return (
     <div className="space-y-6 animate-fadeIn">
       {selectedSale && <InvoiceModal sale={selectedSale} onClose={() => setSelectedSale(null)} />}
+      
+      {/* Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[2rem] shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800 p-8 flex flex-col items-center">
+            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-2 text-center">Suppression Définitive</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center mb-8">
+              Êtes-vous sûr de vouloir supprimer définitivement la commande <span className="font-bold text-slate-900 dark:text-slate-100">"#{deleteConfirm.id}"</span> ? Cette action affectera vos rapports financiers.
+            </p>
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button onClick={() => setDeleteConfirm(null)} className="py-3 px-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase tracking-widest">Annuler</button>
+              <button onClick={handleDelete} className="py-3 px-4 bg-rose-600 text-white font-bold rounded-2xl hover:bg-rose-700 shadow-lg shadow-rose-900/20 transition-all text-xs uppercase tracking-widest">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -226,6 +250,12 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config }) => {
                         className="bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 px-3 py-1.5 rounded-lg font-bold text-xs"
                       >
                         Facture
+                      </button>
+                      <button 
+                        onClick={() => setDeleteConfirm({ id: sale.id, customer: sale.customer })}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
