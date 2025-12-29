@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   UserCircle,
   FileText,
-  ChefHat,
   Unlock,
   Key,
   Wifi,
@@ -35,6 +34,23 @@ import Settings from './components/Settings';
 import HR from './components/HR';
 import AIAssistant from './components/AIAssistant';
 
+const LogoG = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    {/* Le Cercle extérieur */}
+    <circle cx="12" cy="12" r="10" />
+    {/* La lettre G simplifiée */}
+    <path d="M16 8.5C15.1 7.6 13.8 7 12.3 7 9.4 7 7 9.2 7 12s2.4 5 5.3 5c2.4 0 4.4-1.5 5.1-3.5H12" />
+  </svg>
+);
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('pos');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -46,7 +62,6 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : false;
   });
 
-  // Fixed: used 'T extends unknown' to avoid JSX ambiguity in TSX files
   const loadStored = <T extends unknown>(key: string, initial: T): T => {
     const saved = localStorage.getItem(key);
     try {
@@ -72,7 +87,6 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<ERPConfig>(() => loadStored('config', INITIAL_CONFIG));
   const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
 
-  // Connection monitoring
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -84,7 +98,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Persist states to LocalStorage on changes
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
     if (darkMode) document.documentElement.classList.add('dark');
@@ -169,7 +182,15 @@ const App: React.FC = () => {
       case 'sales': return <Sales sales={sales} onUpdate={setSales} config={config} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} />;
       case 'reports': return <Reports sales={sales} config={config} products={products} />;
-      case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} config={config} />;
+      case 'hr': return (
+        <HR 
+          employees={employees} 
+          onUpdate={setEmployees} 
+          attendance={attendance} 
+          onUpdateAttendance={setAttendance}
+          config={config} 
+        />
+      );
       case 'settings': return (
         <Settings 
           products={products} 
@@ -190,7 +211,7 @@ const App: React.FC = () => {
         <div className="p-4 flex items-center border-b border-slate-800">
           <div className="flex items-center w-full overflow-hidden">
             <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-900/20">
-              <ChefHat size={22} className="text-white" />
+              <LogoG className="text-white w-6 h-6" />
             </div>
             {isSidebarOpen && (
               <div className="ml-3 flex flex-col leading-tight animate-fadeIn">
@@ -265,7 +286,6 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Status Connectivité */}
             <div className={`flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isOnline ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400'}`}>
                {isOnline ? <Wifi size={12} className="mr-1.5" /> : <WifiOff size={12} className="mr-1.5" />}
                {isOnline ? 'Synchro OK' : 'Hors-ligne'}

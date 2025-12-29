@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, SaleOrder, ERPConfig, SaleItem, CashSession, PaymentMethod } from '../types';
-import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, Utensils, X, Printer, CheckCircle2, Clock, Calendar, Lock, Unlock, DollarSign, Wallet, CreditCard, Banknote, ChevronRight, ArrowLeft, Delete, Zap } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingBag, CheckCircle, Utensils, X, Printer, CheckCircle2, Clock, Calendar, Lock, Unlock, DollarSign, Wallet, CreditCard, Banknote, ChevronRight, ArrowLeft, Delete, Zap, Calculator, UtensilsCrossed, Coffee, Sun, Moon, Star } from 'lucide-react';
 
 interface Props {
   products: Product[];
@@ -16,6 +16,8 @@ interface CartItem extends Product {
   quantity: number;
 }
 
+const DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10];
+
 const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpenSession, onCloseSession }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,29 +29,74 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
   
   // Session State
   const [openingBalance, setOpeningBalance] = useState<number>(0);
+  const [counts, setCounts] = useState<Record<number, number>>({
+    1000: 0, 500: 0, 200: 0, 100: 0, 50: 0, 20: 0, 10: 0
+  });
+  const [showCounter, setShowCounter] = useState(false);
+  
   const [closingBalance, setClosingBalance] = useState<number>(0);
   const [showClosingModal, setShowClosingModal] = useState(false);
 
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(products.map(p => p.category))).sort((a: string, b: string) => a.localeCompare(b));
-    return ['Tous', ...cats];
+    // Extraction et tri alphabétique des catégories
+    const rawCats = (Array.from(new Set(products.map(p => p.category))) as string[]).sort((a, b) => a.localeCompare(b));
+    
+    // Filtrage des catégories de base pour l'onglet spécial "Nos Repas"
+    const filteredCats = rawCats.filter(c => 
+      !['Petit Déjeuner', 'Déjeuner', 'Dîner'].includes(c)
+    );
+    
+    // "Tous" est placé devant "Nos Repas" comme demandé
+    return ['Tous', '🍽️ Nos Repas', ...filteredCats];
   }, [products]);
 
-  const filteredProducts = useMemo(() => {
-    return products
-      .filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = activeCategory === 'Tous' || p.category === activeCategory;
-        return matchesSearch && matchesCategory;
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+  const filteredProductsGrouped = useMemo(() => {
+    let list = [...products];
+
+    // Filtrage par recherche
+    if (searchTerm) {
+      list = list.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+
+    // Filtrage par catégorie
+    if (activeCategory === '🍽️ Nos Repas') {
+      list = list.filter(p => 
+        ['Petit Déjeuner', 'Déjeuner', 'Dîner'].includes(p.category)
+      );
+    } else if (activeCategory !== 'Tous') {
+      list = list.filter(p => p.category === activeCategory);
+    }
+
+    // Groupement par catégorie
+    const groups: Record<string, Product[]> = {};
+    list.forEach(p => {
+      if (!groups[p.category]) groups[p.category] = [];
+      groups[p.category].push(p);
+    });
+
+    // Tri alphabétique des catégories et des produits à l'intérieur
+    return Object.keys(groups).sort((a, b) => a.localeCompare(b)).map(cat => ({
+      name: cat,
+      products: groups[cat].sort((a, b) => a.name.localeCompare(b.name))
+    }));
   }, [products, searchTerm, activeCategory]);
 
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const numericReceived = parseFloat(receivedAmount) || 0;
   const changeAmount = Math.max(0, numericReceived - total);
 
-  // Reset payment state when modal closes
+  useEffect(() => {
+    if (showCounter) {
+      const newTotal = DENOMINATIONS.reduce((acc, val) => acc + (val * (counts[val] || 0)), 0);
+      setOpeningBalance(newTotal);
+    }
+  }, [counts, showCounter]);
+
+  const handleCountChange = (val: number, qtyStr: string) => {
+    const qty = Math.max(0, parseInt(qtyStr) || 0);
+    setCounts(prev => ({ ...prev, [val]: qty }));
+  };
+
   useEffect(() => {
     if (!showPaymentModal) {
       setSelectedMethod(null);
@@ -122,6 +169,16 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
     handleFinalizeSale('Especes', total);
   };
 
+  const getCategoryIcon = (catName: string) => {
+    if (catName.includes('Repas')) return <UtensilsCrossed size={14} />;
+    if (catName.includes('Petit Déjeuner')) return <Coffee size={14} />;
+    if (catName.includes('Déjeuner')) return <Sun size={14} />;
+    if (catName.includes('Dîner')) return <Moon size={14} />;
+    if (catName.includes('Fast Food')) return <Zap size={14} />;
+    if (catName.includes('Boissons')) return <Star size={14} />;
+    return <Utensils size={14} />;
+  };
+
   // UI Modals
   const PaymentModal = () => (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -184,7 +241,7 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
 
   const ReceiptModal = ({ sale, onClose }: { sale: SaleOrder, onClose: () => void }) => (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800 p-8 flex flex-col items-center">
+      <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[2.5rem] shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800 p-8 flex flex-col items-center">
         <h4 className="font-black text-slate-800 dark:text-white tracking-tighter uppercase text-sm mb-4 text-center">
           {config.companyName}
         </h4>
@@ -238,26 +295,68 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
 
   const SessionModal = () => (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-purple-600 text-white flex items-center space-x-3">
-          <Lock size={20} />
-          <h3 className="text-lg font-black uppercase tracking-tight">Ouverture de Caisse</h3>
+      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-purple-600 text-white flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Lock size={20} />
+            <h3 className="text-lg font-black uppercase tracking-tight">Ouverture de Caisse</h3>
+          </div>
+          <button 
+            onClick={() => setShowCounter(!showCounter)}
+            className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest bg-white/20 px-3 py-1.5 rounded-full hover:bg-white/30 transition-all"
+          >
+            <Calculator size={14} />
+            <span>{showCounter ? "Montant Manuel" : "Détailler Billets"}</span>
+          </button>
         </div>
-        <div className="p-8 space-y-6">
-          <div className="space-y-2">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Fond de caisse initial ({config.currency})</label>
-            <input 
-              type="number" 
-              value={openingBalance}
-              onChange={(e) => setOpeningBalance(parseFloat(e.target.value) || 0)}
-              className="w-full px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-2xl font-black text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-purple-500"
-            />
+        
+        <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+          {showCounter ? (
+            <div className="space-y-4 animate-fadeIn">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comptage des coupures ({config.currency})</p>
+              <div className="grid grid-cols-1 gap-3">
+                {DENOMINATIONS.map(val => (
+                  <div key={val} className="flex items-center bg-slate-50 dark:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700">
+                    <div className="w-16 font-black text-slate-900 dark:text-white text-lg">{val}</div>
+                    <div className="mx-4 text-slate-400 font-bold">×</div>
+                    <input 
+                      type="number"
+                      placeholder="0"
+                      min="0"
+                      value={counts[val] || ''}
+                      onChange={(e) => handleCountChange(val, e.target.value)}
+                      className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-center font-black text-slate-800 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                    <div className="w-24 text-right font-black text-purple-600 dark:text-purple-400 ml-4">
+                      {((counts[val] || 0) * val).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 animate-fadeIn">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Fond de caisse initial ({config.currency})</label>
+              <input 
+                type="number" 
+                value={openingBalance || ''}
+                onChange={(e) => setOpeningBalance(parseFloat(e.target.value) || 0)}
+                className="w-full px-4 py-6 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-4xl font-black text-center text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="0.00"
+              />
+            </div>
+          )}
+          
+          <div className="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-2xl border border-purple-100 dark:border-purple-800 text-center">
+            <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest mb-1">Total calculé</p>
+            <h2 className="text-4xl font-black text-purple-600 dark:text-purple-400">{openingBalance.toLocaleString()} {config.currency}</h2>
           </div>
         </div>
-        <div className="p-6 bg-slate-50 dark:bg-slate-800">
+
+        <div className="p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-800">
           <button 
             onClick={() => onOpenSession(openingBalance)}
-            className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-purple-700 transition-all shadow-lg"
+            className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-purple-700 transition-all shadow-xl shadow-purple-900/20 active:scale-[0.98]"
           >
             OUVRIR LA SESSION
           </button>
@@ -268,7 +367,7 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
 
   const ClosingModal = () => (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800">
+      <div className="bg-white dark:bg-slate-900 w-full max-md rounded-3xl shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-rose-600 text-white flex items-center space-x-3">
           <Unlock size={20} />
           <h3 className="text-lg font-black uppercase tracking-tight">Clôture de Session</h3>
@@ -284,9 +383,10 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Montant réel compté ({config.currency})</label>
             <input 
               type="number" 
-              value={closingBalance}
+              value={closingBalance || ''}
               onChange={(e) => setClosingBalance(parseFloat(e.target.value) || 0)}
               className="w-full px-4 py-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-2xl font-black text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="0"
             />
           </div>
         </div>
@@ -294,7 +394,7 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
           <button onClick={() => setShowClosingModal(false)} className="flex-1 px-4 py-4 rounded-2xl font-black text-slate-500 hover:bg-slate-100 transition-all uppercase tracking-widest text-xs">Annuler</button>
           <button 
             onClick={() => onCloseSession(closingBalance)}
-            className="flex-[2] bg-rose-600 text-white py-4 rounded-2xl font-black hover:bg-rose-700 transition-all shadow-lg"
+            className="flex-[2] bg-rose-600 text-white py-4 rounded-2xl font-black hover:bg-rose-700 transition-all shadow-lg shadow-rose-900/20"
           >
             VALIDER LA CLÔTURE
           </button>
@@ -322,7 +422,7 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
                 placeholder="Rechercher par nom ou catégorie..." 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-purple-500 transition-all dark:text-white"
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-sm focus:ring-2 focus:ring-purple-500 transition-all dark:text-white shadow-inner"
               />
             </div>
             <button onClick={() => setShowClosingModal(true)} className="flex-shrink-0 flex items-center px-4 py-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-black uppercase tracking-widest border border-rose-100 dark:border-rose-800 hover:bg-rose-600 hover:text-white transition-all">
@@ -334,32 +434,51 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
-                className={`px-6 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                className={`px-6 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-2 ${
                   activeCategory === cat 
-                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' 
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20 scale-105' 
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
-                {cat}
+                {getCategoryIcon(cat)}
+                <span>{cat}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filteredProducts.map(product => (
-            <button
-              key={product.id}
-              onClick={() => addToCart(product)}
-              className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-900 hover:-translate-y-1 transition-all group flex flex-col text-left h-fit"
-            >
-              <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center text-purple-600 mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                <Utensils size={20} />
+        <div className="flex-1 overflow-y-auto pr-2 space-y-8">
+          {filteredProductsGrouped.map((group, gIdx) => (
+            <div key={gIdx} className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                  {group.name}
+                </h2>
+                <div className="h-px flex-1 bg-slate-100 dark:bg-slate-800"></div>
               </div>
-              <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 leading-snug flex-1 mb-3">{product.name}</h3>
-              <p className="text-lg font-black text-purple-600 dark:text-purple-400">{product.price.toLocaleString()} <span className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">{config.currency}</span></p>
-            </button>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {group.products.map(product => (
+                  <button
+                    key={product.id}
+                    onClick={() => addToCart(product)}
+                    className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-purple-300 dark:hover:border-purple-900 hover:-translate-y-1 transition-all group flex flex-col text-left h-fit"
+                  >
+                    <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center text-purple-600 mb-4 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                      <Utensils size={20} />
+                    </div>
+                    <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 leading-snug flex-1 mb-3">{product.name}</h3>
+                    <p className="text-lg font-black text-purple-600 dark:text-purple-400">{product.price.toLocaleString()} <span className="text-[10px] uppercase font-bold text-slate-400 tracking-tighter">{config.currency}</span></p>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
+          {filteredProductsGrouped.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400 opacity-50">
+              <Search size={48} className="mb-4" />
+              <p className="text-sm font-black uppercase tracking-widest">Aucun plat trouvé</p>
+            </div>
+          )}
         </div>
       </div>
 
