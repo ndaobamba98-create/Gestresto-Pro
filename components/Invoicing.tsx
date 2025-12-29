@@ -4,6 +4,7 @@ import { SaleOrder, ERPConfig, Product, SaleItem } from '../types';
 import { 
   FileText, Search, Filter, Plus, Download, CheckCircle2, Clock, AlertCircle, Eye, Printer, Trash2, X, RotateCcw, Calendar, MapPin, Phone, Mail, Banknote, DownloadCloud, User, Package, PlusCircle, MinusCircle, QrCode
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Props {
   sales: SaleOrder[];
@@ -81,6 +82,38 @@ const Invoicing: React.FC<Props> = ({ sales, config, onUpdate, products, userRol
       setSelectedInvoice(null);
       notify("Avoir généré", `La facture ${id} a été remboursée.`, 'warning');
     }
+  };
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredInvoices.map(inv => {
+      const taxRate = config.taxRate || 0;
+      const totalTTC = inv.total;
+      const totalHT = totalTTC / (1 + taxRate / 100);
+      const taxAmount = totalTTC - totalHT;
+      
+      return {
+        'Référence': inv.id,
+        'Client': inv.customer,
+        'Date': inv.date,
+        'Montant HT': totalHT.toFixed(2),
+        'TVA': taxAmount.toFixed(2),
+        'Montant TTC': totalTTC,
+        'Devise': config.currency,
+        'Statut Facture': inv.invoiceStatus === 'posted' ? 'PUBLIÉE' : inv.invoiceStatus === 'paid' ? 'PAYÉE' : 'AVOIR',
+        'Mode Paiement': inv.paymentMethod || 'Espèces'
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Factures");
+    
+    const wscols = [{ wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 15 }];
+    worksheet['!cols'] = wscols;
+
+    const fileName = `Facturation_MYA_DOR_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    notify("Export réussi", "Le journal de facturation a été exporté.", 'success');
   };
 
   const getStatusColor = (status: string) => {
@@ -376,8 +409,11 @@ const Invoicing: React.FC<Props> = ({ sales, config, onUpdate, products, userRol
           <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Gérez vos factures clients et les avoirs de remboursement</p>
         </div>
         <div className="flex items-center space-x-3">
+          <button onClick={handleExportExcel} className="bg-white border text-slate-600 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all flex items-center">
+            <Download size={18} className="mr-2" /> Exporter Excel
+          </button>
           {(userRole === 'admin' || userRole === 'manager') && (
-            <button onClick={() => setIsCreating(true)} className="bg-purple-600 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-900/20 hover:bg-purple-700 transition-all active:scale-95 flex items-center">
+            <button onClick={() => setIsCreating(true)} className="bg-purple-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-900/20 hover:bg-purple-700 transition-all active:scale-95 flex items-center">
               <Plus size={18} className="mr-2" /> Créer Facture
             </button>
           )}

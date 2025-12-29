@@ -33,6 +33,7 @@ import {
   AreaChart,
   Area
 } from 'recharts';
+import * as XLSX from 'xlsx';
 
 interface Props {
   sales: SaleOrder[];
@@ -63,6 +64,30 @@ const Reports: React.FC<Props> = ({ sales, products, config }) => {
 
   const recentSales = sales.slice(0, 6);
 
+  const handleExportExcel = () => {
+    // Onglet 1: Résumé des revenus hebdomadaires
+    const revenueSheet = XLSX.utils.json_to_sheet(revenueByDay);
+    // Onglet 2: Distribution par catégorie
+    const catSheet = XLSX.utils.json_to_sheet(categoryDistribution);
+    // Onglet 3: Dernières transactions
+    const transactionsSheet = XLSX.utils.json_to_sheet(sales.map(s => ({
+      'ID': s.id,
+      'Client': s.customer,
+      'Date': s.date,
+      'Total': s.total,
+      'Statut': s.status,
+      'Paiement': s.paymentMethod
+    })));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, revenueSheet, "Revenus Hebdo");
+    XLSX.utils.book_append_sheet(workbook, catSheet, "Ventes par Service");
+    XLSX.utils.book_append_sheet(workbook, transactionsSheet, "Toutes Transactions");
+
+    const fileName = `Analyses_MYA_DOR_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <div className="h-full overflow-y-auto space-y-8 animate-fadeIn pb-10 pr-2 scrollbar-hide">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -71,7 +96,9 @@ const Reports: React.FC<Props> = ({ sales, products, config }) => {
           <p className="text-sm text-slate-500 dark:text-slate-400">Performances détaillées de Gestresto Pro</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button className="flex items-center space-x-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm"><Download size={16} /><span>Exporter PDF</span></button>
+          <button onClick={handleExportExcel} className="flex items-center space-x-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm hover:bg-slate-50 transition-all">
+            <Download size={16} /><span>Exporter Excel</span>
+          </button>
         </div>
       </div>
 
@@ -85,7 +112,7 @@ const Reports: React.FC<Props> = ({ sales, products, config }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-xs flex items-center"><TrendingUp size={16} className="mr-2 text-purple-600" /> Courbe de Revenu Habdomadaire</h3>
+            <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-xs flex items-center"><TrendingUp size={16} className="mr-2 text-purple-600" /> Courbe de Revenu Hebdomadaire</h3>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

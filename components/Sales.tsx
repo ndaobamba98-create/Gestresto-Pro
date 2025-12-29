@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { SaleOrder, ERPConfig, Product, SaleItem } from '../types';
 import { ShoppingCart, Filter, Download, Plus, CheckCircle2, Clock, Truck, X, Printer, Mail, DownloadCloud, RotateCcw, Calendar, ChefHat, Trash2, AlertTriangle, MapPin, Phone, Banknote, FileText, Search, User, Package, PlusCircle, MinusCircle } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Props {
   sales: SaleOrder[];
@@ -74,6 +75,30 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
     setNewOrderCustomer('');
     setNewOrderItems([]);
     setItemSearch('');
+  };
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredSales.map(s => ({
+      'Référence': s.id,
+      'Client': s.customer,
+      'Date': s.date,
+      'Montant Total': s.total,
+      'Devise': config.currency,
+      'Statut': s.status,
+      'Méthode Paiement': s.paymentMethod || 'Espèces',
+      'Emplacement': s.orderLocation || 'Comptoir'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Ventes");
+    
+    const wscols = [{ wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 20 }, { wch: 15 }];
+    worksheet['!cols'] = wscols;
+
+    const fileName = `Ventes_MYA_DOR_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+    notify("Export réussi", "La liste des ventes a été téléchargée.", 'success');
   };
 
   const getStatusStyle = (status: string) => {
@@ -209,7 +234,7 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div><h1 className="text-2xl font-bold text-slate-800 dark:text-white">Suivi des Ventes</h1><p className="text-sm text-slate-500">Gérez vos devis, commandes et livraisons</p></div>
-        <div className="flex items-center space-x-3">{(userRole === 'admin' || userRole === 'manager') && (<button onClick={() => setIsCreating(true)} className="bg-purple-600 text-white px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-purple-900/20 active:scale-95"><Plus size={18} className="mr-2" /> Nouveau Document</button>)}<button className="bg-white border text-slate-600 px-4 py-2.5 rounded-xl text-sm font-medium"><Download size={18} className="mr-2" /> Exporter</button></div>
+        <div className="flex items-center space-x-3">{(userRole === 'admin' || userRole === 'manager') && (<button onClick={() => setIsCreating(true)} className="bg-purple-600 text-white px-6 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-purple-900/20 active:scale-95"><Plus size={18} className="mr-2" /> Nouveau Document</button>)}<button onClick={handleExportExcel} className="bg-white border text-slate-600 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all"><Download size={18} className="mr-2" /> Exporter Excel</button></div>
       </div>
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="flex border-b border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-hide">{(['all', 'quotation', 'confirmed', 'delivered', 'refunded'] as const).map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-4 text-xs font-black uppercase tracking-widest transition-colors border-b-2 whitespace-nowrap ${activeTab === tab ? 'border-purple-600 text-purple-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}><span>{tab === 'all' ? 'Toutes' : tab === 'quotation' ? 'Devis' : tab === 'confirmed' ? 'Commandes' : tab === 'delivered' ? 'Livrées' : 'Avoirs'}</span></button>))}</div>

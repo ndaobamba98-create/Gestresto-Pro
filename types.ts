@@ -10,10 +10,10 @@ export interface User {
 export interface Lead {
   id: string;
   name: string;
-  company: string;
-  value: number;
-  status: 'new' | 'qualified' | 'proposition' | 'won' | 'lost';
-  contact: string;
+  company?: string;
+  value?: number;
+  status: string;
+  contact?: string;
 }
 
 export interface Product {
@@ -38,16 +38,17 @@ export interface SaleItem {
   name: string;
   quantity: number;
   price: number;
+  notes?: string;
 }
 
-export type PaymentMethod = 'Bankily' | 'Masrvi' | 'Especes' | 'Sedad' | 'Bimbank';
+export type PaymentMethod = 'Bankily' | 'Masrvi' | 'Especes' | 'Sedad' | 'Bimbank' | 'Carte' | 'Mobile';
 
 export interface SaleOrder {
   id: string;
   customer: string;
   date: string;
   total: number;
-  status: 'quotation' | 'confirmed' | 'delivered' | 'refunded';
+  status: 'draft' | 'confirmed' | 'delivered' | 'refunded' | 'quotation';
   items?: SaleItem[];
   invoiceStatus?: 'draft' | 'posted' | 'paid' | 'cancelled' | 'refunded';
   paymentMethod?: PaymentMethod;
@@ -65,17 +66,18 @@ export interface CashSession {
   closingBalance?: number;
   status: 'open' | 'closed';
   cashierName: string;
+  cashierId: string;
 }
 
 export interface Employee {
   id: string;
   name: string;
   role: string;
-  department: 'Cuisine' | 'Salle' | 'Livraison' | 'Administration';
+  department: string;
   salary: number;
-  status: 'active' | 'on-leave' | 'absent';
+  status: 'active' | 'absent';
   joinDate: string;
-  isClockedIn?: boolean;
+  isClockedIn: boolean;
 }
 
 export interface AttendanceRecord {
@@ -103,6 +105,7 @@ export interface ERPConfig {
   invoicePrefix: string;
   nextInvoiceNumber: number;
   theme: AppTheme;
+  categories: string[];
 }
 
 export type UserRole = 'admin' | 'cashier' | 'manager';
@@ -112,4 +115,4 @@ export interface RolePermission {
   allowedViews: ViewType[];
 }
 
-export type ViewType = 'dashboard' | 'invoicing' | 'sales' | 'inventory' | 'reports' | 'pos' | 'settings' | 'hr' | 'logout' | 'switch_account';
+export type ViewType = 'dashboard' | 'pos' | 'sales' | 'inventory' | 'hr' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' | 'manage_categories';
