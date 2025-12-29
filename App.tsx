@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Bot, Search, Menu, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, ShieldCheck, UserCircle, FileText, Unlock, Key, Wifi, WifiOff, Bell, X, CheckCircle, Info, AlertCircle, LogOut, ChevronDown, Palette
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Bot, Search, Menu, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, ShieldCheck, UserCircle, FileText, Unlock, Key, Wifi, WifiOff, Bell, X, CheckCircle, Info, AlertCircle, LogOut, ChevronDown, Palette, Lock as LockIcon
 } from 'lucide-react';
 import { ViewType, Lead, Product, Task, SaleOrder, Employee, UserRole, ERPConfig, AttendanceRecord, CashSession, RolePermission, User, AppTheme } from './types';
 import { INITIAL_LEADS, INITIAL_PRODUCTS, INITIAL_TASKS, INITIAL_SALES, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS } from './constants';
@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
@@ -56,11 +57,15 @@ const App: React.FC = () => {
   const userRole = currentUser.role;
 
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
-    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'reports', 'hr', 'settings'] },
-    { role: 'cashier', allowedViews: ['pos', 'sales'] },
-    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'reports', 'hr'] }
+    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'reports', 'hr', 'settings', 'logout', 'switch_account'] },
+    { role: 'cashier', allowedViews: ['pos', 'sales', 'logout'] },
+    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'reports', 'hr', 'logout', 'switch_account'] }
   ]));
   
+  const userPermissions = useMemo(() => {
+    return rolePermissions.find(p => p.role === userRole)?.allowedViews || [];
+  }, [rolePermissions, userRole]);
+
   const [leads, setLeads] = useState<Lead[]>(() => loadStored('leads', INITIAL_LEADS));
   const [products, setProducts] = useState<Product[]>(() => loadStored('products', INITIAL_PRODUCTS));
   const [tasks, setTasks] = useState<Task[]>(() => loadStored('tasks', INITIAL_TASKS));
@@ -70,7 +75,6 @@ const App: React.FC = () => {
   const [config, setConfig] = useState<ERPConfig>(() => loadStored('config', INITIAL_CONFIG));
   const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
 
-  // Notification Utility
   const notifyUser = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification(`Gestresto Pro: ${title}`, { body: message, icon: 'https://cdn-icons-png.flaticon.com/512/1147/1147805.png' });
@@ -78,23 +82,6 @@ const App: React.FC = () => {
     const id = Date.now().toString();
     setToasts(prev => [...prev, { id, type, title, message }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
-  }, []);
-
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   }, []);
 
   useEffect(() => {
@@ -128,8 +115,6 @@ const App: React.FC = () => {
     } as SaleOrder;
 
     setSales(prev => [finalSale, ...prev]);
-    
-    // Update config sequence
     setConfig(prev => ({ ...prev, nextInvoiceNumber: prev.nextInvoiceNumber + 1 }));
 
     if (currentSession && finalSale.total) {
@@ -162,13 +147,19 @@ const App: React.FC = () => {
   const handleUserChange = (user: User) => {
     setCurrentUser(user);
     setShowUserDropdown(false);
-    notifyUser("Utilisateur changé", `Session active : ${user.name} (${user.role.toUpperCase()})`, 'info');
+    setIsLocked(false);
+    notifyUser("Utilisateur connecté", `Session active : ${user.name} (${user.role.toUpperCase()})`, 'info');
     
-    // Check permissions for current view
     const perms = rolePermissions.find(p => p.role === user.role);
     if (perms && !perms.allowedViews.includes(activeView)) {
       setActiveView(perms.allowedViews[0]);
     }
+  };
+
+  const handleLogout = () => {
+    setShowUserDropdown(false);
+    setIsLocked(true);
+    notifyUser("Session verrouillée", "Veuillez sélectionner un utilisateur pour continuer.", 'info');
   };
 
   const handleThemeChange = (newTheme: AppTheme) => {
@@ -178,8 +169,6 @@ const App: React.FC = () => {
   };
 
   const filteredNavItems = useMemo(() => {
-    const perms = rolePermissions.find(p => p.role === userRole);
-    if (!perms) return [];
     return [
       { id: 'dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
       { id: 'pos', icon: Monitor, label: 'Caisse POS' },
@@ -189,17 +178,54 @@ const App: React.FC = () => {
       { id: 'reports', icon: BarChart3, label: 'Rapports' },
       { id: 'hr', icon: IdCard, label: 'RH' },
       { id: 'settings', icon: SettingsIcon, label: 'Paramètres' },
-    ].filter(item => perms.allowedViews.includes(item.id as ViewType));
-  }, [userRole, rolePermissions]);
+    ].filter(item => userPermissions.includes(item.id as ViewType));
+  }, [userPermissions]);
 
   const themes: { id: AppTheme; label: string; color: string }[] = [
-    { id: 'purple', label: 'Violet (Défaut)', color: 'bg-purple-600' },
+    { id: 'purple', label: 'Violet', color: 'bg-purple-600' },
     { id: 'emerald', label: 'Émeraude', color: 'bg-emerald-600' },
     { id: 'blue', label: 'Bleu Royal', color: 'bg-blue-600' },
     { id: 'rose', label: 'Passion Rose', color: 'bg-rose-600' },
     { id: 'amber', label: 'Soleil Ambre', color: 'bg-amber-600' },
     { id: 'slate', label: 'Ardoise Pro', color: 'bg-slate-600' },
   ];
+
+  if (isLocked) {
+    return (
+      <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-900 theme-${config.theme} animate-fadeIn`}>
+        <div className="mb-12 text-center">
+          <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl mx-auto mb-6 transform hover:rotate-12 transition-transform duration-500">
+            <LogoG className="text-white w-12 h-12" />
+          </div>
+          <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Gestresto<span className="text-purple-600">Pro</span></h1>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.3em] mt-2 text-xs">Veuillez vous connecter</p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl px-6">
+          {APP_USERS.map((user) => (
+            <button
+              key={user.id}
+              onClick={() => handleUserChange(user)}
+              className="group bg-slate-800/50 hover:bg-slate-800 p-6 rounded-[2.5rem] border border-slate-700/50 hover:border-purple-500 transition-all flex flex-col items-center space-y-4 w-40 md:w-48 shadow-xl hover:-translate-y-2"
+            >
+              <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-2xl font-black shadow-lg group-hover:scale-110 transition-transform`}>
+                {user.initials}
+              </div>
+              <div className="text-center">
+                <p className="text-white font-black uppercase text-sm">{user.name}</p>
+                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">{user.role}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-16 flex items-center space-x-2 text-slate-500 text-[10px] font-black uppercase tracking-widest bg-slate-800/30 px-6 py-3 rounded-full border border-slate-700/50">
+          <LockIcon size={12} className="text-purple-500" />
+          <span>Application sécurisée • Fast Food MYA D'OR</span>
+        </div>
+      </div>
+    );
+  }
 
   const renderContent = () => {
     const commonProps = { notify: notifyUser };
@@ -271,6 +297,7 @@ const App: React.FC = () => {
         {userRole === 'admin' && isOnline && (
           <div className="p-4 border-t border-slate-800">
             <button onClick={() => setShowAI(true)} className="w-full flex items-center p-3 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all group">
+              {/* Fix: Replaced undefined item.icon with Bot icon */}
               <Bot size={20} className="group-hover:animate-pulse flex-shrink-0" />
               {isSidebarOpen && <span className="ml-3 font-medium">Assistant IA</span>}
             </button>
@@ -340,33 +367,39 @@ const App: React.FC = () => {
 
               {showUserDropdown && (
                 <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-fadeIn">
-                  <div className="p-3 border-b border-slate-100 dark:border-slate-800">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 italic">Changer d'utilisateur</p>
-                  </div>
-                  <div className="p-1">
-                    {APP_USERS.map((user) => (
-                      <button
-                        key={user.id}
-                        onClick={() => handleUserChange(user)}
-                        className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all ${currentUser.id === user.id ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-purple-600'}`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xs font-black shadow-sm`}>
-                          {user.initials}
-                        </div>
-                        <div className="text-left flex-1 overflow-hidden">
-                          <p className="text-xs font-black truncate">{user.name}</p>
-                          <p className="text-[8px] font-black uppercase tracking-widest opacity-60">{user.role}</p>
-                        </div>
-                        {currentUser.id === user.id && <CheckCircle size={14} className="ml-auto text-purple-600" />}
+                  {userPermissions.includes('switch_account') && (
+                    <>
+                      <div className="p-3 border-b border-slate-100 dark:border-slate-800">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 italic">Changer d'utilisateur</p>
+                      </div>
+                      <div className="p-1">
+                        {APP_USERS.map((user) => (
+                          <button
+                            key={user.id}
+                            onClick={() => handleUserChange(user)}
+                            className={`w-full flex items-center space-x-3 p-3 rounded-xl transition-all ${currentUser.id === user.id ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-purple-600'}`}
+                          >
+                            <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xs font-black shadow-sm`}>
+                              {user.initials}
+                            </div>
+                            <div className="text-left flex-1 overflow-hidden">
+                              <p className="text-xs font-black truncate">{user.name}</p>
+                              <p className="text-[8px] font-black uppercase tracking-widest opacity-60">{user.role}</p>
+                            </div>
+                            {currentUser.id === user.id && <CheckCircle size={14} className="ml-auto text-purple-600" />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {userPermissions.includes('logout') && (
+                    <div className="p-2 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+                      <button onClick={handleLogout} className="w-full flex items-center justify-center space-x-2 p-3 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all text-[10px] font-black uppercase tracking-[0.2em]">
+                        <LogOut size={16} />
+                        <span>Se déconnecter</span>
                       </button>
-                    ))}
-                  </div>
-                  <div className="p-2 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
-                    <button className="w-full flex items-center justify-center space-x-2 p-3 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all text-[10px] font-black uppercase tracking-[0.2em]">
-                      <LogOut size={16} />
-                      <span>Se déconnecter</span>
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

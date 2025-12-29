@@ -23,7 +23,6 @@ import {
   MapPin,
   Globe,
   Check,
-  // Fix: Added missing icons required by the component
   Hash,
   LayoutDashboard,
   Monitor,
@@ -31,7 +30,9 @@ import {
   ShoppingCart,
   Package,
   BarChart3,
-  IdCard
+  IdCard,
+  LogOut,
+  Users
 } from 'lucide-react';
 
 interface Props {
@@ -54,7 +55,9 @@ const viewLabels: Record<ViewType, string> = {
   inventory: 'Stock & Menu',
   reports: 'Analyses',
   hr: 'Employés (RH)',
-  settings: 'Paramètres'
+  settings: 'Paramètres',
+  logout: 'Se déconnecter',
+  switch_account: 'Changer de compte'
 };
 
 const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify }) => {
@@ -190,14 +193,14 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
     <div className="max-w-5xl mx-auto space-y-8 animate-fadeIn">
       <div>
         <h1 className="text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight">Rôles & Accès</h1>
-        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Définissez quels modules sont visibles pour chaque type d'utilisateur.</p>
+        <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Définissez quels modules et actions sont autorisés pour chaque type d'utilisateur.</p>
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Module / Application</th>
+              <th className="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Module / Action</th>
               {(['admin', 'manager', 'cashier'] as UserRole[]).map(role => (
                 <th key={role} className="px-8 py-6 text-center text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">
                   {role === 'admin' ? 'Administrateur' : role === 'manager' ? 'Manager' : 'Caissier'}
@@ -219,6 +222,8 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
                        {viewKey === 'reports' && <BarChart3 size={18} />}
                        {viewKey === 'hr' && <IdCard size={18} />}
                        {viewKey === 'settings' && <SettingsIcon size={18} />}
+                       {viewKey === 'logout' && <LogOut size={18} />}
+                       {viewKey === 'switch_account' && <Users size={18} />}
                     </div>
                     <span className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{viewLabels[viewKey]}</span>
                   </div>
@@ -229,7 +234,7 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
                     <td key={role} className="px-8 py-6 text-center">
                       <button 
                         onClick={() => togglePermission(role, viewKey)}
-                        disabled={role === 'admin' && viewKey === 'settings'} // L'admin doit garder accès aux réglages
+                        disabled={role === 'admin' && (viewKey === 'settings' || viewKey === 'logout' || viewKey === 'switch_account')} 
                         className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                           hasAccess 
                             ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 scale-110' 
