@@ -1,16 +1,35 @@
 
-import { Lead, Product, Task, SaleOrder, Employee, ERPConfig } from './types';
+import { Lead, Product, Task, SaleOrder, Employee, ERPConfig, User } from './types';
+
+export const APP_USERS: User[] = [
+  { id: 'U001', name: 'Bamba Ndao', role: 'admin', initials: 'BN', color: 'from-slate-700 to-slate-900' },
+  { id: 'U002', name: 'Moussa Traoré', role: 'cashier', initials: 'MT', color: 'from-emerald-600 to-emerald-800' },
+  { id: 'U003', name: 'Fatou Sow', role: 'manager', initials: 'FS', color: 'from-blue-600 to-blue-800' },
+  { id: 'U004', name: 'Caisse 02', role: 'cashier', initials: 'C2', color: 'from-purple-600 to-purple-800' },
+];
+
+export const POS_LOCATIONS = {
+  tables: ['Table 1', 'Table 2', 'Table 3', 'Table 4'],
+  bar: ['Bar 1', 'Bar 2', 'Bar 3', 'Bar 4'],
+  takeaway: ['Emporter 1', 'Emporter 2', 'Emporter 3'],
+  delivery: ['Livraison 1', 'Livraison 2'],
+  default: 'Comptoir'
+};
 
 export const INITIAL_CONFIG: ERPConfig = {
-  companyName: "MYA D'OR FAST-FOOD",
+  companyName: "FAST FOOD MYA D'OR",
   companySlogan: "Le goût qui vaut de l'or",
-  email: 'contact@myador.mr',
+  email: 'restaurantfastfoodmyador@gmail.com',
   phone: '+222 43 85 27 44',
   address: "À côté de l'Hôpital Basra, Nouakchott",
+  registrationNumber: 'RC-NKC-2025-B123',
   currency: 'MRU',
   taxRate: 0,
   receiptFooter: 'Merci de votre visite chez MYA D\'OR !',
   autoPrintReceipt: true,
+  invoicePrefix: 'FAC/2025/',
+  nextInvoiceNumber: 1,
+  theme: 'purple',
 };
 
 export const INITIAL_EMPLOYEES: Employee[] = [
@@ -100,39 +119,13 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'CG17', name: 'Gaufre Nutella', sku: 'CG-GA-17', price: 100, stock: 999, category: 'Crêpes & Gaufres' },
   { id: 'CG18', name: 'Gaufre Nutella banane', sku: 'CG-GA-18', price: 120, stock: 999, category: 'Crêpes & Gaufres' },
 
-  // BOISSONS (Tout le menu Boissons / Boissons Chaudes / Desserts)
+  // BOISSONS
   { id: 'BS01', name: 'Soda', sku: 'BS-SO-01', price: 20, stock: 999, category: 'Boissons' },
   { id: 'BS02', name: 'Jus Canette', sku: 'BS-JU-02', price: 30, stock: 999, category: 'Boissons' },
   { id: 'BS03', name: 'Mojito', sku: 'BS-MO-03', price: 50, stock: 999, category: 'Boissons' },
   { id: 'BS04', name: 'Eau PM', sku: 'BS-EA-04', price: 10, stock: 999, category: 'Boissons' },
-  { id: 'BS05', name: 'Fataya', sku: 'BS-FA-05', price: 10, stock: 999, category: 'Boissons' },
-  { id: 'BS06', name: 'Néme', sku: 'BS-NE-06', price: 15, stock: 999, category: 'Boissons' },
-  { id: 'BS07', name: 'Roussol', sku: 'BS-RO-07', price: 10, stock: 999, category: 'Boissons' },
-  { id: 'BS08', name: 'Café Touba', sku: 'BS-CT-08', price: 10, stock: 999, category: 'Boissons' },
-  { id: 'BS09', name: 'Expresso', sku: 'BS-EX-09', price: 50, stock: 999, category: 'Boissons' },
-  { id: 'BS10', name: 'Nous Nous', sku: 'BS-NN-10', price: 40, stock: 999, category: 'Boissons' },
-  { id: 'BS11', name: 'Capuccino', sku: 'BS-CP-11', price: 70, stock: 999, category: 'Boissons' },
-  { id: 'BS12', name: 'Ice Cofee', sku: 'BS-IC-12', price: 70, stock: 999, category: 'Boissons' },
-  { id: 'BS13', name: 'Chocolat Chaud', sku: 'BS-CC-13', price: 100, stock: 999, category: 'Boissons' },
-  { id: 'BS14', name: 'Thé', sku: 'BS-TH-14', price: 70, stock: 999, category: 'Boissons' },
-  { id: 'BS15', name: 'Milk shake', sku: 'BS-MS-15', price: 100, stock: 999, category: 'Boissons' },
-  { id: 'BS16', name: 'Salade de Fruits', sku: 'BS-SF-16', price: 30, stock: 999, category: 'Boissons' },
-  { id: 'BS17', name: 'Biscuit / Cacke', sku: 'BS-BC-17', price: 30, stock: 999, category: 'Boissons' },
-  { id: 'BS18', name: 'Jus Bouye', sku: 'BS-JB-18', price: 30, stock: 999, category: 'Boissons' },
-  { id: 'BS19', name: 'Jus Bisap', sku: 'BS-BI-19', price: 30, stock: 999, category: 'Boissons' },
-  { id: 'BS20', name: 'Jus Gengembre', sku: 'BS-GG-20', price: 30, stock: 999, category: 'Boissons' },
-  { id: 'BS21', name: 'Thiakry / Ngalakh', sku: 'BS-TN-21', price: 30, stock: 999, category: 'Boissons' },
-
-  // FORMULES MENUS
-  { id: 'FM01', name: 'Menu Teranga Plus / Poulet Teranga', sku: 'FM-TP-01', price: 550, stock: 999, category: 'Formules Menus' },
-  { id: 'FM02', name: 'Menu Express', sku: 'FM-EX-02', price: 250, stock: 999, category: 'Formules Menus' },
-  { id: 'FM03', name: 'Menu Teranga', sku: 'FM-TE-03', price: 200, stock: 999, category: 'Formules Menus' },
-  { id: 'FM04', name: 'Menu Gonal', sku: 'FM-GO-04', price: 250, stock: 999, category: 'Formules Menus' },
-  { id: 'FM05', name: 'Menu Couchant', sku: 'FM-CO-05', price: 320, stock: 999, category: 'Formules Menus' },
-  { id: 'FM06', name: 'Menu Bonjour', sku: 'FM-BO-06', price: 200, stock: 999, category: 'Formules Menus' },
 ];
 
-// Exportation de la liste triée alphabétiquement par nom de produit
 export const INITIAL_PRODUCTS: Product[] = [...RAW_PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
 
 export const INITIAL_TASKS: Task[] = [];

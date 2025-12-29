@@ -55,6 +55,91 @@
         .animate-slideInRight {
           animation: slideInRight 0.3s ease-out;
         }
+
+        /* SYSTÈME DE THÈMES - COULEURS D'ÉCRITURE ET D'ACCENTS */
+        
+        /* EMERAUDE */
+        .theme-emerald .bg-purple-600 { background-color: #059669 !important; }
+        .theme-emerald .hover\:bg-purple-700:hover { background-color: #047857 !important; }
+        .theme-emerald .text-purple-600 { color: #059669 !important; }
+        .theme-emerald .text-slate-900, .theme-emerald .dark .text-white { color: #064e3b !important; }
+        .theme-emerald .dark .text-white { color: #ecfdf5 !important; }
+        .theme-emerald .border-purple-600, .theme-emerald .border-purple-500 { border-color: #059669 !important; }
+        .theme-emerald .bg-purple-50 { background-color: #ecfdf5 !important; }
+        .theme-emerald .text-purple-400 { color: #34d399 !important; }
+        .theme-emerald .text-indigo-400 { color: #10b981 !important; }
+        .theme-emerald .bg-purple-900\/20 { background-color: rgba(5, 150, 105, 0.1) !important; }
+
+        /* BLEU */
+        .theme-blue .bg-purple-600 { background-color: #2563eb !important; }
+        .theme-blue .hover\:bg-purple-700:hover { background-color: #1d4ed8 !important; }
+        .theme-blue .text-purple-600 { color: #2563eb !important; }
+        .theme-blue .text-slate-900, .theme-blue .dark .text-white { color: #1e3a8a !important; }
+        .theme-blue .dark .text-white { color: #eff6ff !important; }
+        .theme-blue .border-purple-600, .theme-blue .border-purple-500 { border-color: #2563eb !important; }
+        .theme-blue .bg-purple-50 { background-color: #eff6ff !important; }
+        .theme-blue .text-purple-400 { color: #60a5fa !important; }
+        .theme-blue .text-indigo-400 { color: #3b82f6 !important; }
+
+        /* ROSE */
+        .theme-rose .bg-purple-600 { background-color: #e11d48 !important; }
+        .theme-rose .hover\:bg-purple-700:hover { background-color: #be123c !important; }
+        .theme-rose .text-purple-600 { color: #e11d48 !important; }
+        .theme-rose .text-slate-900, .theme-rose .dark .text-white { color: #881337 !important; }
+        .theme-rose .dark .text-white { color: #fff1f2 !important; }
+        .theme-rose .border-purple-600, .theme-rose .border-purple-500 { border-color: #e11d48 !important; }
+        .theme-rose .bg-purple-50 { background-color: #fff1f2 !important; }
+        .theme-rose .text-purple-400 { color: #fb7185 !important; }
+        .theme-rose .text-indigo-400 { color: #f43f5e !important; }
+
+        /* AMBRE */
+        .theme-amber .bg-purple-600 { background-color: #d97706 !important; }
+        .theme-amber .hover\:bg-purple-700:hover { background-color: #b45309 !important; }
+        .theme-amber .text-purple-600 { color: #d97706 !important; }
+        .theme-amber .text-slate-900, .theme-amber .dark .text-white { color: #78350f !important; }
+        .theme-amber .dark .text-white { color: #fffbeb !important; }
+        .theme-amber .border-purple-600, .theme-amber .border-purple-500 { border-color: #d97706 !important; }
+        .theme-amber .bg-purple-50 { background-color: #fffbeb !important; }
+        .theme-amber .text-purple-400 { color: #fbbf24 !important; }
+        .theme-amber .text-indigo-400 { color: #f59e0b !important; }
+
+        /* ARDOISE */
+        .theme-slate .bg-purple-600 { background-color: #475569 !important; }
+        .theme-slate .hover\:bg-purple-700:hover { background-color: #334155 !important; }
+        .theme-slate .text-purple-600 { color: #475569 !important; }
+        .theme-slate .text-slate-900, .theme-slate .dark .text-white { color: #0f172a !important; }
+        .theme-slate .dark .text-white { color: #f8fafc !important; }
+        .theme-slate .border-purple-600, .theme-slate .border-purple-500 { border-color: #475569 !important; }
+        .theme-slate .bg-purple-50 { background-color: #f1f5f9 !important; }
+        .theme-slate .text-purple-400 { color: #94a3b8 !important; }
+        .theme-slate .text-indigo-400 { color: #64748b !important; }
+
+        /* Styles d'impression pour les factures */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #invoice-print-area, #invoice-print-area * {
+                visibility: visible;
+            }
+            #invoice-print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                background: white !important;
+                color: black !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-shadow-none {
+                box-shadow: none !important;
+                border: none !important;
+            }
+        }
     </style>
 <script type="importmap">
 {
@@ -64,7 +149,8 @@
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "recharts": "https://esm.sh/recharts@^3.6.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "xlsx": "https://esm.sh/xlsx@0.18.5"
   }
 }
 </script>

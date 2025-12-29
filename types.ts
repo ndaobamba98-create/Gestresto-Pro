@@ -1,4 +1,12 @@
 
+export interface User {
+  id: string;
+  name: string;
+  role: UserRole;
+  initials: string;
+  color: string;
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -45,6 +53,7 @@ export interface SaleOrder {
   paymentMethod?: PaymentMethod;
   amountReceived?: number;
   change?: number;
+  orderLocation?: string;
 }
 
 export interface CashSession {
@@ -78,16 +87,22 @@ export interface AttendanceRecord {
   date: string;
 }
 
+export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate';
+
 export interface ERPConfig {
   companyName: string;
   companySlogan: string;
   email: string;
   phone: string;
   address: string;
+  registrationNumber: string;
   currency: string;
   taxRate: number;
   receiptFooter: string;
   autoPrintReceipt: boolean;
+  invoicePrefix: string;
+  nextInvoiceNumber: number;
+  theme: AppTheme;
 }
 
 export type UserRole = 'admin' | 'cashier' | 'manager';
