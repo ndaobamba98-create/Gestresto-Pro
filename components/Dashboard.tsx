@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { SaleOrder, UserRole, ERPConfig } from '../types';
+import React, { useState, useMemo } from 'react';
+import { SaleOrder, UserRole, ERPConfig, Product } from '../types';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -12,7 +12,9 @@ import {
   ArrowUpRight,
   UserCheck,
   Download,
-  Zap
+  Zap,
+  AlertTriangle,
+  Package
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -22,6 +24,7 @@ interface Props {
   sales: SaleOrder[];
   userRole: UserRole;
   config: ERPConfig;
+  products: Product[]; // Ajout des produits pour les alertes de stock
 }
 
 const SimpleLogoIcon = ({ className = "w-10 h-10" }) => (
@@ -32,19 +35,28 @@ const SimpleLogoIcon = ({ className = "w-10 h-10" }) => (
   </div>
 );
 
-const Dashboard: React.FC<Props> = ({ sales, userRole, config }) => {
+const Dashboard: React.FC<Props> = ({ sales, userRole, config, products }) => {
   const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
   const totalRevenue = sales.reduce((acc, curr) => curr.status === 'refunded' ? acc - curr.total : acc + curr.total, 0);
   const averageOrderValue = sales.length > 0 ? (totalRevenue / sales.length).toFixed(0) : 0;
   const chartData = [ { name: 'Jan', sales: 4000 }, { name: 'Feb', sales: 3000 }, { name: 'Mar', sales: 2000 }, { name: 'Apr', sales: 2780 }, { name: 'May', sales: 1890 }, { name: 'Jun', sales: 2390 } ];
   
+  // Calcul des alertes de stock
+  const lowStockProducts = useMemo(() => {
+    return products.filter(p => {
+      const threshold = p.lowStockThreshold || 10;
+      return p.stock <= threshold;
+    }).sort((a, b) => a.stock - b.stock);
+  }, [products]);
+
   const handleExportFlash = () => {
     const data = [{
       'Date du Rapport': new Date().toLocaleDateString(),
       'Chiffre d\'Affaire': totalRevenue,
       'Nombre de Ventes': sales.length,
       'Panier Moyen': averageOrderValue,
-      'Remboursements': sales.filter(s => s.status === 'refunded').length
+      'Remboursements': sales.filter(s => s.status === 'refunded').length,
+      'Alertes Stock': lowStockProducts.length
     }];
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
@@ -109,11 +121,44 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config }) => {
         </button>
       </div>
 
+      {/* ALERTES DE STOCK */}
+      {lowStockProducts.length > 0 && (
+        <div className="bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 rounded-3xl p-6 animate-pulse">
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="p-2 bg-rose-500 text-white rounded-xl shadow-lg">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase text-rose-600 dark:text-rose-400 tracking-widest">Alertes de Stock ({lowStockProducts.length})</h3>
+              <p className="text-[10px] font-bold text-rose-500/70 uppercase">Certains produits sont bientôt en rupture</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {lowStockProducts.slice(0, 6).map(p => (
+              <div key={p.id} className="bg-white dark:bg-slate-900/50 p-4 rounded-2xl border border-rose-100 dark:border-rose-900/20 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-400">
+                    <Package size={14} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase truncate max-w-[120px]">{p.name}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Seuil: {p.lowStockThreshold || 10}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-rose-600">{p.stock} restants</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Recettes" value={`${totalRevenue.toLocaleString()} ${config.currency}`} icon={DollarSign} color="bg-blue-500" trend="+12.5%" />
         <StatCard title="Pointages" value={`${sales.length}`} icon={UserCheck} size={24} color="bg-emerald-500" trend="Staff Actif" />
         <StatCard title="Panier Moyen" value={`${averageOrderValue} ${config.currency}`} icon={ShoppingCart} color="bg-purple-500" trend="+2.4%" />
-        <StatCard title="Remboursé" value={`${sales.filter(s => s.status === 'refunded').length}`} icon={RotateCcw} color="bg-rose-500" trend="Retours" />
+        <StatCard title="Ruptures" value={`${lowStockProducts.length}`} icon={Package} color="bg-rose-500" trend="Alertes Stock" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

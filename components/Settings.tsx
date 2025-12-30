@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission } from '../types';
-import { Save, Plus, Trash2, Edit3, Building2, Phone, MapPin, List, Layers, ShieldCheck, Check, Lock } from 'lucide-react';
+import { Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X } from 'lucide-react';
 
 interface Props {
   products: Product[];
@@ -14,13 +14,19 @@ interface Props {
   userPermissions: ViewType[];
 }
 
-const Settings: React.FC<Props> = ({ products, config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify }) => {
+const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'security'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
   const [newCat, setNewCat] = useState('');
+  const [editingCatIndex, setEditingCatIndex] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState('');
   
-  // État local pour les permissions pendant l'édition
   const [localPermissions, setLocalPermissions] = useState<RolePermission[]>(rolePermissions);
+
+  // Tri alphabétique dynamique pour l'affichage
+  const sortedCategories = useMemo(() => 
+    [...formConfig.categories].sort((a, b) => a.localeCompare(b))
+  , [formConfig.categories]);
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,7 +35,6 @@ const Settings: React.FC<Props> = ({ products, config, onUpdateConfig, rolePermi
   };
 
   const handleTogglePermission = (role: UserRole, view: ViewType) => {
-    // Sécurité : l'admin doit toujours avoir accès aux paramètres pour éviter de s'auto-exclure
     if (role === 'admin' && view === 'settings') {
       notify("Action interdite", "L'administrateur doit garder l'accès aux paramètres.", 'warning');
       return;
@@ -55,13 +60,15 @@ const Settings: React.FC<Props> = ({ products, config, onUpdateConfig, rolePermi
     notify("Sécurité mise à jour", "Les droits d'accès ont été modifiés avec succès.", 'success');
   };
 
+  // --- LOGIQUE CATÉGORIES ---
+
   const addCategory = () => {
     if (!newCat.trim()) return;
-    if (formConfig.categories.includes(newCat)) {
+    if (formConfig.categories.includes(newCat.trim())) {
       notify("Attention", "Cette catégorie existe déjà.", 'warning');
       return;
     }
-    const updated = { ...formConfig, categories: [...formConfig.categories, newCat.trim()].sort((a,b) => a.localeCompare(b)) };
+    const updated = { ...formConfig, categories: [...formConfig.categories, newCat.trim()] };
     setFormConfig(updated);
     onUpdateConfig(updated);
     setNewCat('');
@@ -72,6 +79,38 @@ const Settings: React.FC<Props> = ({ products, config, onUpdateConfig, rolePermi
     const updated = { ...formConfig, categories: formConfig.categories.filter(c => c !== cat) };
     setFormConfig(updated);
     onUpdateConfig(updated);
+    notify("Catégorie supprimée", cat, "info");
+  };
+
+  const startEditCategory = (catName: string) => {
+    const realIndex = formConfig.categories.indexOf(catName);
+    setEditingCatIndex(realIndex);
+    setEditingValue(catName);
+  };
+
+  const saveEditedCategory = (index: number) => {
+    const oldValue = formConfig.categories[index];
+    const newValue = editingValue.trim();
+
+    if (!newValue || newValue === oldValue) {
+      setEditingCatIndex(null);
+      return;
+    }
+
+    // Mettre à jour les produits associés pour ne pas perdre leur lien
+    const updatedProducts = products.map(p => 
+      p.category === oldValue ? { ...p, category: newValue } : p
+    );
+    onUpdateProducts(updatedProducts);
+
+    const newCategories = [...formConfig.categories];
+    newCategories[index] = newValue;
+
+    const updated = { ...formConfig, categories: newCategories };
+    setFormConfig(updated);
+    onUpdateConfig(updated);
+    setEditingCatIndex(null);
+    notify("Catégorie modifiée", `"${oldValue}" est devenu "${newValue}".`, 'success');
   };
 
   const availableViews: { id: ViewType, label: string }[] = [
@@ -133,20 +172,73 @@ const Settings: React.FC<Props> = ({ products, config, onUpdateConfig, rolePermi
       {activeTab === 'categories' && (
         <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm space-y-8 animate-fadeIn">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black uppercase tracking-tighter">Organisation du Menu</h2>
+            <div className="flex flex-col">
+              <h2 className="text-xl font-black uppercase tracking-tighter">Organisation du Menu (A-Z)</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Le système trie automatiquement les catégories par ordre alphabétique</p>
+            </div>
             <Layers className="text-purple-600" size={24} />
           </div>
-          <div className="flex space-x-4">
-            <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCategory()} placeholder="Nom de la nouvelle catégorie..." className="flex-1 px-5 py-4 border-2 rounded-2xl dark:bg-slate-800 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-purple-500 transition-all" />
-            <button onClick={addCategory} className="bg-slate-900 text-white px-8 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg flex items-center hover:bg-slate-800 active:scale-95 transition-all"><Plus size={18} className="mr-2"/> Ajouter</button>
+          <div className="flex space-x-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-3xl border border-slate-100 dark:border-slate-800">
+            <input 
+              value={newCat} 
+              onChange={e => setNewCat(e.target.value)} 
+              onKeyDown={e => e.key === 'Enter' && addCategory()} 
+              placeholder="Nom de la nouvelle catégorie..." 
+              className="flex-1 px-5 py-3 border-2 rounded-2xl dark:bg-slate-900 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-purple-500 transition-all" 
+            />
+            <button onClick={addCategory} className="bg-purple-600 text-white px-8 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg flex items-center hover:bg-purple-700 active:scale-95 transition-all"><Plus size={18} className="mr-2"/> Ajouter</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {formConfig.categories.map(cat => (
-              <div key={cat} className="flex items-center justify-between p-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 group transition-all hover:border-purple-300">
-                <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 tracking-widest">{cat}</span>
-                <button onClick={() => removeCategory(cat)} className="text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
-              </div>
-            ))}
+          
+          <div className="space-y-3">
+            {sortedCategories.map((cat) => {
+              const realIndex = formConfig.categories.indexOf(cat);
+              const isEditing = editingCatIndex === realIndex;
+              
+              return (
+                <div key={cat} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-50 dark:border-slate-800 group hover:border-purple-200 dark:hover:border-purple-900/50 transition-all">
+                  <div className="flex items-center space-x-4">
+                    {isEditing ? (
+                      <div className="flex items-center space-x-2 animate-fadeIn">
+                        <input 
+                          autoFocus
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && saveEditedCategory(realIndex)}
+                          className="px-3 py-1 bg-slate-100 dark:bg-slate-800 border rounded-lg font-bold text-sm outline-none border-purple-500"
+                        />
+                        <button onClick={() => saveEditedCategory(realIndex)} className="text-emerald-500 p-1 hover:bg-emerald-50 rounded-lg"><Check size={16}/></button>
+                        <button onClick={() => setEditingCatIndex(null)} className="text-rose-500 p-1 hover:bg-rose-50 rounded-lg"><X size={16}/></button>
+                      </div>
+                    ) : (
+                      <span className="text-sm font-black uppercase text-slate-700 dark:text-slate-200 tracking-wider ml-4">{cat}</span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-all">
+                    {!isEditing && (
+                      <button 
+                        onClick={() => startEditCategory(cat)} 
+                        className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all"
+                      >
+                        <Edit3 size={16}/>
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => removeCategory(cat)} 
+                      className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
+                    >
+                      <Trash2 size={16}/>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          <div className="p-6 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+            <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest leading-relaxed">
+              Astuce : Les catégories et les plats sont maintenant triés automatiquement par ordre alphabétique de A à Z dans toute l'application. Le renommage d'une catégorie mettra également à jour les produits déjà enregistrés.
+            </p>
           </div>
         </div>
       )}

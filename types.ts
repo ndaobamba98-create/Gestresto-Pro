@@ -23,6 +23,7 @@ export interface Product {
   price: number;
   stock: number;
   category: string;
+  lowStockThreshold?: number; // Seuil d'alerte de stock
 }
 
 export interface Task {

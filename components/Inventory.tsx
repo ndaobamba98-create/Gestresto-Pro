@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig } from '../types';
-import { Package, Search, Plus, Edit3, Trash2, AlertTriangle, X, Download, Save, Tag } from 'lucide-react';
+import { Package, Search, Plus, Edit3, Trash2, AlertTriangle, X, Download, Save, Tag, Bell } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface Props {
@@ -44,7 +44,8 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) =>
       sku: `SKU-${Date.now().toString().slice(-4)}`,
       category: categories[0] || 'Divers',
       price: 0,
-      stock: 999
+      stock: 0,
+      lowStockThreshold: 10
     });
     setIsModalOpen(true);
   };
@@ -77,7 +78,8 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) =>
       'Code SKU': p.sku,
       'Catégorie': p.category,
       'Prix': p.price,
-      'Stock': p.stock
+      'Stock': p.stock,
+      'Seuil Alerte': p.lowStockThreshold || 10
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -97,15 +99,38 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) =>
             </div>
             <form onSubmit={handleSaveProduct} className="p-8 space-y-6">
               <div className="space-y-4">
-                <input required value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder="Nom du produit..." className="w-full px-4 py-3 border-2 rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold outline-none focus:border-purple-500" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Désignation</label>
+                  <input required value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder="Nom du produit..." className="w-full px-4 py-3 border-2 rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold outline-none focus:border-purple-500" />
+                </div>
+                
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="number" required value={editingProduct.price || ''} onChange={e => setEditingProduct({...editingProduct, price: parseFloat(e.target.value) || 0})} placeholder="Prix..." className="px-4 py-3 border-2 rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold" />
-                  <select value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value})} className="px-4 py-3 border-2 rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold">
-                    {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Prix ({config.currency})</label>
+                    <input type="number" required value={editingProduct.price || ''} onChange={e => setEditingProduct({...editingProduct, price: parseFloat(e.target.value) || 0})} placeholder="Prix..." className="w-full px-4 py-3 border-2 rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Catégorie</label>
+                    <select value={editingProduct.category} onChange={e => setEditingProduct({...editingProduct, category: e.target.value})} className="w-full px-4 py-3 border-2 rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold outline-none">
+                      {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Stock Actuel</label>
+                    <input type="number" required value={editingProduct.stock || 0} onChange={e => setEditingProduct({...editingProduct, stock: parseInt(e.target.value) || 0})} className="w-full px-4 py-3 border-2 rounded-xl dark:bg-slate-800 dark:border-slate-700 font-bold outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-rose-500 tracking-widest flex items-center">
+                      <Bell size={10} className="mr-1" /> Seuil d'Alerte
+                    </label>
+                    <input type="number" required value={editingProduct.lowStockThreshold || 0} onChange={e => setEditingProduct({...editingProduct, lowStockThreshold: parseInt(e.target.value) || 0})} className="w-full px-4 py-3 border-2 border-rose-100 dark:border-rose-900/30 rounded-xl dark:bg-slate-800 font-black text-rose-600 outline-none focus:border-rose-500" />
+                  </div>
                 </div>
               </div>
-              <button type="submit" className="w-full py-4 bg-purple-600 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg">Enregistrer</button>
+              <button type="submit" className="w-full py-4 bg-purple-600 text-white rounded-xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Enregistrer le produit</button>
             </form>
           </div>
         </div>
@@ -145,28 +170,37 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) =>
             <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
               <th className="px-8 py-5">Désignation</th>
               <th className="px-8 py-5">Catégorie</th>
+              <th className="px-8 py-5 text-center">Stock</th>
               <th className="px-8 py-5 text-right">Prix</th>
               <th className="px-8 py-5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {filteredProducts.map((p) => (
-              <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
-                <td className="px-8 py-6">
-                  <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">{p.name}</span>
-                </td>
-                <td className="px-8 py-6">
-                  <span className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-[9px] font-black uppercase">{p.category}</span>
-                </td>
-                <td className="px-8 py-6 text-right font-black text-purple-600">{p.price.toLocaleString()} {config.currency}</td>
-                <td className="px-8 py-6 text-right">
-                  <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => handleOpenEditModal(p)} className="p-2 text-slate-400 hover:text-purple-600 transition-colors"><Edit3 size={16} /></button>
-                    <button onClick={() => setDeleteConfirm({ id: p.id, name: p.name })} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {filteredProducts.map((p) => {
+              const isLowStock = p.stock <= (p.lowStockThreshold || 10);
+              return (
+                <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+                  <td className="px-8 py-6">
+                    <span className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">{p.name}</span>
+                  </td>
+                  <td className="px-8 py-6">
+                    <span className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-[9px] font-black uppercase">{p.category}</span>
+                  </td>
+                  <td className="px-8 py-6 text-center">
+                    <span className={`px-3 py-1 rounded-xl text-xs font-black ${isLowStock ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30'}`}>
+                      {p.stock}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 text-right font-black text-purple-600">{p.price.toLocaleString()} {config.currency}</td>
+                  <td className="px-8 py-6 text-right">
+                    <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleOpenEditModal(p)} className="p-2 text-slate-400 hover:text-purple-600 transition-colors"><Edit3 size={16} /></button>
+                      <button onClick={() => setDeleteConfirm({ id: p.id, name: p.name })} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

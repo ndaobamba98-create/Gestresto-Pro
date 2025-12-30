@@ -130,28 +130,56 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('rolePermissions', JSON.stringify(rolePermissions)); }, [rolePermissions]);
 
   const handleAddSale = (newSaleData: Partial<SaleOrder>) => {
+    const saleItems = newSaleData.items || [];
+    const isRefund = newSaleData.status === 'refunded';
+    
+    // Mettre à jour le stock
+    const updatedProducts = products.map(p => {
+      const itemInSale = saleItems.find(item => item.productId === p.id);
+      if (itemInSale) {
+        // Si c'est un remboursement, le stock revient (+)
+        // Si c'est une vente, le stock diminue (-)
+        const stockChange = isRefund ? itemInSale.quantity : -itemInSale.quantity;
+        const newStock = p.stock + stockChange;
+        
+        // Alerte si stock bas (uniquement sur vente)
+        if (!isRefund && newStock <= (p.lowStockThreshold || 10)) {
+          notifyUser("Alerte Stock Bas", `${p.name} ne possède plus que ${newStock} unités !`, "warning");
+        }
+        return { ...p, stock: newStock };
+      }
+      return p;
+    });
+    setProducts(updatedProducts);
+
     const sale: SaleOrder = {
       id: `S-${Date.now()}`,
       customer: newSaleData.customer || 'Client',
       date: new Date().toLocaleString(),
       total: newSaleData.total || 0,
-      status: 'confirmed',
-      items: newSaleData.items || [],
+      status: newSaleData.status || 'confirmed',
+      items: saleItems,
       paymentMethod: newSaleData.paymentMethod || 'Especes',
-      invoiceStatus: 'paid',
+      invoiceStatus: isRefund ? 'refunded' : 'paid',
       orderLocation: newSaleData.orderLocation || 'Comptoir'
     };
     
     setSales(prev => [sale, ...prev]);
 
     if (currentSession && currentSession.status === 'open') {
+      // Ajuster le solde attendu
+      // Si remboursement : diminue le solde
+      // Si vente : augmente le solde
+      const balanceChange = isRefund ? -(sale.total) : (sale.total);
       setCurrentSession({
         ...currentSession,
-        expectedBalance: currentSession.expectedBalance + (sale.total || 0)
+        expectedBalance: currentSession.expectedBalance + balanceChange
       });
     }
 
-    notifyUser("Vente Encaissée", `${sale.total} ${config.currency} reçus.`, 'success');
+    const typeMsg = isRefund ? "Remboursement Effectué" : "Vente Encaissée";
+    const amountMsg = `${sale.total} ${config.currency} ${isRefund ? 'remboursés' : 'reçus'}.`;
+    notifyUser(typeMsg, amountMsg, isRefund ? 'warning' : 'success');
   };
 
   const handleOpenSession = (openingBalance: number, cashierId: string) => {
@@ -247,10 +275,11 @@ const App: React.FC = () => {
   const renderContent = () => {
     const commonProps = { notify: notifyUser, userPermissions };
     switch (activeView) {
-      case 'dashboard': return <Dashboard leads={[]} sales={sales} userRole={currentUser.role} config={config} />;
+      case 'dashboard': return <Dashboard leads={[]} sales={sales} userRole={currentUser.role} config={config} products={products} />;
       case 'pos': return (
         <POS 
           products={products} 
+          sales={sales}
           onSaleComplete={handleAddSale} 
           config={config} 
           session={currentSession} 
