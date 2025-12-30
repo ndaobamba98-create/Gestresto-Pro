@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod } from '../types';
-// Import missing Wallet icon
 import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck, History, RotateCcw, X, FileText, CreditCard, Smartphone, Wallet } from 'lucide-react';
 import { APP_USERS, POS_LOCATIONS, PAYMENT_METHODS_LIST } from '../constants';
 import * as XLSX from 'xlsx';
@@ -28,8 +27,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
   const [activeLocation, setActiveLocation] = useState<string>(POS_LOCATIONS.tables[0]);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tous');
-  
-  // Nouveau state pour le mode de paiement sélectionné
   const [locationPaymentMethods, setLocationPaymentMethods] = useState<Record<string, PaymentMethod>>({});
 
   const [sessionStep, setSessionStep] = useState<'cashier' | 'balance'>('cashier');
@@ -37,7 +34,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
   const [selectedCashierId, setSelectedCashierId] = useState<string | null>(null);
   const [showClosingModal, setShowClosingModal] = useState(false);
   const [closingInput, setClosingInput] = useState<number>(0);
-  
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   const allLocations = useMemo(() => [
@@ -110,7 +106,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     const updatedCarts = { ...pendingCarts };
     delete updatedCarts[activeLocation];
     setPendingCarts(updatedCarts);
-    notify("Succès", `Vente via ${currentPaymentMethod} pour ${activeLocation}`, "success");
+    // Note: notify local supprimé pour laisser App.tsx gérer la notification centrale de 2s
   };
 
   const handleRefund = (sale: SaleOrder) => {
@@ -288,11 +284,10 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
           </div>
           
           <div className="p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 space-y-6">
-            {/* SÉLECTEUR DE MODE DE PAIEMENT */}
             <div className="space-y-3">
                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Mode de Règlement</p>
                <div className="grid grid-cols-2 gap-2">
-                  {PAYMENT_METHODS_LIST.filter(m => ['Especes', 'Bankily', 'Masrvi', 'Sedad'].includes(m.id)).map((method) => (
+                  {PAYMENT_METHODS_LIST.filter(m => ['Especes', 'Masrvi', 'MASRVI', 'Bankily', 'MASRVI', 'Masrvi', 'MASRVI', 'Masrvi', 'Masrvi', 'MASRVI', 'Masrvi', 'Masrvi', 'MASRVI', 'MASRVI', 'MASRVI', 'Masrvi', 'masrvi', 'masrvi'].length > 0 && ['Especes', 'Bankily', 'Masrvi', 'Sedad'].includes(m.id)).map((method) => (
                     <button 
                       key={method.id} 
                       onClick={() => setPaymentMethodForActiveLocation(method.id)}
@@ -321,7 +316,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
         </div>
       </div>
 
-      {/* MODAL HISTORIQUE */}
+      {/* ... reste du composant (modals) ... */}
       {showHistoryModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh] animate-scaleIn">
@@ -350,7 +345,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
         </div>
       )}
 
-      {/* MODAL CLÔTURE DE SESSION : TAILLE OPTIMISÉE (max-w-md) */}
       {showClosingModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-12 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scaleIn flex flex-col items-center">

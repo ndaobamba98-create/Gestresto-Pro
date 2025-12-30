@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Calendar, Search, ArrowRight, User as UserIcon, Wallet, Bell, Languages
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Calendar, Search, ArrowRight, User as UserIcon, Wallet, Bell, Languages, X, Check, Eye, Trash2, BellOff
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Supplier, Purchase, Language } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS } from './constants';
@@ -54,13 +54,17 @@ interface Toast {
   title: string;
   message: string;
   timestamp: string;
+  isRead?: boolean;
 }
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('pos');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [notificationHistory, setNotificationHistory] = useState<Toast[]>([]);
+  const [notificationHistory, setNotificationHistory] = useState<Toast[]>(() => {
+    const saved = localStorage.getItem('notificationHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
@@ -92,9 +96,9 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
-    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing'] },
+    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications'] },
     { role: 'cashier', allowedViews: ['pos', 'sales', 'attendances', 'logout'] },
-    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_inventory', 'manage_invoicing'] }
+    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_inventory', 'manage_invoicing', 'manage_notifications'] }
   ]));
 
   // Fonction utilitaire de traduction
@@ -105,15 +109,44 @@ const App: React.FC = () => {
   const notifyUser = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
     const id = Date.now().toString();
     const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const newToast: Toast = { id, type, title, message, timestamp };
+    const newToast: Toast = { id, type, title, message, timestamp, isRead: false };
     
     setToasts(prev => [...prev, newToast]);
-    setNotificationHistory(prev => [newToast, ...prev].slice(0, 50));
+    setNotificationHistory(prev => {
+      const updated = [newToast, ...prev].slice(0, 50);
+      localStorage.setItem('notificationHistory', JSON.stringify(updated));
+      return updated;
+    });
     
+    // Fermeture automatique après exactement 2 secondes
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 2000);
   }, []);
+
+  const toggleNotificationRead = (id: string) => {
+    setNotificationHistory(prev => {
+      const updated = prev.map(n => n.id === id ? { ...n, isRead: !n.isRead } : n);
+      localStorage.setItem('notificationHistory', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const markAllAsRead = () => {
+    setNotificationHistory(prev => {
+      const updated = prev.map(n => ({ ...n, isRead: true }));
+      localStorage.setItem('notificationHistory', JSON.stringify(updated));
+      return updated;
+    });
+    notifyUser("Notifications", "Tout est marqué comme lu", "success");
+  };
+
+  const clearNotifications = () => {
+    if (window.confirm("Voulez-vous vider l'historique des notifications ?")) {
+      setNotificationHistory([]);
+      localStorage.removeItem('notificationHistory');
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -179,7 +212,8 @@ const App: React.FC = () => {
     };
     
     setSales(prev => [sale, ...prev]);
-    notifyUser(isRefund ? "Remboursement" : "Commande Validée", `${sale.total} ${config.currency}`, isRefund ? 'warning' : 'success');
+    // Notification unique de validation de commande (2 secondes)
+    notifyUser(isRefund ? "Remboursement Effectué" : "Commande Validée", `${sale.total.toLocaleString()} ${config.currency} pour ${sale.customer}`, isRefund ? 'warning' : 'success');
   };
 
   const handleAddPurchase = (purchase: Purchase) => {
@@ -208,12 +242,15 @@ const App: React.FC = () => {
 
   const handleCloseSession = (closingBalance: number) => {
     setCurrentSession(null);
-    notifyUser("Session Clôturée", "OK", "info");
+    notifyUser("Session Clôturée", "Synthèse exportée", "info");
   };
 
   const userPermissions = useMemo(() => {
     return rolePermissions.find(p => p.role === currentUser.role)?.allowedViews || [];
   }, [rolePermissions, currentUser.role]);
+
+  const canManageNotifications = userPermissions.includes('manage_notifications');
+  const unreadCount = notificationHistory.filter(n => !n.isRead).length;
 
   if (isLocked) {
     return (
@@ -269,20 +306,79 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${config.theme} ${darkMode ? 'dark text-slate-100' : 'text-slate-900'} ${config.language === 'ar' ? 'font-ar' : ''}`}>
-      <div className={`fixed top-24 ${config.language === 'ar' ? 'left-6' : 'right-6'} z-[200] space-y-3 pointer-events-none`}>
+      {/* TOASTS EPHEMERES - HAUT DROITE - DUREE 2 SECONDES */}
+      <div className={`fixed top-24 ${config.language === 'ar' ? 'left-6' : 'right-6'} z-[500] space-y-4 pointer-events-none`}>
         {toasts.map(toast => (
-          <div key={toast.id} className={`w-80 p-4 rounded-2xl border backdrop-blur-xl shadow-2xl flex items-start space-x-4 pointer-events-auto animate-slideInRight ${
+          <div key={toast.id} className={`w-80 rounded-2xl border backdrop-blur-xl shadow-2xl flex flex-col pointer-events-auto animate-slideInRight overflow-hidden ${
             toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' :
             toast.type === 'warning' ? 'bg-orange-500/10 border-orange-500/20 text-orange-600' : 'bg-blue-500/10 border-blue-500/20 text-blue-600'
           }`}>
-            <div className="mt-1">{toast.type === 'success' ? <CheckCircle size={18} /> : toast.type === 'warning' ? <AlertCircle size={18} /> : <Info size={18} />}</div>
-            <div className="flex-1">
-              <h4 className="text-[10px] font-black uppercase tracking-widest">{toast.title}</h4>
-              <p className="text-[11px] font-bold mt-1 leading-tight">{toast.message}</p>
+            <div className="p-4 flex items-start space-x-4">
+              <div className="mt-1">{toast.type === 'success' ? <CheckCircle size={18} /> : toast.type === 'warning' ? <AlertCircle size={18} /> : <Info size={18} />}</div>
+              <div className="flex-1">
+                <h4 className="text-[10px] font-black uppercase tracking-widest">{toast.title}</h4>
+                <p className="text-[11px] font-bold mt-1 leading-tight">{toast.message}</p>
+              </div>
+            </div>
+            {/* Barre de progression visuelle de 2 secondes */}
+            <div className="h-1 w-full bg-slate-200/20">
+               <div className={`h-full transition-all ease-linear duration-[2000ms] animate-progressDecrease ${
+                 toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
+               }`} />
             </div>
           </div>
         ))}
       </div>
+
+      {/* PANNEAU DE NOTIFICATIONS LATÉRAL */}
+      {isNotificationOpen && (
+        <div className="fixed inset-0 z-[300] flex justify-end animate-fadeIn">
+          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setIsNotificationOpen(false)}></div>
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-slideInRight">
+            <div className="p-8 border-b flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+               <div>
+                  <h3 className="text-xl font-black uppercase tracking-tighter flex items-center">
+                    <Bell className="mr-3 text-purple-600" size={24} /> Centre d'Alertes
+                  </h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{unreadCount} messages non-lus</p>
+               </div>
+               <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all"><X size={28} /></button>
+            </div>
+
+            <div className="p-4 border-b flex items-center justify-between space-x-2 bg-white dark:bg-slate-900">
+               <button onClick={markAllAsRead} disabled={unreadCount === 0} className="flex-1 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-600 hover:text-white transition-all disabled:opacity-50">Tout marquer lu</button>
+               <button onClick={clearNotifications} className="p-2.5 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 transition-all"><Trash2 size={18} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
+               {notificationHistory.length > 0 ? notificationHistory.map(notif => (
+                 <div key={notif.id} className={`p-5 rounded-2xl border transition-all relative group ${notif.isRead ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-purple-100 dark:border-purple-900 shadow-sm'}`}>
+                    <div className="flex items-start justify-between mb-3">
+                       <div className={`p-2 rounded-lg ${notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' : notif.type === 'warning' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {notif.type === 'success' ? <Check size={14} /> : notif.type === 'warning' ? <AlertCircle size={14} /> : <Info size={14} />}
+                       </div>
+                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{notif.timestamp}</span>
+                    </div>
+                    <h4 className={`text-xs font-black uppercase tracking-tight mb-1 ${notif.isRead ? 'text-slate-500' : 'text-slate-800 dark:text-white'}`}>{notif.title}</h4>
+                    <p className={`text-[11px] font-bold leading-relaxed ${notif.isRead ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>{notif.message}</p>
+                    
+                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                       <button onClick={() => toggleNotificationRead(notif.id)} className="text-[9px] font-black uppercase tracking-widest text-purple-600 flex items-center hover:underline">
+                          {notif.isRead ? <><Bell size={12} className="mr-1.5" /> Marquer non-lu</> : <><CheckCircle size={12} className="mr-1.5" /> Marquer comme lu</>}
+                       </button>
+                    </div>
+                    {!notif.isRead && <div className="absolute top-4 right-4 w-2 h-2 bg-purple-600 rounded-full shadow-[0_0_8px_#9333ea]"></div>}
+                 </div>
+               )) : (
+                 <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20 space-y-4">
+                    <BellOff size={64} />
+                    <p className="font-black uppercase text-sm tracking-[0.2em]">Historique vide</p>
+                 </div>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-slate-900 transition-all duration-500 flex flex-col z-20 shadow-2xl ${config.language === 'ar' ? 'border-l border-slate-800' : ''}`}>
         <div className="p-6 h-28 flex items-center justify-between border-b border-slate-800">
@@ -358,11 +454,14 @@ const App: React.FC = () => {
 
             <div className="relative">
               <button 
-                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                className={`p-3 rounded-2xl transition-all relative ${isNotificationOpen ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}
+                onClick={() => {
+                  if (canManageNotifications) setIsNotificationOpen(!isNotificationOpen);
+                  else notifyUser("Accès Refusé", "Vous n'avez pas la permission de gérer les notifications.", "warning");
+                }}
+                className={`p-3 rounded-2xl transition-all relative ${isNotificationOpen ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'} ${!canManageNotifications ? 'opacity-50' : ''}`}
               >
                 <Bell size={22} />
-                {notificationHistory.length > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900">{notificationHistory.length}</span>}
+                {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900">{unreadCount}</span>}
               </button>
             </div>
 

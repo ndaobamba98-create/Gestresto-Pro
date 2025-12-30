@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell
 } from 'lucide-react';
 import { AppLogoDoc } from './Invoicing';
 
@@ -90,6 +90,7 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
     { id: 'attendances', label: t('attendances') },
     { id: 'settings', label: t('settings') },
     { id: 'manage_security', label: 'Gérer Accès/Rôles' },
+    { id: 'manage_notifications', label: 'Gérer Notifications (Cloche)' },
   ];
 
   const roles: UserRole[] = ['admin', 'manager', 'cashier'];

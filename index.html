@@ -19,6 +19,15 @@
                 surface: '#0f172a',
                 border: '#1e293b'
               }
+            },
+            animation: {
+              'progressDecrease': 'progressDecrease 2s linear forwards',
+            },
+            keyframes: {
+              progressDecrease: {
+                'from': { width: '100%' },
+                'to': { width: '0%' },
+              }
             }
           }
         }

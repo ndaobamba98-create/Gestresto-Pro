@@ -165,4 +165,5 @@ export interface RolePermission {
 export type ViewType = 
   | 'dashboard' | 'pos' | 'sales' | 'inventory' | 'expenses' | 'hr' | 'manage_hr' 
   | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' 
-  | 'manage_categories' | 'manage_security' | 'manage_inventory' | 'manage_invoicing';
+  | 'manage_categories' | 'manage_security' | 'manage_inventory' | 'manage_invoicing'
+  | 'manage_notifications';
