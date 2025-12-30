@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, SaleOrder, ERPConfig, CashSession } from '../types';
-import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck, Percent, UserCheck, Star } from 'lucide-react';
 import { APP_USERS, POS_LOCATIONS } from '../constants';
 
 interface CartItem {
@@ -23,6 +23,9 @@ interface Props {
 const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpenSession, onCloseSession, notify }) => {
   // Gestion Multi-Paniers : { [emplacement]: items[] }
   const [pendingCarts, setPendingCarts] = useState<Record<string, CartItem[]>>({});
+  // Gestion des remises par emplacement : { [emplacement]: pourcentage }
+  const [pendingDiscounts, setPendingDiscounts] = useState<Record<string, number>>({});
+  
   const [activeLocation, setActiveLocation] = useState<string>(POS_LOCATIONS.tables[0]);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tous');
@@ -63,12 +66,23 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
   }, [products, search, activeCategory, sortedCategories]);
 
   const currentCart = pendingCarts[activeLocation] || [];
+  const currentDiscount = pendingDiscounts[activeLocation] || 0;
 
   const updateCartForActiveLocation = (items: CartItem[]) => {
     setPendingCarts(prev => ({
       ...prev,
       [activeLocation]: items
     }));
+  };
+
+  const updateDiscountForActiveLocation = (percent: number) => {
+    setPendingDiscounts(prev => ({
+      ...prev,
+      [activeLocation]: prev[activeLocation] === percent ? 0 : percent
+    }));
+    if (percent > 0) {
+      notify("Remise appliquée", `Une remise de ${percent}% a été appliquée à ${activeLocation}`, "info");
+    }
   };
 
   const addToCart = (p: Product) => {
@@ -97,7 +111,9 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
     updateCartForActiveLocation(newItems);
   };
 
-  const total = currentCart.reduce((acc, curr) => acc + (curr.product.price * curr.qty), 0);
+  const subtotal = currentCart.reduce((acc, curr) => acc + (curr.product.price * curr.qty), 0);
+  const discountAmount = subtotal * (currentDiscount / 100);
+  const total = subtotal - discountAmount;
 
   const handleCheckout = () => {
     if (currentCart.length === 0) return;
@@ -108,10 +124,15 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
       orderLocation: activeLocation
     });
     
-    // Vider le panier de l'emplacement actif après paiement
+    // Vider le panier et la remise de l'emplacement actif après paiement
     const updatedCarts = { ...pendingCarts };
     delete updatedCarts[activeLocation];
     setPendingCarts(updatedCarts);
+
+    const updatedDiscounts = { ...pendingDiscounts };
+    delete updatedDiscounts[activeLocation];
+    setPendingDiscounts(updatedDiscounts);
+
     notify("Succès", `Commande encaissée pour ${activeLocation}`, "success");
   };
 
@@ -299,10 +320,54 @@ const POS: React.FC<Props> = ({ products, onSaleComplete, config, session, onOpe
           </div>
 
           <div className="p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 space-y-6">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-400 uppercase text-[10px] font-black tracking-widest">Net à Payer</span>
-              <span className="text-3xl font-black text-slate-900 dark:text-white">{total.toLocaleString()} <span className="text-sm font-bold">{config.currency}</span></span>
+            {/* SELECTION REMISE */}
+            <div className="space-y-3">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center">
+                <Percent size={12} className="mr-2" /> Remises Spéciales
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={() => updateDiscountForActiveLocation(20)}
+                  className={`py-3 rounded-xl flex items-center justify-center space-x-2 border-2 transition-all ${
+                    currentDiscount === 20 
+                      ? 'bg-emerald-600 border-emerald-400 text-white shadow-md' 
+                      : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-600 hover:border-emerald-500'
+                  }`}
+                >
+                  <UserCheck size={14} />
+                  <span className="text-[9px] font-black uppercase">Personnel (-20%)</span>
+                </button>
+                <button 
+                  onClick={() => updateDiscountForActiveLocation(5)}
+                  className={`py-3 rounded-xl flex items-center justify-center space-x-2 border-2 transition-all ${
+                    currentDiscount === 5 
+                      ? 'bg-amber-600 border-amber-400 text-white shadow-md' 
+                      : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-600 hover:border-amber-500'
+                  }`}
+                >
+                  <Star size={14} />
+                  <span className="text-[9px] font-black uppercase">Fidélité (-5%)</span>
+                </button>
+              </div>
             </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex justify-between items-center text-xs font-bold text-slate-400">
+                <span>Sous-Total</span>
+                <span>{subtotal.toLocaleString()} {config.currency}</span>
+              </div>
+              {currentDiscount > 0 && (
+                <div className="flex justify-between items-center text-xs font-bold text-rose-500">
+                  <span>Remise ({currentDiscount}%)</span>
+                  <span>-{discountAmount.toLocaleString()} {config.currency}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2">
+                <span className="text-slate-400 uppercase text-[10px] font-black tracking-widest">Net à Payer</span>
+                <span className="text-3xl font-black text-slate-900 dark:text-white">{total.toLocaleString()} <span className="text-sm font-bold">{config.currency}</span></span>
+              </div>
+            </div>
+            
             <button onClick={handleCheckout} disabled={currentCart.length === 0} className="w-full py-5 bg-purple-600 text-white rounded-[2rem] font-black uppercase tracking-widest shadow-2xl shadow-purple-900/20 active:scale-95 disabled:opacity-50 transition-all">Encaisser {activeLocation}</button>
           </div>
         </div>

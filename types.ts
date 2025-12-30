@@ -115,4 +115,4 @@ export interface RolePermission {
   allowedViews: ViewType[];
 }
 
-export type ViewType = 'dashboard' | 'pos' | 'sales' | 'inventory' | 'hr' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' | 'manage_categories';
+export type ViewType = 'dashboard' | 'pos' | 'sales' | 'inventory' | 'hr' | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' | 'manage_categories';
