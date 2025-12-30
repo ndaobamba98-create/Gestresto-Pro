@@ -15,7 +15,7 @@ interface Message {
 
 const AIAssistant: React.FC<Props> = ({ onClose, context }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Bonjour ! Je suis votre assistant IA Gestresto Pro. Je peux vous aider à analyser vos données, rédiger des courriels ou répondre à des questions spécifiques sur votre ERP. Comment puis-je vous aider aujourd'hui ?" }
+    { role: 'assistant', content: "Bonjour ! Je suis votre assistant IA SamaCaisse Pro. Je peux vous aider à analyser vos données, rédiger des courriels ou répondre à des questions spécifiques sur votre ERP. Comment puis-je vous aider aujourd'hui ?" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,7 +53,7 @@ const AIAssistant: React.FC<Props> = ({ onClose, context }) => {
         <div className="flex items-center">
           <Bot size={20} className="mr-2" />
           <div>
-            <h3 className="font-bold text-sm">Assistant Gestresto Pro</h3>
+            <h3 className="font-bold text-sm">Assistant SamaCaisse Pro</h3>
             <span className="text-[10px] text-indigo-200">Propulsé par Gemini AI</span>
           </div>
         </div>

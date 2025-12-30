@@ -47,17 +47,15 @@ const getClient = () => {
 export const getBusinessInsights = async (context: string, query: string) => {
   try {
     const ai = getClient();
-    // Use the explicit type for GenerateContentResponse to ensure 'text' property is accessible and matches SDK guidelines
     const response: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Tu es un assistant expert en gestion d'entreprise pour l'ERP Gestresto Pro.
+      contents: `Tu es un assistant expert en gestion d'entreprise pour l'ERP SamaCaisse Pro.
       Contexte des données actuelles (JSON): ${context}
       Question de l'utilisateur: ${query}
       
       Fournis une réponse concise, professionnelle et en français. Si tu suggères des actions, formate-les sous forme de liste.`,
     }));
 
-    // The GenerateContentResponse object features a text property (not a method) that directly returns the string output.
     return response.text || "Désolé, je n'ai pas pu générer de réponse pour le moment.";
   } catch (error: any) {
     console.error("Gemini API Error (getBusinessInsights):", error);
@@ -73,10 +71,9 @@ export const getBusinessInsights = async (context: string, query: string) => {
 export const analyzeSalesData = async (salesData: any) => {
   try {
     const ai = getClient();
-    // Use the explicit type for GenerateContentResponse to ensure 'text' property is accessible and matches SDK guidelines
     const response: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `Analyse ces chiffres de vente et fournis 3 points clés de performance (takeaways) en français: ${JSON.stringify(salesData)}`,
+      contents: `Analyse ces chiffres de vente et fournis 3 points clés de performance (takeaways) en français pour SamaCaisse Pro: ${JSON.stringify(salesData)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -92,7 +89,6 @@ export const analyzeSalesData = async (salesData: any) => {
       }
     }));
 
-    // The GenerateContentResponse object features a text property (not a method) that directly returns the string output.
     const text = response.text;
     if (!text) return ["Aucune analyse disponible pour le moment."];
 

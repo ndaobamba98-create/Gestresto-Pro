@@ -4,22 +4,18 @@ import { SaleOrder, UserRole, ERPConfig } from '../types';
 import { 
   TrendingUp, 
   DollarSign, 
-  Users, 
   ShoppingCart, 
   Eye, 
   FileText, 
   X, 
-  Printer, 
-  Clock,
-  Calendar,
-  MapPin,
-  Phone,
-  Banknote,
-  RotateCcw,
+  RotateCcw, 
   ArrowUpRight,
-  UserCheck
+  UserCheck,
+  Download,
+  Zap
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
+import * as XLSX from 'xlsx';
 
 interface Props {
   leads: any[];
@@ -28,11 +24,12 @@ interface Props {
   config: ERPConfig;
 }
 
-const LogoG = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="12" cy="12" r="10" />
-    <path d="M16 8.5C15.1 7.6 13.8 7 12.3 7 9.4 7 7 9.2 7 12s2.4 5 5.3 5c2.4 0 4.4-1.5 5.1-3.5H12" />
-  </svg>
+const SimpleLogoIcon = ({ className = "w-10 h-10" }) => (
+  <div className={`bg-slate-900 rounded-xl flex items-center justify-center shadow-md ${className}`}>
+    <svg viewBox="0 0 100 100" className="w-7/12 h-7/12" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M30 35C30 26.7 36.7 20 45 20H70V35H45C42.2 35 40 37.2 40 40C40 42.7 42.2 45 45 45H55C63.3 45 70 51.7 70 60C70 68.3 63.3 75 55 75H30V60H55C57.8 60 60 57.8 60 55C60 52.2 57.8 50 55 50H45C36.7 50 30 43.3 30 35Z" fill="#a855f7"/>
+    </svg>
+  </div>
 );
 
 const Dashboard: React.FC<Props> = ({ sales, userRole, config }) => {
@@ -41,6 +38,20 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config }) => {
   const averageOrderValue = sales.length > 0 ? (totalRevenue / sales.length).toFixed(0) : 0;
   const chartData = [ { name: 'Jan', sales: 4000 }, { name: 'Feb', sales: 3000 }, { name: 'Mar', sales: 2000 }, { name: 'Apr', sales: 2780 }, { name: 'May', sales: 1890 }, { name: 'Jun', sales: 2390 } ];
   
+  const handleExportFlash = () => {
+    const data = [{
+      'Date du Rapport': new Date().toLocaleDateString(),
+      'Chiffre d\'Affaire': totalRevenue,
+      'Nombre de Ventes': sales.length,
+      'Panier Moyen': averageOrderValue,
+      'Remboursements': sales.filter(s => s.status === 'refunded').length
+    }];
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Bilan Flash");
+    XLSX.writeFile(workbook, `Bilan_Flash_${Date.now()}.xlsx`);
+  };
+
   const getStatusStyle = (status: string) => {
     switch(status) {
       case 'confirmed': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
@@ -51,7 +62,7 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config }) => {
   };
 
   return (
-    <div className="h-full overflow-y-auto space-y-8 animate-fadeIn pb-10 pr-2">
+    <div className="h-full overflow-y-auto space-y-8 animate-fadeIn pb-10 pr-2 scrollbar-hide">
       {selectedSale && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
@@ -62,8 +73,8 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config }) => {
             <div className="p-10 space-y-8 overflow-y-auto">
                <div className="flex justify-between items-start">
                   <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center"><LogoG className="w-7 h-7" /></div>
-                    <div><h2 className="text-xl font-black uppercase tracking-tighter">GestrestoPro</h2><p className="text-[9px] font-black text-slate-400 uppercase">{config.companyName}</p></div>
+                    <SimpleLogoIcon className="w-12 h-12" />
+                    <div><h2 className="text-xl font-black uppercase tracking-tighter">SamaCaisse Pro</h2><p className="text-[9px] font-black text-slate-400 uppercase">{config.companyName}</p></div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-black uppercase tracking-widest text-purple-600">Facture</p>
@@ -89,11 +100,18 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config }) => {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Bilan du Service</h1>
           <p className="text-slate-500 text-sm">Rapport consolidé MYA D'OR - {new Date().toLocaleDateString()}</p>
         </div>
+        <button 
+          onClick={handleExportFlash}
+          className="flex items-center space-x-2 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm"
+        >
+          <Zap size={16} className="text-amber-500" />
+          <span>Rapport Flash</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Recettes" value={`${totalRevenue.toLocaleString()} ${config.currency}`} icon={DollarSign} color="bg-blue-500" trend="+12.5%" />
-        <StatCard title="Pointages" value={`${sales.length}`} icon={UserCheck} color="bg-emerald-500" trend="Staff Actif" />
+        <StatCard title="Pointages" value={`${sales.length}`} icon={UserCheck} size={24} color="bg-emerald-500" trend="Staff Actif" />
         <StatCard title="Panier Moyen" value={`${averageOrderValue} ${config.currency}`} icon={ShoppingCart} color="bg-purple-500" trend="+2.4%" />
         <StatCard title="Remboursé" value={`${sales.filter(s => s.status === 'refunded').length}`} icon={RotateCcw} color="bg-rose-500" trend="Retours" />
       </div>

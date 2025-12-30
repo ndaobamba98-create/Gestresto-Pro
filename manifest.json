@@ -1,7 +1,7 @@
 
 {
-  "name": "Gestresto Pro - MYA D'OR",
-  "short_name": "Gestresto",
+  "name": "SamaCaisse Pro - MYA D'OR",
+  "short_name": "SamaCaisse",
   "description": "Logiciel de caisse et gestion pour MYA D'OR FAST-FOOD",
   "start_url": "./index.html",
   "display": "standalone",
