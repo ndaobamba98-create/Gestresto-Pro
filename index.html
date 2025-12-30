@@ -24,20 +24,25 @@
         }
       }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
-            color: #0f172a; /* Texte plus sombre et lisible */
+            color: #0f172a;
             transition: background-color 0.3s ease;
         }
+        
+        /* Police Arabe Spécifique */
+        [dir="rtl"] body, [dir="rtl"] .font-ar {
+            font-family: 'Noto Sans Arabic', sans-serif;
+        }
+
         .dark body {
             background-color: #020617;
             color: #f8fafc;
         }
         
-        /* Amélioration globale de la lisibilité des textes secondaires */
         .text-slate-500 { color: #64748b !important; }
         .dark .text-slate-400 { color: #94a3b8 !important; }
 
@@ -54,31 +59,9 @@
           animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* SYSTÈME DE THÈMES OPTIMISÉ POUR LA VISIBILITÉ */
-        
-        /* VIOLET (DÉFAUT) */
+        /* Thèmes... */
         .theme-purple .text-accent { color: #7c3aed; }
         .theme-purple .bg-accent { background-color: #7c3aed; }
-
-        /* EMERAUDE */
-        .theme-emerald .bg-purple-600 { background-color: #059669 !important; }
-        .theme-emerald .text-purple-600 { color: #059669 !important; }
-        .theme-emerald .text-purple-500 { color: #10b981 !important; }
-        .theme-emerald .border-purple-600 { border-color: #059669 !important; }
-
-        /* BLEU */
-        .theme-blue .bg-purple-600 { background-color: #2563eb !important; }
-        .theme-blue .text-purple-600 { color: #2563eb !important; }
-        .theme-blue .text-purple-500 { color: #3b82f6 !important; }
-
-        /* ROSE */
-        .theme-rose .bg-purple-600 { background-color: #e11d48 !important; }
-        .theme-rose .text-purple-600 { color: #e11d48 !important; }
-        .theme-rose .text-purple-500 { color: #f43f5e !important; }
-
-        /* AMBRE */
-        .theme-amber .bg-purple-600 { background-color: #d97706 !important; }
-        .theme-amber .text-purple-600 { color: #d97706 !important; }
 
         @media print {
             body * { visibility: hidden; }

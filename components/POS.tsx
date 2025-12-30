@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Product, SaleOrder, ERPConfig, CashSession } from '../types';
-import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck, History, RotateCcw, X, FileText } from 'lucide-react';
-import { APP_USERS, POS_LOCATIONS } from '../constants';
+import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod } from '../types';
+// Import missing Wallet icon
+import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck, History, RotateCcw, X, FileText, CreditCard, Smartphone, Wallet } from 'lucide-react';
+import { APP_USERS, POS_LOCATIONS, PAYMENT_METHODS_LIST } from '../constants';
 import * as XLSX from 'xlsx';
 
 interface CartItem {
@@ -27,6 +28,9 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
   const [activeLocation, setActiveLocation] = useState<string>(POS_LOCATIONS.tables[0]);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tous');
+  
+  // Nouveau state pour le mode de paiement sélectionné
+  const [locationPaymentMethods, setLocationPaymentMethods] = useState<Record<string, PaymentMethod>>({});
 
   const [sessionStep, setSessionStep] = useState<'cashier' | 'balance'>('cashier');
   const [openingBalance, setOpeningBalance] = useState<number>(0);
@@ -43,10 +47,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     ...POS_LOCATIONS.delivery.map(l => ({ id: l, icon: Truck, label: l }))
   ], []);
 
-  // Tri alphabétique des catégories pour les onglets
-  const categoriesList = useMemo(() => 
-    [...config.categories].sort((a, b) => a.localeCompare(b))
-  , [config.categories]);
+  const categoriesList = config.categories;
 
   const groupedProducts = useMemo(() => {
     const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
@@ -54,15 +55,19 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     
     return categoriesToDisplay.map(cat => ({
       name: cat,
-      // Tri alphabétique des plats à l'intérieur du groupe
       items: filtered.filter(p => p.category === cat).sort((a, b) => a.name.localeCompare(b.name))
     })).filter(group => group.items.length > 0);
   }, [products, search, activeCategory, categoriesList]);
 
   const currentCart = pendingCarts[activeLocation] || [];
+  const currentPaymentMethod = locationPaymentMethods[activeLocation] || 'Especes';
 
   const updateCartForActiveLocation = (items: CartItem[]) => {
     setPendingCarts(prev => ({ ...prev, [activeLocation]: items }));
+  };
+
+  const setPaymentMethodForActiveLocation = (method: PaymentMethod) => {
+    setLocationPaymentMethods(prev => ({ ...prev, [activeLocation]: method }));
   };
 
   const addToCart = (p: Product) => {
@@ -98,14 +103,14 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     onSaleComplete({
       total,
       items: currentCart.map(i => ({ productId: i.product.id, name: i.product.name, quantity: i.qty, price: i.product.price })),
-      paymentMethod: 'Especes',
+      paymentMethod: currentPaymentMethod,
       orderLocation: activeLocation,
       status: 'confirmed'
     });
     const updatedCarts = { ...pendingCarts };
     delete updatedCarts[activeLocation];
     setPendingCarts(updatedCarts);
-    notify("Succès", `Commande encaissée pour ${activeLocation}`, "success");
+    notify("Succès", `Vente via ${currentPaymentMethod} pour ${activeLocation}`, "success");
   };
 
   const handleRefund = (sale: SaleOrder) => {
@@ -113,9 +118,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
       notify("Action Impossible", "Cette commande a déjà été remboursée.", "warning");
       return;
     }
-
     const confirmRefund = window.confirm(`Voulez-vous vraiment rembourser la commande #${sale.id.slice(-6)} ?`);
-    
     if (confirmRefund) {
       onSaleComplete({
         ...sale,
@@ -151,9 +154,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
       <div className="h-full flex items-center justify-center animate-fadeIn">
         <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
           <div className="p-10 text-center space-y-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-700">
-            <div className="w-16 h-16 bg-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-xl mb-4">
-              <Monitor size={32} />
-            </div>
+            <div className="w-16 h-16 bg-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto shadow-xl mb-4"><Monitor size={32} /></div>
             <h2 className="text-2xl font-black uppercase tracking-tighter">Ouverture de Session</h2>
             <p className="text-slate-500 text-sm font-medium">Préparez le terminal MYA D'OR pour le service.</p>
           </div>
@@ -219,9 +220,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un plat (Ex: Riz, Mafé...)..." className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none text-sm font-bold" />
               </div>
               <div className="flex items-center space-x-2">
-                <button onClick={() => setShowHistoryModal(true)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center">
-                  <History size={14} className="mr-2" /> Historique
-                </button>
+                <button onClick={() => setShowHistoryModal(true)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center"><History size={14} className="mr-2" /> Historique</button>
                 <button onClick={() => setShowClosingModal(true)} className="px-4 py-2 bg-rose-50 text-rose-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all">Fermer Caisse</button>
               </div>
             </div>
@@ -259,7 +258,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
           </div>
         </div>
 
-        <div className="w-96 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-2xl shrink-0">
+        <div className="w-96 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden shrink-0">
           <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
             <div className="flex flex-col">
               <div className="flex items-center space-x-3">
@@ -270,6 +269,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
             </div>
             <button onClick={() => updateCartForActiveLocation([])} className="text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
           </div>
+          
           <div className="flex-1 overflow-y-auto p-6 space-y-3 scrollbar-hide">
             {currentCart.map(item => (
               <div key={item.product.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 animate-slideInRight group">
@@ -286,7 +286,32 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
               </div>
             ))}
           </div>
+          
           <div className="p-8 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 space-y-6">
+            {/* SÉLECTEUR DE MODE DE PAIEMENT */}
+            <div className="space-y-3">
+               <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Mode de Règlement</p>
+               <div className="grid grid-cols-2 gap-2">
+                  {PAYMENT_METHODS_LIST.filter(m => ['Especes', 'Bankily', 'Masrvi', 'Sedad'].includes(m.id)).map((method) => (
+                    <button 
+                      key={method.id} 
+                      onClick={() => setPaymentMethodForActiveLocation(method.id)}
+                      className={`py-3 rounded-xl flex items-center justify-center space-x-2 border-2 transition-all ${
+                        currentPaymentMethod === method.id 
+                        ? 'bg-purple-600 border-purple-400 text-white shadow-md' 
+                        : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-500'
+                      }`}
+                    >
+                      {method.id === 'Especes' && <Banknote size={14} />}
+                      {method.id === 'Bankily' && <Smartphone size={14} />}
+                      {method.id === 'Masrvi' && <Wallet size={14} />}
+                      {method.id === 'Sedad' && <CreditCard size={14} />}
+                      <span className="text-[10px] font-black uppercase">{method.label}</span>
+                    </button>
+                  ))}
+               </div>
+            </div>
+
             <div className="flex justify-between items-center pt-2">
               <span className="text-slate-400 uppercase text-[10px] font-black tracking-widest">Net à Payer</span>
               <span className="text-3xl font-black text-slate-900 dark:text-white">{total.toLocaleString()} <span className="text-sm font-bold">{config.currency}</span></span>
@@ -311,6 +336,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
                     <div>
                       <p className="text-xs font-black uppercase text-slate-800 dark:text-slate-100">{sale.customer}</p>
                       <p className="text-[9px] font-bold text-slate-400 uppercase">{sale.date} • {sale.orderLocation}</p>
+                      <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-purple-100 text-purple-600 rounded-md">{sale.paymentMethod}</span>
                     </div>
                     <div className="flex items-center space-x-6">
                       <p className={`text-base font-black ${sale.status === 'refunded' ? 'text-rose-600' : 'text-slate-900 dark:text-white'}`}>{sale.total.toLocaleString()} {config.currency}</p>
@@ -324,22 +350,51 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
         </div>
       )}
 
+      {/* MODAL CLÔTURE DE SESSION : TAILLE OPTIMISÉE (max-w-md) */}
       {showClosingModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-md rounded-[2.5rem] p-10 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scaleIn">
-            <h3 className="text-xl font-black uppercase text-center mb-6">Clôture de Session</h3>
-            <div className="space-y-4 mb-8">
-              <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Total Attendu en Caisse</p>
-                <p className="text-3xl font-black text-purple-600">{session.expectedBalance.toLocaleString()} {config.currency}</p>
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-12 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scaleIn flex flex-col items-center">
+            <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6">
+              <Monitor size={32} />
+            </div>
+            <h3 className="text-2xl font-black uppercase tracking-tighter text-center mb-2">Clôture de Session</h3>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-8">Arrêté de caisse journalier</p>
+
+            <div className="w-full space-y-6 mb-10">
+              <div className="p-8 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 text-center">
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-[0.2em]">Total Attendu en Caisse</p>
+                <div className="flex items-baseline justify-center">
+                  <span className="text-4xl font-black text-purple-600 tracking-tighter">{session.expectedBalance.toLocaleString()}</span>
+                  <span className="text-sm font-bold text-purple-400 ml-2">{config.currency}</span>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Comptage Réel</label>
-                <input type="number" value={closingInput || ''} onChange={e => setClosingInput(parseFloat(e.target.value) || 0)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 focus:border-rose-500 outline-none font-black text-xl transition-all" />
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Comptage Réel (Liquide + Digital)</label>
+                <input 
+                  type="number" 
+                  autoFocus
+                  value={closingInput || ''} 
+                  onChange={e => setClosingInput(parseFloat(e.target.value) || 0)} 
+                  className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 focus:border-rose-500 outline-none font-black text-2xl text-center transition-all" 
+                />
               </div>
             </div>
-            <button onClick={() => { handleExportSessionReport(closingInput); onCloseSession(closingInput); setShowClosingModal(false); }} className="w-full py-4 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center">Valider & Clôturer</button>
-            <button onClick={() => setShowClosingModal(false)} className="w-full py-3 mt-2 text-slate-400 font-black uppercase text-[10px]">Annuler</button>
+
+            <div className="w-full grid grid-cols-1 gap-3">
+              <button 
+                onClick={() => { handleExportSessionReport(closingInput); onCloseSession(closingInput); setShowClosingModal(false); }} 
+                className="w-full py-5 bg-rose-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-900/20 hover:bg-rose-700 active:scale-95 transition-all flex items-center justify-center"
+              >
+                Confirmer la Clôture
+              </button>
+              <button 
+                onClick={() => setShowClosingModal(false)} 
+                className="w-full py-3 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition-colors"
+              >
+                Annuler l'action
+              </button>
+            </div>
           </div>
         </div>
       )}

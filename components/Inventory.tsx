@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Product, ERPConfig } from '../types';
+import { Product, ERPConfig, ViewType } from '../types';
 import { Package, Search, Plus, Edit3, Trash2, AlertTriangle, X, Download, Save, Tag, Bell } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -9,15 +9,17 @@ interface Props {
   onUpdate: (products: Product[]) => void;
   config: ERPConfig;
   userRole: string;
+  userPermissions: ViewType[];
+  t: (key: any) => string;
 }
 
-const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) => {
+const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole, userPermissions, t }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
 
-  const canEdit = userRole === 'admin' || userRole === 'manager';
+  const canManage = userPermissions.includes('manage_inventory');
   const categories = config.categories;
 
   const filteredProducts = useMemo(() => {
@@ -138,12 +140,12 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) =>
 
       {deleteConfirm && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl p-8 flex flex-col items-center">
+          <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-3xl p-8 flex flex-col items-center border border-rose-100 shadow-2xl animate-scaleIn">
             <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-4"><AlertTriangle size={32} /></div>
-            <p className="text-center font-bold mb-8">Supprimer "{deleteConfirm.name}" ?</p>
+            <p className="text-center font-black uppercase text-xs tracking-widest mb-8">Supprimer "{deleteConfirm.name}" ?</p>
             <div className="grid grid-cols-2 gap-3 w-full">
-              <button onClick={() => setDeleteConfirm(null)} className="py-3 bg-slate-100 rounded-xl font-bold uppercase text-xs">Annuler</button>
-              <button onClick={handleDelete} className="py-3 bg-rose-600 text-white rounded-xl font-bold uppercase text-xs">Supprimer</button>
+              <button onClick={() => setDeleteConfirm(null)} className="py-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold uppercase text-[10px] tracking-widest">Annuler</button>
+              <button onClick={handleDelete} className="py-3 bg-rose-600 text-white rounded-xl font-bold uppercase text-[10px] tracking-widest">Supprimer</button>
             </div>
           </div>
         </div>
@@ -159,7 +161,7 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) =>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
-          {canEdit && <button onClick={handleOpenAddModal} className="bg-purple-600 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg flex items-center"><Plus size={18} className="mr-2" /> Nouveau Plat</button>}
+          {canManage && <button onClick={handleOpenAddModal} className="bg-purple-600 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg flex items-center"><Plus size={18} className="mr-2" /> Nouveau Plat</button>}
           <button onClick={handleExportExcel} className="p-2.5 bg-white dark:bg-slate-800 border rounded-xl"><Download size={18}/></button>
         </div>
       </div>
@@ -172,7 +174,7 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) =>
               <th className="px-8 py-5">Catégorie</th>
               <th className="px-8 py-5 text-center">Stock</th>
               <th className="px-8 py-5 text-right">Prix</th>
-              <th className="px-8 py-5 text-right">Actions</th>
+              {canManage && <th className="px-8 py-5 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -192,12 +194,14 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole }) =>
                     </span>
                   </td>
                   <td className="px-8 py-6 text-right font-black text-purple-600">{p.price.toLocaleString()} {config.currency}</td>
-                  <td className="px-8 py-6 text-right">
-                    <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleOpenEditModal(p)} className="p-2 text-slate-400 hover:text-purple-600 transition-colors"><Edit3 size={16} /></button>
-                      <button onClick={() => setDeleteConfirm({ id: p.id, name: p.name })} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
-                    </div>
-                  </td>
+                  {canManage && (
+                    <td className="px-8 py-6 text-right">
+                      <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleOpenEditModal(p)} className="p-2 text-slate-400 hover:text-purple-600 transition-colors"><Edit3 size={16} /></button>
+                        <button onClick={() => setDeleteConfirm({ id: p.id, name: p.name })} className="p-2 text-slate-400 hover:text-rose-600 transition-colors"><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}
