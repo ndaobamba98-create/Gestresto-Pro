@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock, FileText, Menu, CheckCircle, Info, AlertCircle
 } from 'lucide-react';
-import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User } from './types';
+import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS } from './constants';
 import Dashboard from './components/Dashboard';
 import Invoicing from './components/Invoicing';
@@ -48,7 +48,7 @@ const App: React.FC = () => {
   const [sales, setSales] = useState<SaleOrder[]>(() => loadStored('sales', []));
   const [employees, setEmployees] = useState<Employee[]>(() => loadStored('employees', INITIAL_EMPLOYEES));
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => loadStored('attendance', []));
-  const [currentSession, setCurrentSession] = useState<any>(() => loadStored('currentSession', null));
+  const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
     { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'reports', 'hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories'] },
@@ -86,10 +86,46 @@ const App: React.FC = () => {
       status: 'confirmed',
       items: newSaleData.items || [],
       paymentMethod: newSaleData.paymentMethod || 'Especes',
-      invoiceStatus: 'paid'
+      invoiceStatus: 'paid',
+      orderLocation: newSaleData.orderLocation || 'Comptoir'
     };
+    
     setSales(prev => [sale, ...prev]);
+
+    // Mise à jour du solde attendu de la session de caisse
+    if (currentSession && currentSession.status === 'open') {
+      setCurrentSession({
+        ...currentSession,
+        expectedBalance: currentSession.expectedBalance + (sale.total || 0)
+      });
+    }
+
     notifyUser("Vente Encaissée", `${sale.total} ${config.currency} reçus.`, 'success');
+  };
+
+  const handleOpenSession = (openingBalance: number, cashierId: string) => {
+    const cashier = APP_USERS.find(u => u.id === cashierId);
+    const newSession: CashSession = {
+      id: `SESS-${Date.now()}`,
+      openedAt: new Date().toISOString(),
+      openingBalance,
+      expectedBalance: openingBalance,
+      status: 'open',
+      cashierName: cashier?.name || 'Inconnu',
+      cashierId
+    };
+    setCurrentSession(newSession);
+    notifyUser("Session Ouverte", `Service démarré par ${newSession.cashierName}`, "success");
+  };
+
+  const handleCloseSession = (closingBalance: number) => {
+    if (!currentSession) return;
+    
+    const difference = closingBalance - currentSession.expectedBalance;
+    const msg = difference === 0 ? "Caisse équilibrée." : `Écart de caisse : ${difference} ${config.currency}`;
+    
+    notifyUser("Session Clôturée", msg, difference === 0 ? "success" : "warning");
+    setCurrentSession(null);
   };
 
   const userPermissions = useMemo(() => {
@@ -125,7 +161,17 @@ const App: React.FC = () => {
     const commonProps = { notify: notifyUser, userPermissions };
     switch (activeView) {
       case 'dashboard': return <Dashboard leads={[]} sales={sales} userRole={currentUser.role} config={config} />;
-      case 'pos': return <POS products={products} onSaleComplete={handleAddSale} config={config} session={currentSession} onOpenSession={()=>{}} onCloseSession={()=>{}} {...commonProps} />;
+      case 'pos': return (
+        <POS 
+          products={products} 
+          onSaleComplete={handleAddSale} 
+          config={config} 
+          session={currentSession} 
+          onOpenSession={handleOpenSession} 
+          onCloseSession={handleCloseSession} 
+          {...commonProps} 
+        />
+      );
       case 'sales': return <Sales sales={sales} onUpdate={setSales} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} />;
       case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} userRole={currentUser.role} {...commonProps} />;
