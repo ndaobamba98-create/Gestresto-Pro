@@ -67,6 +67,50 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
     }
   };
 
+  const handleExportExcel = () => {
+    let dataToExport = [];
+    let fileName = "";
+
+    if (activeView === 'purchases') {
+      dataToExport = filteredPurchases.map(p => ({
+        'ID Achat': p.id,
+        'Date': p.date,
+        'Produit': p.productName,
+        'Fournisseur': p.supplierName,
+        'Quantité': p.quantity,
+        'Prix Unitaire': p.costPrice,
+        'Total': p.totalAmount,
+        'Devise': config.currency
+      }));
+      fileName = `Achats_Stock_${new Date().toISOString().split('T')[0]}.xlsx`;
+    } else if (activeView === 'expenses') {
+      dataToExport = filteredExpenses.map(e => ({
+        'ID Charge': e.id,
+        'Date': e.date,
+        'Description': e.description,
+        'Catégorie': e.category,
+        'Montant': e.amount,
+        'Méthode': e.paymentMethod,
+        'Statut': e.status
+      }));
+      fileName = `Charges_Frais_${new Date().toISOString().split('T')[0]}.xlsx`;
+    } else {
+      dataToExport = filteredSuppliers.map(s => ({
+        'Nom': s.name,
+        'Contact': s.contact,
+        'Téléphone': s.phone,
+        'Catégorie': s.category
+      }));
+      fileName = `Annuaire_Fournisseurs_${new Date().toISOString().split('T')[0]}.xlsx`;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+    XLSX.writeFile(workbook, fileName);
+    notify("Export réussi", "Le fichier a été téléchargé.", "success");
+  };
+
   const handleSavePurchase = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPurchase || !editingPurchase.productId || !editingPurchase.quantity) return;
@@ -103,7 +147,6 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
     <div className="h-full space-y-8 animate-fadeIn pb-10">
       {viewingPurchase && <PurchaseReceiptModal purchase={viewingPurchase} config={config} onClose={() => setViewingPurchase(null)} />}
 
-      {/* ... reste des formulaires inchangé ... */}
       {isPurchaseModalOpen && editingPurchase && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-scaleIn">
@@ -143,42 +186,81 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
         </div>
       )}
 
-      {/* ... header and views ... */}
+      {/* MODAL FOURNISSEUR */}
+      {isSupplierModalOpen && editingSupplier && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-scaleIn">
+            <div className="p-8 bg-slate-900 text-white flex justify-between items-center"><h3 className="text-xl font-black uppercase tracking-tighter">Fiche Fournisseur</h3><button onClick={() => setIsSupplierModalOpen(false)}><X size={28}/></button></div>
+            <div className="p-8 space-y-6">
+               <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400">Raison Sociale</label><input value={editingSupplier.name} onChange={e => setEditingSupplier({...editingSupplier, name: e.target.value})} className="w-full px-5 py-4 border-2 rounded-2xl dark:bg-slate-800" /></div>
+               <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400">Téléphone</label><input value={editingSupplier.phone} onChange={e => setEditingSupplier({...editingSupplier, phone: e.target.value})} className="w-full px-5 py-4 border-2 rounded-2xl dark:bg-slate-800" /></div>
+               <button onClick={() => { setSuppliers([...suppliers, editingSupplier as Supplier]); setIsSupplierModalOpen(false); }} className="w-full py-5 bg-purple-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest">Enregistrer Fournisseur</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div><h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Gestion des Sorties</h1></div>
         <div className="flex items-center space-x-3">
-          <div className="bg-white dark:bg-slate-900 p-1.5 rounded-2xl flex border"><button onClick={() => setActiveView('purchases')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'purchases' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>Achats Stock</button><button onClick={() => setActiveView('expenses')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'expenses' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>Frais & Charges</button></div>
-          <button onClick={() => { setEditingPurchase({ date: new Date().toISOString().split('T')[0], attachments: [] }); setIsPurchaseModalOpen(true); }} className="bg-purple-600 text-white px-8 py-3.5 rounded-2xl text-xs font-black uppercase shadow-xl hover:bg-purple-700 transition-all flex items-center"><Plus size={18} className="mr-2" /> Nouvel Achat</button>
+          <div className="bg-white dark:bg-slate-900 p-1.5 rounded-2xl flex border shadow-sm">
+            <button onClick={() => setActiveView('purchases')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'purchases' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>Achats Stock</button>
+            <button onClick={() => setActiveView('expenses')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'expenses' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>Frais & Charges</button>
+            <button onClick={() => setActiveView('suppliers')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'suppliers' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>Fournisseurs</button>
+          </div>
+          <button onClick={handleExportExcel} className="p-3 bg-white dark:bg-slate-900 border rounded-xl shadow-sm hover:bg-slate-50 transition-all text-slate-600 dark:text-slate-300"><Download size={20}/></button>
+          {activeView === 'purchases' && <button onClick={() => { setEditingPurchase({ date: new Date().toISOString().split('T')[0], attachments: [] }); setIsPurchaseModalOpen(true); }} className="bg-purple-600 text-white px-8 py-3.5 rounded-2xl text-xs font-black uppercase shadow-xl hover:bg-purple-700 transition-all flex items-center"><Plus size={18} className="mr-2" /> Nouvel Achat</button>}
+          {activeView === 'suppliers' && <button onClick={() => { setEditingSupplier({ name: '', phone: '', contact: '', category: 'Alimentation' }); setIsSupplierModalOpen(true); }} className="bg-slate-900 text-white px-8 py-3.5 rounded-2xl text-xs font-black uppercase shadow-xl hover:bg-black transition-all flex items-center"><Plus size={18} className="mr-2" /> Nouveau Fournisseur</button>}
         </div>
       </div>
 
-      {activeView === 'purchases' && (
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border shadow-sm overflow-hidden flex-1">
+        <div className="p-6 border-b flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+           <div className="relative w-96"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Chercher..." className="w-full pl-12 pr-6 py-3 bg-white dark:bg-slate-800 border rounded-2xl text-xs font-bold outline-none" /></div>
+           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{activeView === 'purchases' ? filteredPurchases.length : activeView === 'expenses' ? filteredExpenses.length : filteredSuppliers.length} résultats</span>
+        </div>
+        <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead><tr className="text-[10px] font-black text-slate-400 uppercase border-b"><th className="px-10 py-6">ID Achat</th><th className="px-10 py-6">Produit</th><th className="px-10 py-6 text-right">Montant</th><th className="px-10 py-6 text-center">Docs</th><th className="px-10 py-6 text-right">Actions</th></tr></thead>
+            <thead><tr className="text-[10px] font-black text-slate-400 uppercase border-b"><th className="px-10 py-6">Référence / Nom</th><th className="px-10 py-6">Date / Contact</th><th className="px-10 py-6 text-right">Montant / Info</th><th className="px-10 py-6 text-center">Docs</th><th className="px-10 py-6 text-right">Actions</th></tr></thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-              {filteredPurchases.map((p) => (
+              {activeView === 'purchases' && filteredPurchases.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group">
-                  <td className="px-10 py-6 font-mono font-black text-purple-600">#{p.id.slice(-6)}</td>
-                  <td className="px-10 py-6 font-bold uppercase">{p.productName}</td>
+                  <td className="px-10 py-6 font-mono font-black text-purple-600">#{p.id.slice(-6)} <br/><span className="text-[10px] text-slate-400">{p.productName}</span></td>
+                  <td className="px-10 py-6 font-bold uppercase text-xs">{p.date} <br/><span className="text-[10px] text-slate-400">{p.supplierName}</span></td>
                   <td className="px-10 py-6 text-right font-black">{p.totalAmount.toLocaleString()} {config.currency}</td>
                   <td className="px-10 py-6 text-center">{p.attachments && p.attachments.length > 0 && <Paperclip size={14} className="mx-auto text-purple-600" />}</td>
                   <td className="px-10 py-6 text-right"><div className="flex items-center justify-end space-x-2"><button onClick={() => setViewingPurchase(p)} className="p-3 text-slate-400 hover:text-purple-600 opacity-0 group-hover:opacity-100 transition-all"><Eye size={20} /></button><button onClick={() => onDeletePurchase(p.id)} className="p-3 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={20} /></button></div></td>
                 </tr>
               ))}
+              {activeView === 'expenses' && filteredExpenses.map((e) => (
+                <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group">
+                  <td className="px-10 py-6 font-bold uppercase text-xs">{e.description}</td>
+                  <td className="px-10 py-6 text-xs text-slate-500">{e.date}</td>
+                  <td className="px-10 py-6 text-right font-black text-rose-600">-{e.amount.toLocaleString()} {config.currency}</td>
+                  <td className="px-10 py-6 text-center">{e.attachments && e.attachments.length > 0 && <Paperclip size={14} className="mx-auto text-purple-600" />}</td>
+                  <td className="px-10 py-6 text-right"><button className="p-3 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={20} /></button></td>
+                </tr>
+              ))}
+              {activeView === 'suppliers' && filteredSuppliers.map((s) => (
+                <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group">
+                  <td className="px-10 py-6 font-black uppercase text-sm">{s.name}</td>
+                  <td className="px-10 py-6 text-xs text-slate-500">{s.contact}</td>
+                  <td className="px-10 py-6 text-right font-bold">{s.phone}</td>
+                  <td className="px-10 py-6 text-center"></td>
+                  <td className="px-10 py-6 text-right"><button className="p-3 text-slate-400 hover:text-purple-600 opacity-0 group-hover:opacity-100 transition-all"><Edit3 size={20} /></button></td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-      )}
+      </div>
     </div>
   );
 };
 
-// Modification : Uniformisation de PurchaseReceiptModal
 const PurchaseReceiptModal = ({ purchase, config, onClose }: any) => {
   return (
     <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[120] flex items-center justify-center p-4 sm:p-10 animate-fadeIn">
-      {/* Modification : passage de max-w-4xl à max-w-3xl et arrondi réduit */}
       <div className="bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-full border border-white/20">
         <div className="px-8 py-4 border-b flex justify-between items-center bg-slate-50 no-print sticky top-0 z-10">
           <div className="flex items-center space-x-3">
@@ -186,12 +268,11 @@ const PurchaseReceiptModal = ({ purchase, config, onClose }: any) => {
              <span className="px-2.5 py-1 bg-slate-900 text-white text-[9px] font-black rounded-lg uppercase tracking-widest">#{purchase.id.slice(-6)}</span>
           </div>
           <div className="flex items-center space-x-3">
-             <button onClick={() => window.print()} className="bg-purple-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center shadow-xl hover:bg-purple-700 transition-all"><Printer size={16} className="mr-2" /> Imprimer</button>
+             <button onClick={() => window.print()} className="bg-purple-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center shadow-xl hover:bg-purple-700 transition-all"><Printer size={16} className="mr-2" /> Imprimer / PDF</button>
              <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><X size={24}/></button>
           </div>
         </div>
 
-        {/* Modification : réduction des paddings intérieurs */}
         <div id="invoice-print-area" className="p-10 sm:p-12 overflow-y-auto bg-white flex-1 text-slate-900 scrollbar-hide relative">
           <div className="flex justify-between items-start mb-16">
             <div className="space-y-4">

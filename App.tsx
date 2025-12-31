@@ -299,7 +299,8 @@ const App: React.FC = () => {
       case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
       case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
-      case 'reports': return <Reports sales={sales} config={config} products={products} t={t} />;
+      // Fix: Pass notifyUser to Reports
+      case 'reports': return <Reports sales={sales} config={config} products={products} t={t} notify={notifyUser} />;
       default: return null;
     }
   };

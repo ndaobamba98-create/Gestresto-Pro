@@ -68,18 +68,45 @@
           animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* Thèmes... */
-        .theme-purple .text-accent { color: #7c3aed; }
-        .theme-purple .bg-accent { background-color: #7c3aed; }
+        /* Thèmes de couleurs dynamiques */
+        :root { --accent-color: #9333ea; --accent-glow: rgba(147, 51, 234, 0.2); }
+        
+        .theme-purple { --accent-color: #9333ea; --accent-glow: rgba(147, 51, 234, 0.2); }
+        .theme-emerald { --accent-color: #059669; --accent-glow: rgba(5, 150, 105, 0.2); }
+        .theme-blue { --accent-color: #2563eb; --accent-glow: rgba(37, 99, 235, 0.2); }
+        .theme-rose { --accent-color: #e11d48; --accent-glow: rgba(225, 29, 72, 0.2); }
+        .theme-amber { --accent-color: #d97706; --accent-glow: rgba(217, 119, 6, 0.2); }
+        .theme-slate { --accent-color: #475569; --accent-glow: rgba(71, 85, 105, 0.2); }
+
+        .bg-purple-600, .bg-accent { background-color: var(--accent-color) !important; }
+        .text-purple-600, .text-accent { color: var(--accent-color) !important; }
+        .border-purple-600, .border-accent { border-color: var(--accent-color) !important; }
+        .shadow-purple-900\/20, .shadow-accent { shadow-color: var(--accent-glow) !important; }
 
         @media print {
+            body { background: white !important; color: black !important; }
             body * { visibility: hidden; }
-            #invoice-print-area, #invoice-print-area * { visibility: visible; }
-            #invoice-print-area {
-                position: absolute; left: 0; top: 0; width: 100%;
+            #invoice-print-area, #invoice-print-area *,
+            #report-print-area, #report-print-area * { visibility: visible; }
+            
+            #invoice-print-area, #report-print-area {
+                position: absolute; left: 0; top: 0; width: 100%; height: auto;
                 background: white !important; color: black !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
             }
             .no-print { display: none !important; }
+            /* Préserver les couleurs à l'impression */
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .bg-slate-950 { background-color: #020617 !important; color: white !important; }
+            .text-purple-600 { color: #9333ea !important; }
+            .bg-slate-900 { background-color: #0f172a !important; }
+            
+            /* Ajustements spécifiques pour les graphiques SVG en impression */
+            svg { max-width: 100% !important; height: auto !important; }
+            .recharts-wrapper { width: 100% !important; height: 300px !important; }
         }
     </style>
 <script type="importmap">

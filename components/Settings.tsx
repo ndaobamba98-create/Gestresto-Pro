@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language } from '../types';
+import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint
 } from 'lucide-react';
 import { AppLogoDoc } from './Invoicing';
 
@@ -31,6 +31,15 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
     onUpdateConfig(formConfig);
     notify(t('save'), "Configuration mise à jour avec succès.", 'success');
   };
+
+  const themes: { id: AppTheme, label: string, color: string }[] = [
+    { id: 'purple', label: 'Violet', color: 'bg-purple-600' },
+    { id: 'emerald', label: 'Émeraude', color: 'bg-emerald-600' },
+    { id: 'blue', label: 'Bleu Pro', color: 'bg-blue-600' },
+    { id: 'rose', label: 'Rose Rubis', color: 'bg-rose-600' },
+    { id: 'amber', label: 'Ambre Or', color: 'bg-amber-600' },
+    { id: 'slate', label: 'Ardoise', color: 'bg-slate-600' },
+  ];
 
   const moveCategory = (index: number, direction: 'up' | 'down') => {
     const newCategories = [...formConfig.categories];
@@ -95,6 +104,15 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
 
   const roles: UserRole[] = ['admin', 'manager', 'cashier'];
 
+  // Calcul du format de la prochaine référence (ex: FAC/2025/0001)
+  const nextInvoicePreview = useMemo(() => {
+    const prefix = formConfig.invoicePrefix || '';
+    const num = formConfig.nextInvoiceNumber || 1;
+    // On simule un padding de 4 chiffres par défaut pour le professionnalisme
+    const paddedNum = num.toString().padStart(4, '0');
+    return `${prefix}${paddedNum}`;
+  }, [formConfig.invoicePrefix, formConfig.nextInvoiceNumber]);
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-20">
       <div className="flex items-center justify-between">
@@ -123,6 +141,7 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
               <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl"><Building2 size={24} /></div>
               <h2 className="text-xl font-black uppercase tracking-tight">Identité de l'établissement</h2>
             </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('language')} par défaut</label>
@@ -152,6 +171,56 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
                 <input value={formConfig.registrationNumber} onChange={e => setFormConfig({...formConfig, registrationNumber: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
               </div>
             </div>
+
+            <div className="pt-12 border-t space-y-8">
+              <div className="flex items-center space-x-4 rtl:space-x-reverse">
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-2xl"><Palette size={24} /></div>
+                <h2 className="text-xl font-black uppercase tracking-tight">Apparence & Thème</h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Mode d'affichage</label>
+                  <div className="flex space-x-4">
+                    <button 
+                      type="button"
+                      onClick={() => document.documentElement.classList.remove('dark')}
+                      className={`flex-1 flex items-center justify-center p-6 rounded-2xl border-2 transition-all space-x-3 ${!document.documentElement.classList.contains('dark') ? 'border-purple-600 bg-purple-50 text-purple-600' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                    >
+                      <Sun size={20} />
+                      <span className="font-black uppercase text-[10px] tracking-widest">Clair</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => document.documentElement.classList.add('dark')}
+                      className={`flex-1 flex items-center justify-center p-6 rounded-2xl border-2 transition-all space-x-3 ${document.documentElement.classList.contains('dark') ? 'border-purple-600 bg-purple-900/10 text-purple-600' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                    >
+                      <Moon size={20} />
+                      <span className="font-black uppercase text-[10px] tracking-widest">Sombre</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Couleur d'accentuation</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {themes.map((t) => (
+                      <button 
+                        key={t.id}
+                        type="button"
+                        onClick={() => setFormConfig({...formConfig, theme: t.id})}
+                        className={`group relative p-3 rounded-xl border-2 transition-all flex flex-col items-center space-y-2 ${formConfig.theme === t.id ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg shadow-inner ${t.color}`} />
+                        <span className="text-[9px] font-black uppercase tracking-tighter truncate w-full text-center">{t.label}</span>
+                        {formConfig.theme === t.id && <div className="absolute -top-1 -right-1 bg-purple-600 text-white rounded-full p-0.5 shadow-md"><Check size={10} /></div>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="pt-8 border-t flex justify-end">
               <button type="submit" className="bg-purple-600 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center hover:bg-purple-700 transition-all"><Save size={18} className="mr-3 rtl:ml-3" /> {t('save')}</button>
             </div>
@@ -162,23 +231,45 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
           <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
             <div className="flex items-center space-x-4 rtl:space-x-reverse">
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl"><FileText size={24} /></div>
-              <h2 className="text-xl font-black uppercase tracking-tight">Personnalisation des Factures</h2>
+              <h2 className="text-xl font-black uppercase tracking-tight">Personnalisation de la Facture</h2>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-              <div className="lg:col-span-2 space-y-8">
+              <div className="lg:col-span-2 space-y-10">
+                
+                {/* SECTION SEQUENCE DE NUMEROTATION */}
+                <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 space-y-6">
+                   <div className="flex items-center space-x-3 mb-2">
+                     <Fingerprint className="text-blue-500" size={20} />
+                     <h3 className="text-xs font-black uppercase tracking-widest">Séquence de Numérotation (Référence)</h3>
+                   </div>
+                   
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Préfixe de la référence</label>
+                        <div className="relative">
+                          <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                          <input value={formConfig.invoicePrefix} onChange={e => setFormConfig({...formConfig, invoicePrefix: e.target.value})} className="w-full pl-12 pr-6 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-blue-500 rounded-xl font-bold outline-none" placeholder="ex: FAC/2025/" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Numéro de départ</label>
+                        <input type="number" value={formConfig.nextInvoiceNumber} onChange={e => setFormConfig({...formConfig, nextInvoiceNumber: parseInt(e.target.value) || 1})} className="w-full px-6 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 focus:border-blue-500 rounded-xl font-bold outline-none" />
+                      </div>
+                   </div>
+
+                   <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Aperçu de la prochaine facture :</p>
+                        <p className="text-2xl font-mono font-black text-slate-900 dark:text-white tracking-tighter">{nextInvoicePreview}</p>
+                      </div>
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-xl">
+                        <Check size={20} />
+                      </div>
+                   </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Préfixe de numérotation</label>
-                    <div className="relative">
-                      <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input value={formConfig.invoicePrefix} onChange={e => setFormConfig({...formConfig, invoicePrefix: e.target.value})} className="w-full pl-12 pr-6 py-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-xl font-bold outline-none" placeholder="ex: FAC/" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Prochain numéro</label>
-                    <input type="number" value={formConfig.nextInvoiceNumber} onChange={e => setFormConfig({...formConfig, nextInvoiceNumber: parseInt(e.target.value) || 1})} className="w-full px-6 py-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-xl font-bold outline-none" />
-                  </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Devise affichée</label>
                     <div className="relative">
@@ -244,7 +335,7 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
                       <div className="text-center pt-4 border-t border-dashed mt-4 space-y-2">
                         <p className="italic leading-tight whitespace-pre-wrap">{formConfig.receiptFooter || "Merci de votre visite !"}</p>
                         <div className="flex justify-center py-2 opacity-50"><QrCode size={30} /></div>
-                        <p className="text-[7px] uppercase font-black">Numéro: {formConfig.invoicePrefix}{formConfig.nextInvoiceNumber}</p>
+                        <p className="text-[7px] uppercase font-black">Numéro: {nextInvoicePreview}</p>
                       </div>
                    </div>
                    <p className="text-[9px] font-black text-slate-400 uppercase mt-4 text-center">Simulation du ticket de caisse</p>

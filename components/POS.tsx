@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod } from '../types';
-import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck, History, RotateCcw, X, FileText, CreditCard, Smartphone, Wallet, LayoutGrid, PauseCircle } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck, History, RotateCcw, X, FileText, CreditCard, Smartphone, Wallet, LayoutGrid, PauseCircle, Users } from 'lucide-react';
 import { APP_USERS, POS_LOCATIONS, PAYMENT_METHODS_LIST } from '../constants';
 import * as XLSX from 'xlsx';
 
@@ -57,6 +56,12 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     })).filter(group => group.items.length > 0);
   }, [products, search, activeCategory, categoriesList]);
 
+  // Calcul du nombre de tables/emplacements occupés
+  // Fix: Property 'length' does not exist on type 'unknown'. Explicitly casting Object.values to CartItem[][]
+  const occupiedCount = useMemo(() => {
+    return (Object.values(pendingCarts) as CartItem[][]).filter(cart => cart.length > 0).length;
+  }, [pendingCarts]);
+
   const currentCart = activeLocation ? (pendingCarts[activeLocation] || []) : [];
   const currentPaymentMethod = activeLocation ? (locationPaymentMethods[activeLocation] || 'Especes') : 'Especes';
 
@@ -110,7 +115,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     const updatedCarts = { ...pendingCarts };
     delete updatedCarts[activeLocation];
     setPendingCarts(updatedCarts);
-    setActiveLocation(null); // Retour au plan de salle après encaissement
+    setActiveLocation(null);
   };
 
   const handleRefund = (sale: SaleOrder) => {
@@ -149,7 +154,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     XLSX.writeFile(workbook, `Rapport_Session_${Date.now()}.xlsx`);
   };
 
-  // --- RENDU VUE D'OUVERTURE DE SESSION ---
   if (!session) {
     return (
       <div className="h-full flex items-center justify-center animate-fadeIn">
@@ -191,7 +195,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     );
   }
 
-  // --- RENDU PLAN DE SALLE (SI AUCUNE TABLE SÉLECTIONNÉE) ---
   if (!activeLocation) {
     return (
       <div className="h-full flex flex-col space-y-8 animate-fadeIn">
@@ -255,7 +258,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     );
   }
 
-  // --- RENDU MENU / COMMANDE (SI UNE TABLE EST SÉLECTIONNÉE) ---
   return (
     <div className="flex flex-col h-full gap-4 overflow-hidden animate-fadeIn">
       <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between shrink-0">
@@ -270,8 +272,17 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
            <div className="h-8 w-px bg-slate-100 dark:bg-slate-800"></div>
            <div className="flex items-center space-x-3">
               <div className="p-2 bg-purple-600 text-white rounded-lg shadow-lg"><Utensils size={16} /></div>
-              <div>
-                <h2 className="text-sm font-black uppercase tracking-tight leading-none">{activeLocation}</h2>
+              <div className="flex flex-col">
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-sm font-black uppercase tracking-tight leading-none">{activeLocation}</h2>
+                  {/* Badge de tables occupées */}
+                  {occupiedCount > 0 && (
+                    <div className="flex items-center bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full text-[8px] font-black uppercase animate-fadeIn">
+                      <Users size={8} className="mr-1" />
+                      {occupiedCount} {occupiedCount > 1 ? 'Tables Occupées' : 'Table Occupée'}
+                    </div>
+                  )}
+                </div>
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Commande en cours</span>
               </div>
            </div>
@@ -388,7 +399,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
         </div>
       </div>
 
-      {/* MODALS (HISTORIQUE ET CLÔTURE) INCHANGÉS... */}
       {showHistoryModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[2.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh] animate-scaleIn">
@@ -419,7 +429,7 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
 
       {showClosingModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3.5rem] p-12 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scaleIn flex flex-col items-center">
+          <div className="bg-white dark:bg-slate-900 w-full max-md rounded-[3.5rem] p-12 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scaleIn flex flex-col items-center">
             <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-rose-900/10">
               <Monitor size={32} />
             </div>
