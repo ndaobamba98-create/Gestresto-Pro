@@ -5,8 +5,8 @@ import React from 'react';
 
 export const APP_USERS: User[] = [
   { id: 'U001', name: 'Bamba Ndao', role: 'admin', initials: 'BN', color: 'from-slate-700 to-slate-900' },
-  { id: 'U002', name: 'Moussa Traoré', role: 'cashier', initials: 'MT', color: 'from-emerald-600 to-emerald-800' },
-  { id: 'U003', name: 'Caissier 2', role: 'cashier', initials: 'C2', color: 'from-purple-600 to-purple-800' },
+  { id: 'U002', name: 'Amy Ndaw', role: 'cashier', initials: 'AN', color: 'from-emerald-600 to-emerald-800' },
+  { id: 'U003', name: 'Maman Ndaw', role: 'cashier', initials: 'MN', color: 'from-purple-600 to-purple-800' },
 ];
 
 export const PAYMENT_METHODS_LIST: { id: PaymentMethod, label: string, color: string }[] = [
