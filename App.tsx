@@ -96,12 +96,11 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
-    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications'] },
-    { role: 'cashier', allowedViews: ['pos', 'sales', 'attendances', 'logout'] },
-    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_inventory', 'manage_invoicing', 'manage_notifications'] }
+    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] },
+    { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout'] },
+    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] }
   ]));
 
-  // Fonction utilitaire de traduction
   const t = useCallback((key: TranslationKey): string => {
     return (translations[config.language || 'fr'] as any)[key] || key;
   }, [config.language]);
@@ -118,7 +117,6 @@ const App: React.FC = () => {
       return updated;
     });
     
-    // Fermeture automatique après exactement 2 secondes
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 2000);
@@ -159,7 +157,6 @@ const App: React.FC = () => {
     else document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
-  // Gérer le mode RTL pour l'Arabe
   useEffect(() => {
     const dir = config.language === 'ar' ? 'rtl' : 'ltr';
     document.documentElement.dir = dir;
@@ -199,10 +196,15 @@ const App: React.FC = () => {
     });
     setProducts(updatedProducts);
 
+    // FIXED: Use ISO Date format (YYYY-MM-DD) for reliable filtering
+    const now = new Date();
+    const isoDate = now.toISOString().split('T')[0];
+    const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
     const sale: SaleOrder = {
       id: `S-${Date.now()}`,
       customer: newSaleData.customer || 'Client',
-      date: new Date().toLocaleString(),
+      date: `${isoDate} ${time}`, // Storage as ISO friendly string
       total: newSaleData.total || 0,
       status: newSaleData.status || 'confirmed',
       items: saleItems,
@@ -212,7 +214,6 @@ const App: React.FC = () => {
     };
     
     setSales(prev => [sale, ...prev]);
-    // Notification unique de validation de commande (2 secondes)
     notifyUser(isRefund ? "Remboursement Effectué" : "Commande Validée", `${sale.total.toLocaleString()} ${config.currency} pour ${sale.customer}`, isRefund ? 'warning' : 'success');
   };
 
@@ -275,7 +276,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
     switch (activeView) {
-      case 'dashboard': return <Dashboard leads={[]} sales={sales} userRole={currentUser.role} config={config} products={products} t={t} />;
+      case 'dashboard': return <Dashboard leads={[]} sales={sales} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
       case 'pos': return <POS products={products} sales={sales} onSaleComplete={handleAddSale} config={config} session={currentSession} onOpenSession={handleOpenSession} onCloseSession={handleCloseSession} {...commonProps} />;
       case 'sales': return <Sales sales={sales} onUpdate={setSales} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} />;
@@ -299,7 +300,6 @@ const App: React.FC = () => {
       case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
       case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
-      // Fix: Pass notifyUser to Reports
       case 'reports': return <Reports sales={sales} config={config} products={products} t={t} notify={notifyUser} />;
       default: return null;
     }
@@ -307,7 +307,6 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${config.theme} ${darkMode ? 'dark text-slate-100' : 'text-slate-900'} ${config.language === 'ar' ? 'font-ar' : ''}`}>
-      {/* TOASTS EPHEMERES - HAUT DROITE - DUREE 2 SECONDES */}
       <div className={`fixed top-24 ${config.language === 'ar' ? 'left-6' : 'right-6'} z-[500] space-y-4 pointer-events-none`}>
         {toasts.map(toast => (
           <div key={toast.id} className={`w-80 rounded-2xl border backdrop-blur-xl shadow-2xl flex flex-col pointer-events-auto animate-slideInRight overflow-hidden ${
@@ -321,7 +320,6 @@ const App: React.FC = () => {
                 <p className="text-[11px] font-bold mt-1 leading-tight">{toast.message}</p>
               </div>
             </div>
-            {/* Barre de progression visuelle de 2 secondes */}
             <div className="h-1 w-full bg-slate-200/20">
                <div className={`h-full transition-all ease-linear duration-[2000ms] animate-progressDecrease ${
                  toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
@@ -331,7 +329,6 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {/* PANNEAU DE NOTIFICATIONS LATÉRAL */}
       {isNotificationOpen && (
         <div className="fixed inset-0 z-[300] flex justify-end animate-fadeIn">
           <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setIsNotificationOpen(false)}></div>
@@ -345,12 +342,10 @@ const App: React.FC = () => {
                </div>
                <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all"><X size={28} /></button>
             </div>
-
             <div className="p-4 border-b flex items-center justify-between space-x-2 bg-white dark:bg-slate-900">
                <button onClick={markAllAsRead} disabled={unreadCount === 0} className="flex-1 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-600 hover:text-white transition-all disabled:opacity-50">Tout marquer lu</button>
                <button onClick={clearNotifications} className="p-2.5 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 transition-all"><Trash2 size={18} /></button>
             </div>
-
             <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
                {notificationHistory.length > 0 ? notificationHistory.map(notif => (
                  <div key={notif.id} className={`p-5 rounded-2xl border transition-all relative group ${notif.isRead ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-purple-100 dark:border-purple-900 shadow-sm'}`}>
@@ -362,7 +357,6 @@ const App: React.FC = () => {
                     </div>
                     <h4 className={`text-xs font-black uppercase tracking-tight mb-1 ${notif.isRead ? 'text-slate-500' : 'text-slate-800 dark:text-white'}`}>{notif.title}</h4>
                     <p className={`text-[11px] font-bold leading-relaxed ${notif.isRead ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>{notif.message}</p>
-                    
                     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                        <button onClick={() => toggleNotificationRead(notif.id)} className="text-[9px] font-black uppercase tracking-widest text-purple-600 flex items-center hover:underline">
                           {notif.isRead ? <><Bell size={12} className="mr-1.5" /> Marquer non-lu</> : <><CheckCircle size={12} className="mr-1.5" /> Marquer comme lu</>}
@@ -429,7 +423,6 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-4 rtl:space-x-reverse">
-            {/* SÉLECTEUR DE LANGUE */}
             <div className="relative">
               <button onClick={() => setIsLanguageOpen(!isLanguageOpen)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl transition-all hover:bg-slate-200 flex items-center space-x-2 rtl:space-x-reverse">
                 <Languages size={20} />

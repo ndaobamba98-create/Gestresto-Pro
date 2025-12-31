@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SaleOrder, ERPConfig, Product, ViewType, Attachment, PaymentMethod } from '../types';
 import { 
-  FileText, Search, Plus, Download, Eye, Printer, X, RotateCcw, Calendar, MapPin, Phone, Trash, QrCode, User, CreditCard, Paperclip, File, Save, CheckCircle2, ShoppingCart, Smartphone, Banknote, Wallet, FileSpreadsheet, Mail
+  FileText, Search, Plus, Download, Eye, Printer, X, RotateCcw, Calendar, MapPin, Phone, Trash, QrCode, User, CreditCard, Paperclip, File, Save, CheckCircle2, ShoppingCart, Smartphone, Banknote, Wallet, FileSpreadsheet, Mail, CheckSquare, Square, FileDown, MoreHorizontal
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PAYMENT_METHODS_LIST } from '../constants';
@@ -30,19 +30,70 @@ interface Props {
   t: (key: any) => string;
 }
 
-const Invoicing: React.FC<Props> = ({ sales, config, onUpdate, products, userRole, onAddSale, notify, userPermissions }) => {
+const Invoicing: React.FC<Props> = ({ sales, config, onUpdate, products, userRole, onAddSale, notify, userPermissions, t }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<SaleOrder | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [creationType, setCreationType] = useState<'invoice' | 'refund'>('invoice');
 
-  const invoices = sales.map(s => ({ ...s, invoiceStatus: s.invoiceStatus || 'posted' }));
-  const filteredInvoices = invoices.filter(inv => {
-    const matchesSearch = inv.customer.toLowerCase().includes(searchTerm.toLowerCase()) || inv.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || inv.invoiceStatus === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const invoices = useMemo(() => sales.map(s => ({ ...s, invoiceStatus: s.invoiceStatus || 'posted' })), [sales]);
+  
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => 
+      inv.customer.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      inv.id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [invoices, searchTerm]);
+
+  const toggleSelectAll = () => {
+    if (selectedInvoices.length === filteredInvoices.length) {
+      setSelectedInvoices([]);
+    } else {
+      setSelectedInvoices(filteredInvoices.map(i => i.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedInvoices(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleExportGlobalExcel = () => {
+    const data = filteredInvoices.map(inv => ({
+      'Référence': inv.id,
+      'Date': inv.date,
+      'Client': inv.customer,
+      'Montant HT': (inv.total / (1 + config.taxRate/100)).toFixed(2),
+      'TVA': (inv.total - (inv.total / (1 + config.taxRate/100))).toFixed(2),
+      'Total TTC': inv.total,
+      'Devise': config.currency,
+      'Mode de Paiement': inv.paymentMethod || 'Espèces',
+      'Statut': inv.invoiceStatus === 'refunded' ? 'AVOIR' : 'FACTURE'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Journal Facturation");
+    XLSX.writeFile(workbook, `Journal_Factures_${config.companyName.replace(/\s+/g, '_')}_${Date.now()}.xlsx`);
+    notify("Succès", "Journal global exporté avec succès.", "success");
+  };
+
+  const handleExportBatchExcel = () => {
+    const selectedData = invoices.filter(inv => selectedInvoices.includes(inv.id)).map(inv => ({
+      'Référence': inv.id,
+      'Date': inv.date,
+      'Client': inv.customer,
+      'Montant TTC': inv.total,
+      'Paiement': inv.paymentMethod
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(selectedData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Selection");
+    XLSX.writeFile(workbook, `Export_Selection_${selectedInvoices.length}_Factures.xlsx`);
+    notify("Export", `${selectedInvoices.length} factures exportées.`, "info");
+    setSelectedInvoices([]);
+  };
 
   return (
     <div className="h-full flex flex-col space-y-8 animate-fadeIn pb-10 pr-2">
@@ -50,66 +101,107 @@ const Invoicing: React.FC<Props> = ({ sales, config, onUpdate, products, userRol
         <InvoiceModal sale={selectedInvoice} config={config} onClose={() => setSelectedInvoice(null)} notify={notify} />
       )}
 
-      {/* Interface de création simplifiée pour la lisibilité */}
-      {isCreating && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-950 w-full max-w-4xl rounded-[3rem] p-10">
-             <div className="flex justify-between mb-8">
-               <h3 className="text-2xl font-black uppercase">Nouveau Document</h3>
-               <button onClick={() => setIsCreating(false)}><X size={32}/></button>
-             </div>
-             <p className="text-slate-500 font-bold">L'interface de création manuelle est disponible dans le menu Sales ou via le POS.</p>
-             <button onClick={() => setIsCreating(false)} className="mt-6 px-8 py-3 bg-purple-600 text-white rounded-xl font-black uppercase text-xs">Fermer</button>
-          </div>
+      {/* BARRE D'ACTIONS FLOTTANTE (ODOO STYLE) */}
+      {selectedInvoices.length > 0 && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-[2rem] shadow-2xl z-[150] flex items-center space-x-8 animate-slideUp">
+           <div className="flex items-center space-x-3 border-r border-slate-700 pr-8">
+              <span className="bg-purple-600 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs">{selectedInvoices.length}</span>
+              <span className="text-xs font-black uppercase tracking-widest">Documents sélectionnés</span>
+           </div>
+           <div className="flex items-center space-x-4">
+              <button onClick={handleExportBatchExcel} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
+                <FileSpreadsheet size={18} className="mr-2 text-emerald-500" /> Export Excel
+              </button>
+              <button onClick={() => window.print()} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
+                <Printer size={18} className="mr-2 text-blue-400" /> Impression
+              </button>
+              <div className="h-4 w-px bg-slate-700"></div>
+              <button onClick={() => setSelectedInvoices([])} className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-rose-500">Annuler</button>
+           </div>
         </div>
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Facturation</h1>
-          <p className="text-sm text-slate-500 font-medium">Flux financier et archivage légal</p>
+          <p className="text-sm text-slate-500 font-medium">Sortir et archiver vos documents comptables</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button onClick={() => notify("Export", "Génération du journal en cours...")} className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm flex items-center"><Download size={18} className="mr-2" /> Export Global</button>
+          <button 
+            onClick={handleExportGlobalExcel}
+            className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm flex items-center"
+          >
+            <Download size={18} className="mr-2 text-purple-600" /> Export Global Excel
+          </button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1">
+      <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 relative">
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-           <div className="relative w-96">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Chercher un document..." className="w-full pl-12 pr-6 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl text-[11px] font-bold outline-none" />
+           <div className="flex items-center space-x-4">
+              <button 
+                onClick={toggleSelectAll}
+                className="p-2 text-slate-400 hover:text-purple-600 transition-colors"
+              >
+                {selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0 ? <CheckSquare size={20} className="text-purple-600" /> : <Square size={20} />}
+              </button>
+              <div className="relative w-96">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Chercher une facture (N°, Client...)" className="w-full pl-12 pr-6 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl text-[11px] font-bold outline-none focus:border-purple-500" />
+              </div>
+           </div>
+           <div className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <FileText size={14} />
+              <span>{filteredInvoices.length} Documents au total</span>
            </div>
         </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b">
+              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b bg-slate-50/20">
+                <th className="px-6 py-6 w-10"></th>
                 <th className="px-10 py-6">Référence</th>
+                <th className="px-10 py-6">Date d'émission</th>
                 <th className="px-10 py-6">Client / Entité</th>
-                <th className="px-10 py-6 text-right">Montant</th>
-                <th className="px-10 py-6 text-center">Statut</th>
-                <th className="px-10 py-6 text-right">Actions</th>
+                <th className="px-10 py-6 text-right">Montant TTC</th>
+                <th className="px-10 py-6 text-center">État</th>
+                <th className="px-10 py-6 text-right">Ouvrir</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {filteredInvoices.map((inv) => (
-                <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group">
-                  <td className="px-10 py-6 font-black text-purple-600 font-mono">#{inv.id.slice(-8)}</td>
-                  <td className="px-10 py-6 font-black uppercase text-xs">{inv.customer}</td>
-                  <td className="px-10 py-6 text-right font-black">{inv.total.toLocaleString()} {config.currency}</td>
+                <tr key={inv.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group ${selectedInvoices.includes(inv.id) ? 'bg-purple-50/50 dark:bg-purple-900/10' : ''}`}>
+                  <td className="px-6 py-6">
+                    <button onClick={() => toggleSelect(inv.id)} className={`transition-colors ${selectedInvoices.includes(inv.id) ? 'text-purple-600' : 'text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}>
+                       {selectedInvoices.includes(inv.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                    </button>
+                  </td>
+                  <td className="px-10 py-6 font-black text-purple-600 font-mono text-xs">#{inv.id.slice(-8)}</td>
+                  <td className="px-10 py-6 text-xs font-bold text-slate-500">{inv.date.split(',')[0]}</td>
+                  <td className="px-10 py-6 font-black uppercase text-xs truncate max-w-[200px]">{inv.customer}</td>
+                  <td className="px-10 py-6 text-right font-black text-sm">{inv.total.toLocaleString()} {config.currency}</td>
                   <td className="px-10 py-6 text-center">
-                    <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                    <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest inline-flex items-center ${
                       inv.invoiceStatus === 'refunded' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
                     }`}>
+                      {inv.invoiceStatus === 'refunded' ? <RotateCcw size={10} className="mr-1.5" /> : <CheckCircle2 size={10} className="mr-1.5" />}
                       {inv.invoiceStatus === 'refunded' ? 'Avoir' : 'Facturé'}
                     </span>
                   </td>
                   <td className="px-10 py-6 text-right">
-                    <button onClick={() => setSelectedInvoice(inv)} className="p-3 bg-white dark:bg-slate-800 border rounded-2xl text-slate-500 hover:text-purple-600 transition-all shadow-sm"><Eye size={20} /></button>
+                    <button onClick={() => setSelectedInvoice(inv)} className="p-3 bg-white dark:bg-slate-800 border rounded-2xl text-slate-400 hover:text-purple-600 hover:border-purple-500 transition-all shadow-sm"><Eye size={20} /></button>
                   </td>
                 </tr>
               ))}
+              {filteredInvoices.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-20 text-center opacity-30">
+                    <FileText size={48} className="mx-auto mb-4" />
+                    <p className="font-black uppercase text-sm tracking-widest">Aucune facture trouvée</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -124,10 +216,10 @@ const InvoiceModal = ({ sale, config, onClose, notify }: { sale: SaleOrder, conf
   const handleExportSingleExcel = () => {
     const header = [
       [config.companyName.toUpperCase()],
-      [config.companySlogan],
-      [`Siège: ${config.address}`],
-      [`Contact: ${config.phone} | ${config.email}`],
-      [`Matricule Fiscal: ${config.registrationNumber}`],
+      [config.showSloganOnInvoice ? config.companySlogan : ""],
+      [`Siège: ${config.showAddressOnInvoice ? config.address : ""}`],
+      [`Contact: ${config.showPhoneOnInvoice ? config.phone : ""} | ${config.showEmailOnInvoice ? config.email : ""}`],
+      [`Matricule Fiscal: ${config.showRegNumberOnInvoice ? config.registrationNumber : ""}`],
       [""],
       [isRefund ? "AVOIR FINANCIER" : "FACTURE COMMERCIALE"],
       ["Référence", sale.id],
@@ -163,7 +255,7 @@ const InvoiceModal = ({ sale, config, onClose, notify }: { sale: SaleOrder, conf
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 sm:p-10 animate-fadeIn">
+    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[200] flex items-center justify-center p-4 sm:p-10 animate-fadeIn">
       <div className="bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden animate-scaleIn flex flex-col max-h-full border border-white/20">
         <div className="px-8 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur-md no-print sticky top-0 z-10">
           <div className="flex items-center space-x-3">
@@ -186,15 +278,15 @@ const InvoiceModal = ({ sale, config, onClose, notify }: { sale: SaleOrder, conf
             {/* EN-TÊTE PROFESSIONNEL AVEC COORDONNÉES COMPLETES */}
             <div className="flex justify-between items-start mb-12 pb-12 border-b border-slate-100">
               <div className="space-y-6">
-                <AppLogoDoc className="w-24 h-24" />
+                {config.showLogoOnInvoice && <AppLogoDoc className="w-24 h-24" />}
                 <div className="space-y-1">
                   <h1 className="text-3xl font-black uppercase tracking-tighter leading-none">{config.companyName}</h1>
-                  <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.3em] mb-4">{config.companySlogan}</p>
+                  {config.showSloganOnInvoice && <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.3em] mb-4">{config.companySlogan}</p>}
                   <div className="space-y-1 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                    <p className="flex items-center"><MapPin size={12} className="mr-2 text-slate-300" /> {config.address}</p>
-                    <p className="flex items-center"><Phone size={12} className="mr-2 text-slate-300" /> {config.phone}</p>
-                    <p className="flex items-center"><Mail size={12} className="mr-2 text-slate-300" /> {config.email}</p>
-                    <p className="flex items-center mt-3 pt-3 border-t border-slate-50 font-black text-slate-900 text-xs">RC/NIF: {config.registrationNumber}</p>
+                    {config.showAddressOnInvoice && <p className="flex items-center"><MapPin size={12} className="mr-2 text-slate-300" /> {config.address}</p>}
+                    {config.showPhoneOnInvoice && <p className="flex items-center"><Phone size={12} className="mr-2 text-slate-300" /> {config.phone}</p>}
+                    {config.showEmailOnInvoice && <p className="flex items-center"><Mail size={12} className="mr-2 text-slate-300" /> {config.email}</p>}
+                    {config.showRegNumberOnInvoice && <p className="flex items-center mt-3 pt-3 border-t border-slate-50 font-black text-slate-900 text-xs">RC/NIF: {config.registrationNumber}</p>}
                   </div>
                 </div>
               </div>
@@ -280,9 +372,11 @@ const InvoiceModal = ({ sale, config, onClose, notify }: { sale: SaleOrder, conf
 
             <div className="pt-16 border-t border-dashed border-slate-200 flex flex-col md:flex-row justify-between items-center gap-10 text-center md:text-left">
                <div className="flex items-center space-x-6">
-                  <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100 shadow-inner">
-                    <QrCode size={80} className="text-slate-900" />
-                  </div>
+                  {config.showQrCodeOnInvoice && (
+                    <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100 shadow-inner">
+                      <QrCode size={80} className="text-slate-900" />
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <p className="text-[11px] font-black uppercase tracking-widest text-slate-900">Archivage Numérique</p>
                     <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed max-w-[220px]">Ce document est certifié par SamaCaisse Pro. Intégrité des données garantie via Blockchain Hash.</p>

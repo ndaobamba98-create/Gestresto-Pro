@@ -52,6 +52,13 @@ export const INITIAL_CONFIG: ERPConfig = {
     'Formules'
   ],
   language: 'fr',
+  showLogoOnInvoice: true,
+  showSloganOnInvoice: true,
+  showAddressOnInvoice: true,
+  showPhoneOnInvoice: true,
+  showEmailOnInvoice: false,
+  showRegNumberOnInvoice: true,
+  showQrCodeOnInvoice: true,
 };
 
 export const INITIAL_SUPPLIERS: Supplier[] = [
@@ -179,5 +186,8 @@ const RAW_PRODUCTS: Product[] = [
 export const INITIAL_PRODUCTS: Product[] = [...RAW_PRODUCTS];
 
 export const INITIAL_EMPLOYEES: Employee[] = [
-  { id: 'E001', name: 'Bamba Ndao', role: 'Gérant', department: 'Administration', salary: 25000, status: 'active', joinDate: '2023-01-15', isClockedIn: false },
+  { id: 'E001', name: 'Bamba Ndao', role: 'Gérant', department: 'Administration', salary: 2000, status: 'active', joinDate: '2023-01-15', isClockedIn: false },
+  { id: 'E002', name: 'Amy Ndaw', role: 'Caissière', department: 'Salle', salary: 4000, status: 'active', joinDate: '2024-01-01', isClockedIn: false },
+  { id: 'E003', name: 'Maman Ndaw', role: 'Caissière', department: 'Salle', salary: 4000, status: 'active', joinDate: '2024-01-01', isClockedIn: false },
+  { id: 'E004', name: 'Yatera', role: 'Cuisinier', department: 'Cuisine', salary: 6000, status: 'active', joinDate: '2025-01-01', isClockedIn: false },
 ];

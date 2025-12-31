@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod } from '../types';
 import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck, History, RotateCcw, X, FileText, CreditCard, Smartphone, Wallet, LayoutGrid, PauseCircle, Users } from 'lucide-react';
@@ -56,8 +57,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     })).filter(group => group.items.length > 0);
   }, [products, search, activeCategory, categoriesList]);
 
-  // Calcul du nombre de tables/emplacements occupés
-  // Fix: Property 'length' does not exist on type 'unknown'. Explicitly casting Object.values to CartItem[][]
   const occupiedCount = useMemo(() => {
     return (Object.values(pendingCarts) as CartItem[][]).filter(cart => cart.length > 0).length;
   }, [pendingCarts]);
@@ -125,11 +124,11 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     }
     const confirmRefund = window.confirm(`Voulez-vous vraiment rembourser la commande #${sale.id.slice(-6)} ?`);
     if (confirmRefund) {
+      // Note: App.tsx's handleAddSale will automatically overwrite the date with the correct format
       onSaleComplete({
         ...sale,
         id: `REF-${Date.now()}`,
         status: 'refunded',
-        date: new Date().toLocaleString(),
         total: sale.total,
         items: sale.items,
         customer: `REMB: ${sale.customer}`
@@ -275,7 +274,6 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
               <div className="flex flex-col">
                 <div className="flex items-center space-x-2">
                   <h2 className="text-sm font-black uppercase tracking-tight leading-none">{activeLocation}</h2>
-                  {/* Badge de tables occupées */}
                   {occupiedCount > 0 && (
                     <div className="flex items-center bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full text-[8px] font-black uppercase animate-fadeIn">
                       <Users size={8} className="mr-1" />

@@ -153,6 +153,14 @@ export interface ERPConfig {
   theme: AppTheme;
   categories: string[];
   language: Language;
+  // Options d'affichage facture
+  showLogoOnInvoice: boolean;
+  showSloganOnInvoice: boolean;
+  showAddressOnInvoice: boolean;
+  showPhoneOnInvoice: boolean;
+  showEmailOnInvoice: boolean;
+  showRegNumberOnInvoice: boolean;
+  showQrCodeOnInvoice: boolean;
 }
 
 export type UserRole = 'admin' | 'cashier' | 'manager';
@@ -166,4 +174,4 @@ export type ViewType =
   | 'dashboard' | 'pos' | 'sales' | 'inventory' | 'expenses' | 'hr' | 'manage_hr' 
   | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' 
   | 'manage_categories' | 'manage_security' | 'manage_inventory' | 'manage_invoicing'
-  | 'manage_notifications';
+  | 'manage_notifications' | 'manage_sales';

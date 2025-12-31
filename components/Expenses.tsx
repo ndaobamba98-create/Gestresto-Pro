@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Expense, Supplier, ERPConfig, Purchase, Product, Attachment } from '../types';
+import { Expense, Supplier, ERPConfig, Purchase, Product, Attachment, ViewType } from '../types';
 import { 
   Plus, Search, Download, Trash2, Edit3, X, Filter, Wallet, Building, Tag, Calendar, Banknote, 
-  ArrowUpRight, PieChart as PieIcon, CheckCircle2, Clock, AlertTriangle, Layers, Save, ShoppingBag, Eye, Paperclip, File, Printer, QrCode
+  ArrowUpRight, PieChart as PieIcon, CheckCircle2, Clock, AlertTriangle, Layers, Save, ShoppingBag, Eye, Paperclip, File, Printer, QrCode, CheckSquare, Square, FileSpreadsheet, FileDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AppLogoDoc } from './Invoicing';
@@ -20,12 +20,15 @@ interface Props {
   config: ERPConfig;
   userRole: string;
   notify: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
+  t: (key: any) => string;
 }
 
-const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurchase, onDeletePurchase, suppliers, setSuppliers, products, config, userRole, notify }) => {
+const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurchase, onDeletePurchase, suppliers, setSuppliers, products, config, userRole, notify, t }) => {
   const [activeView, setActiveView] = useState<'expenses' | 'purchases' | 'suppliers'>('purchases');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('Tous');
+  
+  const [selectedPurchases, setSelectedPurchases] = useState<string[]>([]);
   
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
@@ -38,9 +41,34 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
 
   const expenseCategories: Expense['category'][] = ['Loyer', 'Électricité/Eau', 'Salaires', 'Marketing', 'Maintenance', 'Divers', 'Achats Marchandises'];
 
-  const filteredExpenses = expenses.filter(exp => exp.description.toLowerCase().includes(searchTerm.toLowerCase()) && (categoryFilter === 'Tous' || exp.category === categoryFilter));
-  const filteredPurchases = purchases.filter(p => p.productName.toLowerCase().includes(searchTerm.toLowerCase()) || p.supplierName.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredSuppliers = suppliers.filter(sup => sup.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredExpenses = useMemo(() => expenses.filter(exp => 
+    exp.description.toLowerCase().includes(searchTerm.toLowerCase()) && 
+    (categoryFilter === 'Tous' || exp.category === categoryFilter)
+  ), [expenses, searchTerm, categoryFilter]);
+
+  const filteredPurchases = useMemo(() => purchases.filter(p => 
+    p.productName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    p.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.id.toLowerCase().includes(searchTerm.toLowerCase())
+  ), [purchases, searchTerm]);
+
+  const filteredSuppliers = useMemo(() => suppliers.filter(sup => 
+    sup.name.toLowerCase().includes(searchTerm.toLowerCase())
+  ), [suppliers, searchTerm]);
+
+  const toggleSelectPurchase = (id: string) => {
+    setSelectedPurchases(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllPurchases = () => {
+    if (selectedPurchases.length === filteredPurchases.length && filteredPurchases.length > 0) {
+      setSelectedPurchases([]);
+    } else {
+      setSelectedPurchases(filteredPurchases.map(p => p.id));
+    }
+  };
 
   const handleFileUpload = (type: 'purchase' | 'expense', e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -67,24 +95,31 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
     }
   };
 
-  const handleExportExcel = () => {
-    let dataToExport = [];
-    let fileName = "";
+  const exportPurchasesToExcel = (data: Purchase[]) => {
+    const exportData = data.map(p => ({
+      'ID Achat': p.id,
+      'Date': p.date,
+      'Produit': p.productName,
+      'Fournisseur': p.supplierName,
+      'Quantité': p.quantity,
+      'Prix Unitaire': p.costPrice,
+      'Total TTC': p.totalAmount,
+      'Devise': config.currency,
+      'Statut': p.status === 'received' ? 'REÇU' : 'EN ATTENTE'
+    }));
 
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Journal des Achats");
+    XLSX.writeFile(workbook, `Achats_Stock_${config.companyName.replace(/\s+/g, '_')}_${Date.now()}.xlsx`);
+    notify("Export réussi", `${data.length} achats exportés en Excel.`, "success");
+  };
+
+  const handleExportExcel = () => {
     if (activeView === 'purchases') {
-      dataToExport = filteredPurchases.map(p => ({
-        'ID Achat': p.id,
-        'Date': p.date,
-        'Produit': p.productName,
-        'Fournisseur': p.supplierName,
-        'Quantité': p.quantity,
-        'Prix Unitaire': p.costPrice,
-        'Total': p.totalAmount,
-        'Devise': config.currency
-      }));
-      fileName = `Achats_Stock_${new Date().toISOString().split('T')[0]}.xlsx`;
+      exportPurchasesToExcel(filteredPurchases);
     } else if (activeView === 'expenses') {
-      dataToExport = filteredExpenses.map(e => ({
+      const data = filteredExpenses.map(e => ({
         'ID Charge': e.id,
         'Date': e.date,
         'Description': e.description,
@@ -93,22 +128,30 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
         'Méthode': e.paymentMethod,
         'Statut': e.status
       }));
-      fileName = `Charges_Frais_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Charges");
+      XLSX.writeFile(workbook, `Charges_${Date.now()}.xlsx`);
+      notify("Export", "Frais exportés.", "success");
     } else {
-      dataToExport = filteredSuppliers.map(s => ({
+      const data = filteredSuppliers.map(s => ({
         'Nom': s.name,
         'Contact': s.contact,
         'Téléphone': s.phone,
         'Catégorie': s.category
       }));
-      fileName = `Annuaire_Fournisseurs_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Fournisseurs");
+      XLSX.writeFile(workbook, `Fournisseurs_${Date.now()}.xlsx`);
+      notify("Export", "Annuaire fournisseurs exporté.", "success");
     }
+  };
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
-    XLSX.writeFile(workbook, fileName);
-    notify("Export réussi", "Le fichier a été téléchargé.", "success");
+  const handleExportSelectedPurchases = () => {
+    const selected = purchases.filter(p => selectedPurchases.includes(p.id));
+    exportPurchasesToExcel(selected);
+    setSelectedPurchases([]);
   };
 
   const handleSavePurchase = (e: React.FormEvent) => {
@@ -132,6 +175,7 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
     onAddPurchase(newPurchase);
     setIsPurchaseModalOpen(false);
     setEditingPurchase(null);
+    notify("Achat Enregistré", `${newPurchase.productName} ajouté au stock.`, "success");
   };
 
   const handleSaveExpense = (e: React.FormEvent) => {
@@ -146,6 +190,23 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
   return (
     <div className="h-full space-y-8 animate-fadeIn pb-10">
       {viewingPurchase && <PurchaseReceiptModal purchase={viewingPurchase} config={config} onClose={() => setViewingPurchase(null)} />}
+
+      {/* BARRE D'ACTIONS FLOTTANTE POUR ACHATS SELECTIONNÉS */}
+      {activeView === 'purchases' && selectedPurchases.length > 0 && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-[2rem] shadow-2xl z-[150] flex items-center space-x-8 animate-slideUp">
+           <div className="flex items-center space-x-3 border-r border-slate-700 pr-8">
+              <span className="bg-purple-600 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs">{selectedPurchases.length}</span>
+              <span className="text-xs font-black uppercase tracking-widest">Achats sélectionnés</span>
+           </div>
+           <div className="flex items-center space-x-4">
+              <button onClick={handleExportSelectedPurchases} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-emerald-400 transition-colors">
+                <FileSpreadsheet size={18} className="mr-2 text-emerald-500" /> Export Excel
+              </button>
+              <div className="h-4 w-px bg-slate-700"></div>
+              <button onClick={() => setSelectedPurchases([])} className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-rose-500">Annuler</button>
+           </div>
+        </div>
+      )}
 
       {isPurchaseModalOpen && editingPurchase && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
@@ -163,7 +224,13 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
                 <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400">Qté</label><input type="number" required value={editingPurchase.quantity || ''} onChange={e => setEditingPurchase({...editingPurchase, quantity: parseInt(e.target.value) || 0})} className="w-full px-5 py-4 border-2 rounded-2xl dark:bg-slate-800 font-black text-xl" /></div>
                 <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400">P.U Achat</label><input type="number" required value={editingPurchase.costPrice || ''} onChange={e => setEditingPurchase({...editingPurchase, costPrice: parseFloat(e.target.value) || 0})} className="w-full px-5 py-4 border-2 rounded-2xl dark:bg-slate-800 font-black text-xl" /></div>
               </div>
-              
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400">Fournisseur</label>
+                <select required value={editingPurchase.supplierId || ''} onChange={e => setEditingPurchase({...editingPurchase, supplierId: e.target.value})} className="w-full px-5 py-4 border-2 rounded-2xl dark:bg-slate-800 font-bold outline-none focus:border-purple-500">
+                  <option value="">Choisir un fournisseur...</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
               <div className="space-y-3">
                  <label className="text-[10px] font-black uppercase text-slate-400 flex items-center"><Paperclip size={14} className="mr-2" /> Justificatif d'achat</label>
                  <div className="grid grid-cols-3 gap-3">
@@ -194,62 +261,99 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
             <div className="p-8 space-y-6">
                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400">Raison Sociale</label><input value={editingSupplier.name} onChange={e => setEditingSupplier({...editingSupplier, name: e.target.value})} className="w-full px-5 py-4 border-2 rounded-2xl dark:bg-slate-800" /></div>
                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-slate-400">Téléphone</label><input value={editingSupplier.phone} onChange={e => setEditingSupplier({...editingSupplier, phone: e.target.value})} className="w-full px-5 py-4 border-2 rounded-2xl dark:bg-slate-800" /></div>
-               <button onClick={() => { setSuppliers([...suppliers, editingSupplier as Supplier]); setIsSupplierModalOpen(false); }} className="w-full py-5 bg-purple-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest">Enregistrer Fournisseur</button>
+               <button onClick={() => { if(editingSupplier.name) { setSuppliers([...suppliers, editingSupplier as Supplier]); setIsSupplierModalOpen(false); notify("Fournisseur", "Ajouté avec succès.", "success"); } }} className="w-full py-5 bg-purple-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest">Enregistrer Fournisseur</button>
             </div>
           </div>
         </div>
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div><h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Gestion des Sorties</h1></div>
+        <div><h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Gestion des Sorties</h1><p className="text-sm text-slate-500 font-medium">Achats de marchandises et frais d'exploitation</p></div>
         <div className="flex items-center space-x-3">
           <div className="bg-white dark:bg-slate-900 p-1.5 rounded-2xl flex border shadow-sm">
-            <button onClick={() => setActiveView('purchases')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'purchases' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>Achats Stock</button>
-            <button onClick={() => setActiveView('expenses')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'expenses' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>Frais & Charges</button>
-            <button onClick={() => setActiveView('suppliers')} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'suppliers' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400'}`}>Fournisseurs</button>
+            <button onClick={() => { setActiveView('purchases'); setSearchTerm(''); }} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'purchases' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Achats Stock</button>
+            <button onClick={() => { setActiveView('expenses'); setSearchTerm(''); }} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'expenses' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Frais & Charges</button>
+            <button onClick={() => { setActiveView('suppliers'); setSearchTerm(''); }} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeView === 'suppliers' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>Fournisseurs</button>
           </div>
-          <button onClick={handleExportExcel} className="p-3 bg-white dark:bg-slate-900 border rounded-xl shadow-sm hover:bg-slate-50 transition-all text-slate-600 dark:text-slate-300"><Download size={20}/></button>
+          <button onClick={handleExportExcel} className="p-3 bg-white dark:bg-slate-900 border rounded-xl shadow-sm hover:bg-slate-50 transition-all text-slate-600 dark:text-slate-300" title="Exporter en Excel"><Download size={20}/></button>
           {activeView === 'purchases' && <button onClick={() => { setEditingPurchase({ date: new Date().toISOString().split('T')[0], attachments: [] }); setIsPurchaseModalOpen(true); }} className="bg-purple-600 text-white px-8 py-3.5 rounded-2xl text-xs font-black uppercase shadow-xl hover:bg-purple-700 transition-all flex items-center"><Plus size={18} className="mr-2" /> Nouvel Achat</button>}
           {activeView === 'suppliers' && <button onClick={() => { setEditingSupplier({ name: '', phone: '', contact: '', category: 'Alimentation' }); setIsSupplierModalOpen(true); }} className="bg-slate-900 text-white px-8 py-3.5 rounded-2xl text-xs font-black uppercase shadow-xl hover:bg-black transition-all flex items-center"><Plus size={18} className="mr-2" /> Nouveau Fournisseur</button>}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border shadow-sm overflow-hidden flex-1">
-        <div className="p-6 border-b flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-           <div className="relative w-96"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Chercher..." className="w-full pl-12 pr-6 py-3 bg-white dark:bg-slate-800 border rounded-2xl text-xs font-bold outline-none" /></div>
-           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{activeView === 'purchases' ? filteredPurchases.length : activeView === 'expenses' ? filteredExpenses.length : filteredSuppliers.length} résultats</span>
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 relative">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+           <div className="flex items-center space-x-4">
+              {activeView === 'purchases' && (
+                <button 
+                  onClick={toggleSelectAllPurchases}
+                  className="p-2 text-slate-400 hover:text-purple-600 transition-colors"
+                >
+                  {selectedPurchases.length === filteredPurchases.length && filteredPurchases.length > 0 ? <CheckSquare size={20} className="text-purple-600" /> : <Square size={20} />}
+                </button>
+              )}
+              <div className="relative w-96">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={`Chercher ${activeView === 'purchases' ? 'un achat' : activeView === 'expenses' ? 'une charge' : 'un fournisseur'}...`} className="w-full pl-12 pr-6 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl text-[11px] font-bold outline-none focus:border-purple-500" />
+              </div>
+           </div>
+           <div className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <span>{activeView === 'purchases' ? filteredPurchases.length : activeView === 'expenses' ? filteredExpenses.length : filteredSuppliers.length} résultats</span>
+           </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead><tr className="text-[10px] font-black text-slate-400 uppercase border-b"><th className="px-10 py-6">Référence / Nom</th><th className="px-10 py-6">Date / Contact</th><th className="px-10 py-6 text-right">Montant / Info</th><th className="px-10 py-6 text-center">Docs</th><th className="px-10 py-6 text-right">Actions</th></tr></thead>
+            <thead>
+              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b bg-slate-50/20">
+                {activeView === 'purchases' && <th className="px-6 py-6 w-10"></th>}
+                <th className="px-10 py-6">Désignation / Nom</th>
+                <th className="px-10 py-6">Date / Contact</th>
+                <th className="px-10 py-6 text-right">Montant / Info</th>
+                <th className="px-10 py-6 text-center">Pièces</th>
+                <th className="px-10 py-6 text-right">Actions</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {activeView === 'purchases' && filteredPurchases.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group">
-                  <td className="px-10 py-6 font-mono font-black text-purple-600">#{p.id.slice(-6)} <br/><span className="text-[10px] text-slate-400">{p.productName}</span></td>
-                  <td className="px-10 py-6 font-bold uppercase text-xs">{p.date} <br/><span className="text-[10px] text-slate-400">{p.supplierName}</span></td>
-                  <td className="px-10 py-6 text-right font-black">{p.totalAmount.toLocaleString()} {config.currency}</td>
-                  <td className="px-10 py-6 text-center">{p.attachments && p.attachments.length > 0 && <Paperclip size={14} className="mx-auto text-purple-600" />}</td>
-                  <td className="px-10 py-6 text-right"><div className="flex items-center justify-end space-x-2"><button onClick={() => setViewingPurchase(p)} className="p-3 text-slate-400 hover:text-purple-600 opacity-0 group-hover:opacity-100 transition-all"><Eye size={20} /></button><button onClick={() => onDeletePurchase(p.id)} className="p-3 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={20} /></button></div></td>
+                <tr key={p.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group ${selectedPurchases.includes(p.id) ? 'bg-purple-50/50 dark:bg-purple-900/10' : ''}`}>
+                  <td className="px-6 py-6 text-center">
+                    <button onClick={() => toggleSelectPurchase(p.id)} className={`transition-colors ${selectedPurchases.includes(p.id) ? 'text-purple-600' : 'text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}>
+                       {selectedPurchases.includes(p.id) ? <CheckSquare size={18} /> : <Square size={18} />}
+                    </button>
+                  </td>
+                  <td className="px-10 py-6 font-black text-purple-600 font-mono text-xs">#{p.id.slice(-6)} <br/><span className="text-[10px] text-slate-500 font-bold uppercase">{p.productName}</span></td>
+                  <td className="px-10 py-6 font-bold uppercase text-xs text-slate-600 dark:text-slate-300">{p.date} <br/><span className="text-[10px] text-slate-400 font-medium">{p.supplierName}</span></td>
+                  <td className="px-10 py-6 text-right font-black text-sm">{p.totalAmount.toLocaleString()} {config.currency}</td>
+                  <td className="px-10 py-6 text-center">{p.attachments && p.attachments.length > 0 ? <Paperclip size={14} className="mx-auto text-purple-600" /> : <span className="opacity-10">-</span>}</td>
+                  <td className="px-10 py-6 text-right"><div className="flex items-center justify-end space-x-2"><button onClick={() => setViewingPurchase(p)} className="p-3 bg-white dark:bg-slate-800 border rounded-2xl text-slate-400 hover:text-purple-600 hover:border-purple-500 transition-all shadow-sm"><Eye size={18} /></button><button onClick={() => onDeletePurchase(p.id)} className="p-3 bg-white dark:bg-slate-800 border rounded-2xl text-slate-400 hover:text-rose-500 hover:border-rose-500 transition-all shadow-sm"><Trash2 size={18} /></button></div></td>
                 </tr>
               ))}
               {activeView === 'expenses' && filteredExpenses.map((e) => (
                 <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group">
-                  <td className="px-10 py-6 font-bold uppercase text-xs">{e.description}</td>
-                  <td className="px-10 py-6 text-xs text-slate-500">{e.date}</td>
-                  <td className="px-10 py-6 text-right font-black text-rose-600">-{e.amount.toLocaleString()} {config.currency}</td>
-                  <td className="px-10 py-6 text-center">{e.attachments && e.attachments.length > 0 && <Paperclip size={14} className="mx-auto text-purple-600" />}</td>
-                  <td className="px-10 py-6 text-right"><button className="p-3 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={20} /></button></td>
+                  <td className="px-10 py-6 font-black uppercase text-xs text-slate-800 dark:text-slate-200">{e.description}</td>
+                  <td className="px-10 py-6 text-xs font-bold text-slate-500">{e.date}</td>
+                  <td className="px-10 py-6 text-right font-black text-rose-600 text-sm">-{e.amount.toLocaleString()} {config.currency}</td>
+                  <td className="px-10 py-6 text-center">{e.attachments && e.attachments.length > 0 ? <Paperclip size={14} className="mx-auto text-purple-600" /> : <span className="opacity-10">-</span>}</td>
+                  <td className="px-10 py-6 text-right"><button onClick={() => setExpenses(expenses.filter(item => item.id !== e.id))} className="p-3 bg-white dark:bg-slate-800 border rounded-2xl text-slate-400 hover:text-rose-500 transition-all shadow-sm"><Trash2 size={18} /></button></td>
                 </tr>
               ))}
               {activeView === 'suppliers' && filteredSuppliers.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group">
-                  <td className="px-10 py-6 font-black uppercase text-sm">{s.name}</td>
-                  <td className="px-10 py-6 text-xs text-slate-500">{s.contact}</td>
-                  <td className="px-10 py-6 text-right font-bold">{s.phone}</td>
+                  <td className="px-10 py-6 font-black uppercase text-sm text-slate-800 dark:text-slate-100">{s.name}</td>
+                  <td className="px-10 py-6 text-xs font-bold text-slate-500">{s.contact}</td>
+                  <td className="px-10 py-6 text-right font-black text-slate-700 dark:text-slate-300">{s.phone}</td>
                   <td className="px-10 py-6 text-center"></td>
-                  <td className="px-10 py-6 text-right"><button className="p-3 text-slate-400 hover:text-purple-600 opacity-0 group-hover:opacity-100 transition-all"><Edit3 size={20} /></button></td>
+                  <td className="px-10 py-6 text-right"><button className="p-3 bg-white dark:bg-slate-800 border rounded-2xl text-slate-400 hover:text-purple-600 transition-all shadow-sm"><Edit3 size={18} /></button></td>
                 </tr>
               ))}
+              {(activeView === 'purchases' && filteredPurchases.length === 0) || (activeView === 'expenses' && filteredExpenses.length === 0) || (activeView === 'suppliers' && filteredSuppliers.length === 0) ? (
+                <tr>
+                  <td colSpan={6} className="py-20 text-center opacity-30">
+                    <ShoppingBag size={48} className="mx-auto mb-4" />
+                    <p className="font-black uppercase text-sm tracking-widest">Aucune donnée enregistrée</p>
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

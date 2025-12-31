@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { SaleOrder, UserRole, ERPConfig, Product } from '../types';
+import { SaleOrder, UserRole, ERPConfig, Product, ViewType } from '../types';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -14,7 +14,12 @@ import {
   Download,
   Zap,
   AlertTriangle,
-  Package
+  Package,
+  Banknote,
+  Smartphone,
+  Wallet,
+  CreditCard,
+  History
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -24,7 +29,9 @@ interface Props {
   sales: SaleOrder[];
   userRole: UserRole;
   config: ERPConfig;
-  products: Product[]; // Ajout des produits pour les alertes de stock
+  products: Product[];
+  t: (key: any) => string;
+  onNavigate: (view: ViewType) => void;
 }
 
 const SimpleLogoIcon = ({ className = "w-10 h-10" }) => (
@@ -35,13 +42,22 @@ const SimpleLogoIcon = ({ className = "w-10 h-10" }) => (
   </div>
 );
 
-const Dashboard: React.FC<Props> = ({ sales, userRole, config, products }) => {
+const PaymentIcon = ({ method }: { method?: string }) => {
+  switch (method) {
+    case 'Bankily': return <Smartphone size={12} className="text-orange-500" />;
+    case 'Masrvi': return <Wallet size={12} className="text-blue-500" />;
+    case 'Especes': return <Banknote size={12} className="text-emerald-500" />;
+    case 'Sedad': return <CreditCard size={12} className="text-purple-500" />;
+    default: return <DollarSign size={12} className="text-slate-400" />;
+  }
+};
+
+const Dashboard: React.FC<Props> = ({ sales, userRole, config, products, onNavigate }) => {
   const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
   const totalRevenue = sales.reduce((acc, curr) => curr.status === 'refunded' ? acc - curr.total : acc + curr.total, 0);
   const averageOrderValue = sales.length > 0 ? (totalRevenue / sales.length).toFixed(0) : 0;
   const chartData = [ { name: 'Jan', sales: 4000 }, { name: 'Feb', sales: 3000 }, { name: 'Mar', sales: 2000 }, { name: 'Apr', sales: 2780 }, { name: 'May', sales: 1890 }, { name: 'Jun', sales: 2390 } ];
   
-  // Calcul des alertes de stock
   const lowStockProducts = useMemo(() => {
     return products.filter(p => {
       const threshold = p.lowStockThreshold || 10;
@@ -121,39 +137,6 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config, products }) => {
         </button>
       </div>
 
-      {/* ALERTES DE STOCK */}
-      {lowStockProducts.length > 0 && (
-        <div className="bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 rounded-3xl p-6 animate-pulse">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="p-2 bg-rose-500 text-white rounded-xl shadow-lg">
-              <AlertTriangle size={20} />
-            </div>
-            <div>
-              <h3 className="text-sm font-black uppercase text-rose-600 dark:text-rose-400 tracking-widest">Alertes de Stock ({lowStockProducts.length})</h3>
-              <p className="text-[10px] font-bold text-rose-500/70 uppercase">Certains produits sont bientôt en rupture</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {lowStockProducts.slice(0, 6).map(p => (
-              <div key={p.id} className="bg-white dark:bg-slate-900/50 p-4 rounded-2xl border border-rose-100 dark:border-rose-900/20 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-400">
-                    <Package size={14} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase truncate max-w-[120px]">{p.name}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Seuil: {p.lowStockThreshold || 10}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-black text-rose-600">{p.stock} restants</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Recettes" value={`${totalRevenue.toLocaleString()} ${config.currency}`} icon={DollarSign} color="bg-blue-500" trend="+12.5%" />
         <StatCard title="Pointages" value={`${sales.length}`} icon={UserCheck} size={24} color="bg-emerald-500" trend="Staff Actif" />
@@ -181,33 +164,70 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config, products }) => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+        {/* FLUX DE VENTE DYNAMIQUE */}
+        <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[400px]">
           <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50">
-            <h3 className="font-semibold text-slate-800 dark:text-white flex items-center">
-              <FileText className="mr-3 text-purple-600" size={18} /> Flux de Vente
+            <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-sm flex items-center">
+              <History className="mr-3 text-purple-600" size={18} /> Flux de Vente
             </h3>
-            <button className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center">Voir Tout <ArrowUpRight size={14} className="ml-1" /></button>
+            <button 
+              onClick={() => onNavigate('sales')}
+              className="group text-[10px] font-black text-purple-600 hover:text-purple-700 uppercase tracking-widest flex items-center transition-all"
+            >
+              Voir Journal <ArrowUpRight size={14} className="ml-1 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+            </button>
           </div>
-          <div className="flex-1 overflow-y-auto max-h-[300px] scrollbar-hide">
-            {sales.slice(0, 10).map((sale) => (
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
+            {sales.length > 0 ? sales.slice(0, 15).map((sale, index) => (
               <div key={sale.id} className="px-8 py-5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-50 last:border-0 group">
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 font-black text-xs">#{sale.id.slice(-3)}</div>
+                  <div className="relative">
+                    <div className="w-11 h-11 rounded-2xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 font-black text-[10px]">
+                       #{sale.id.slice(-3)}
+                    </div>
+                    {index === 0 && (
+                       <div className="absolute -top-1 -right-1 flex h-3 w-3">
+                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                         <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                       </div>
+                    )}
+                  </div>
                   <div>
-                    <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate max-w-[120px]">{sale.customer}</p>
-                    <p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">{sale.date}</p>
+                    <div className="flex items-center space-x-2">
+                       <p className="text-sm font-black text-slate-800 dark:text-slate-200 truncate max-w-[140px] uppercase">{sale.customer}</p>
+                       <span className="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-md" title={sale.paymentMethod}>
+                         <PaymentIcon method={sale.paymentMethod} />
+                       </span>
+                    </div>
+                    <p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter mt-0.5">{sale.date}</p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-5">
                   <div className="text-right">
-                    <p className={`text-sm font-black ${sale.status === 'refunded' ? 'text-rose-500 line-through' : 'text-slate-900 dark:text-white'}`}>{sale.total.toLocaleString()} {config.currency}</p>
-                    <span className={`text-[8px] px-2 py-0.5 rounded-lg font-black uppercase tracking-widest ${getStatusStyle(sale.status)}`}>{sale.status}</span>
+                    <p className={`text-sm font-black tracking-tighter ${sale.status === 'refunded' ? 'text-rose-500 line-through' : 'text-slate-900 dark:text-white'}`}>
+                       {sale.total.toLocaleString()} {config.currency}
+                    </p>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-widest ${getStatusStyle(sale.status)}`}>
+                       {sale.status}
+                    </span>
                   </div>
-                  <button onClick={() => setSelectedSale(sale)} className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600 rounded-xl transition-all opacity-0 group-hover:opacity-100"><Eye size={16}/></button>
+                  <button onClick={() => setSelectedSale(sale)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                    <Eye size={16}/>
+                  </button>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="h-full flex flex-col items-center justify-center text-center opacity-20 p-10 space-y-4">
+                <FileText size={48} />
+                <p className="text-sm font-black uppercase tracking-widest">Aucune transaction</p>
+              </div>
+            )}
           </div>
+          {sales.length > 0 && (
+             <div className="p-4 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 text-center">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Total traité : {sales.length} documents</p>
+             </div>
+          )}
         </div>
       </div>
     </div>

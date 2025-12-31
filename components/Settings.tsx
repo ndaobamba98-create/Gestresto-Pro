@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye
 } from 'lucide-react';
 import { AppLogoDoc } from './Invoicing';
 
@@ -86,7 +86,8 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
   const availableViews: { id: ViewType, label: string }[] = [
     { id: 'dashboard', label: t('dashboard') },
     { id: 'pos', label: t('pos') },
-    { id: 'sales', label: t('sales') },
+    { id: 'sales', label: t('sales') + " (Consultation)" },
+    { id: 'manage_sales', label: t('sales') + " (Exportation/Journal)" },
     { id: 'invoicing', label: t('invoicing') },
     { id: 'manage_invoicing', label: 'Création Factures' },
     { id: 'inventory', label: t('inventory') },
@@ -104,14 +105,16 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
 
   const roles: UserRole[] = ['admin', 'manager', 'cashier'];
 
-  // Calcul du format de la prochaine référence (ex: FAC/2025/0001)
   const nextInvoicePreview = useMemo(() => {
     const prefix = formConfig.invoicePrefix || '';
     const num = formConfig.nextInvoiceNumber || 1;
-    // On simule un padding de 4 chiffres par défaut pour le professionnalisme
     const paddedNum = num.toString().padStart(4, '0');
     return `${prefix}${paddedNum}`;
   }, [formConfig.invoicePrefix, formConfig.nextInvoiceNumber]);
+
+  const toggleConfigField = (field: keyof ERPConfig) => {
+    setFormConfig(prev => ({ ...prev, [field]: !prev[field] }));
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-20">
@@ -269,6 +272,36 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
                    </div>
                 </div>
 
+                {/* OPTIONS D'AFFICHAGE (PERSONNALISATION CONTENU) */}
+                <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 space-y-6">
+                   <div className="flex items-center space-x-3 mb-2">
+                     <Layout className="text-purple-500" size={20} />
+                     <h3 className="text-xs font-black uppercase tracking-widest">Contenu & Visibilité</h3>
+                   </div>
+                   
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {[
+                        { label: 'Logo de l\'entreprise', field: 'showLogoOnInvoice' as keyof ERPConfig },
+                        { label: 'Slogan publicitaire', field: 'showSloganOnInvoice' as keyof ERPConfig },
+                        { label: 'Adresse physique', field: 'showAddressOnInvoice' as keyof ERPConfig },
+                        { label: 'Numéro de téléphone', field: 'showPhoneOnInvoice' as keyof ERPConfig },
+                        { label: 'Adresse Email', field: 'showEmailOnInvoice' as keyof ERPConfig },
+                        { label: 'Registre Commerce (RC/NIF)', field: 'showRegNumberOnInvoice' as keyof ERPConfig },
+                        { label: 'Code QR de validation', field: 'showQrCodeOnInvoice' as keyof ERPConfig },
+                      ].map((item) => (
+                        <button 
+                          key={item.field}
+                          type="button"
+                          onClick={() => toggleConfigField(item.field)}
+                          className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${formConfig[item.field] ? 'bg-white dark:bg-slate-900 border-purple-200 dark:border-purple-900/50 text-purple-600' : 'bg-slate-100 dark:bg-slate-800 border-transparent text-slate-400'}`}
+                        >
+                          <span className="text-[10px] font-black uppercase tracking-widest">{item.label}</span>
+                          {formConfig[item.field] ? <Eye size={16} /> : <EyeOff size={16} />}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Devise affichée</label>
@@ -315,14 +348,25 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
                 </div>
               </div>
 
-              {/* APERÇU MINI FACTURE */}
+              {/* APERÇU MINI FACTURE DYNAMIQUE */}
               <div className="space-y-4">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Aperçu du rendu</label>
-                <div className="bg-slate-100 dark:bg-slate-800/30 p-8 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 sticky top-0">Aperçu en temps réel</label>
+                <div className="bg-slate-100 dark:bg-slate-800/30 p-8 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center sticky top-8">
                    <div className="w-full bg-white dark:bg-slate-900 rounded-xl shadow-2xl p-6 space-y-4 text-[10px] font-mono text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-800 scale-90 origin-top">
                       <div className="text-center border-b pb-4 border-dashed">
+                        {formConfig.showLogoOnInvoice && (
+                          <div className="flex justify-center mb-3">
+                             <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center text-white scale-75"><QrCode size={20} /></div>
+                          </div>
+                        )}
                         <p className="font-black text-slate-900 dark:text-white uppercase">{formConfig.companyName}</p>
-                        <p className="text-[8px]">{formConfig.companySlogan}</p>
+                        {formConfig.showSloganOnInvoice && <p className="text-[8px]">{formConfig.companySlogan}</p>}
+                        
+                        <div className="mt-2 text-[7px] space-y-0.5 opacity-70">
+                          {formConfig.showAddressOnInvoice && <p>{formConfig.address}</p>}
+                          {formConfig.showPhoneOnInvoice && <p>Tel: {formConfig.phone}</p>}
+                          {formConfig.showEmailOnInvoice && <p>{formConfig.email}</p>}
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between"><span>Plat du jour</span><span>45.00</span></div>
@@ -334,11 +378,12 @@ const Settings: React.FC<Props> = ({ products, onUpdateProducts, config, onUpdat
                       </div>
                       <div className="text-center pt-4 border-t border-dashed mt-4 space-y-2">
                         <p className="italic leading-tight whitespace-pre-wrap">{formConfig.receiptFooter || "Merci de votre visite !"}</p>
-                        <div className="flex justify-center py-2 opacity-50"><QrCode size={30} /></div>
+                        {formConfig.showQrCodeOnInvoice && <div className="flex justify-center py-2 opacity-50"><QrCode size={30} /></div>}
                         <p className="text-[7px] uppercase font-black">Numéro: {nextInvoicePreview}</p>
+                        {formConfig.showRegNumberOnInvoice && <p className="text-[6px] opacity-40">RC: {formConfig.registrationNumber}</p>}
                       </div>
                    </div>
-                   <p className="text-[9px] font-black text-slate-400 uppercase mt-4 text-center">Simulation du ticket de caisse</p>
+                   <p className="text-[9px] font-black text-slate-400 uppercase mt-4 text-center">Simulation du rendu final</p>
                 </div>
               </div>
             </div>
