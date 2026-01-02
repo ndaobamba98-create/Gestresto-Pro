@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 
 /**
@@ -49,7 +48,7 @@ export const getBusinessInsights = async (context: string, query: string) => {
     const ai = getClient();
     const response: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Tu es un assistant expert en gestion d'entreprise pour l'ERP SamaCaisse Pro.
+      contents: `Tu es un assistant expert en gestion d'entreprise pour l'ERP Sama Pos +.
       Contexte des données actuelles (JSON): ${context}
       Question de l'utilisateur: ${query}
       
@@ -73,7 +72,7 @@ export const analyzeSalesData = async (salesData: any) => {
     const ai = getClient();
     const response: GenerateContentResponse = await withRetry(() => ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: `Analyse ces chiffres de vente et fournis 3 points clés de performance (takeaways) en français pour SamaCaisse Pro: ${JSON.stringify(salesData)}`,
+      contents: `Analyse ces chiffres de vente et fournis 3 points clés de performance (takeaways) en français pour Sama Pos +: ${JSON.stringify(salesData)}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {

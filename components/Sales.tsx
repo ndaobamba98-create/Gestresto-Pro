@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { SaleOrder, ERPConfig, Product, SaleItem, PaymentMethod } from '../types';
 import { 
@@ -184,7 +183,7 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
            <div className="flex items-center space-x-6">
               {canExport && (
                 <>
-                  <button onClick={handleExportJournalPDF} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
+                  <button onClick={handleExportJournalPDF} className="flex items-center text-[100%] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
                     <Printer size={18} className="mr-2 text-blue-400" /> Journal PDF
                   </button>
                   <button onClick={() => handleExportExcel(sales.filter(s => selectedIds.includes(s.id)))} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-emerald-400 transition-colors">
@@ -270,7 +269,7 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
              <div className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center justify-center text-center space-y-4">
                 <QrCode size={60} className="opacity-20" />
                 <p className="text-[8px] font-bold text-slate-400 uppercase leading-relaxed">
-                   Validation Numérique SamaCaisse Pro<br/>
+                   Validation Numérique Sama Pos +<br/>
                    Document généré le {new Date().toLocaleString()}
                 </p>
              </div>
@@ -418,7 +417,7 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {filteredSales.map((sale) => (
-                <tr key={sale.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group ${sale.status === 'refunded' ? 'opacity-60' : ''} ${selectedIds.includes(sale.id) ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}>
+                <tr key={sale.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group ${sale.status === 'refunded' ? 'opacity-60' : ''} ${selectedIds.includes(sale.id) ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}>
                   <td className="px-6 py-5 text-center">
                     <button onClick={() => toggleSelect(sale.id)} className={`transition-colors ${selectedIds.includes(sale.id) ? 'text-purple-600' : 'text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}>
                        {selectedIds.includes(sale.id) ? <CheckSquare size={18} /> : <Square size={18} />}

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { SaleOrder, ERPConfig, Product, ViewType, Attachment, PaymentMethod } from '../types';
 import { 
@@ -241,7 +240,7 @@ const InvoiceModal = ({ sale, config, onClose, notify }: { sale: SaleOrder, conf
       [""],
       ["", "", "TOTAL NET A PAYER", `${sale.total} ${config.currency}`],
       [""],
-      [`Certifié conforme par SamaCaisse Pro Cloud - Le ${new Date().toLocaleString()}`]
+      [`Certifié conforme par Sama Pos + Cloud - Le ${new Date().toLocaleString()}`]
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet([...header, ...rows, ...footer]);
@@ -379,7 +378,7 @@ const InvoiceModal = ({ sale, config, onClose, notify }: { sale: SaleOrder, conf
                   )}
                   <div className="space-y-1">
                     <p className="text-[11px] font-black uppercase tracking-widest text-slate-900">Archivage Numérique</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed max-w-[220px]">Ce document est certifié par SamaCaisse Pro. Intégrité des données garantie via Blockchain Hash.</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed max-w-[220px]">Ce document est certifié par Sama Pos +. Intégrité des données garantie via Blockchain Hash.</p>
                   </div>
                </div>
                <div className="space-y-6 text-center">

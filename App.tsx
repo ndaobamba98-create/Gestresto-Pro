@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Calendar, Search, ArrowRight, User as UserIcon, Wallet, Bell, Languages, X, Check, Eye, Trash2, BellOff
@@ -38,10 +37,10 @@ export const AppLogo = ({ className = "w-14 h-14", iconOnly = false }) => (
     {!iconOnly && (
       <div className="flex flex-col">
         <span className="text-white font-black text-xl leading-none uppercase tracking-tighter">
-          SamaCaisse
+          Sama Pos
         </span>
         <span className="text-purple-500 font-black text-sm uppercase tracking-[0.2em] mt-0.5">
-          Pro
+          +
         </span>
       </div>
     )}
@@ -258,7 +257,7 @@ const App: React.FC = () => {
       <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-900 theme-${config.theme}`}>
         <div className="mb-12 text-center">
           <AppLogo className="w-32 h-32 mx-auto mb-6 scale-150" iconOnly />
-          <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">SamaCaisse <span className="text-purple-600">Pro</span></h1>
+          <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-purple-600">+</span></h1>
           <div className="mt-8 text-white/40 font-mono text-xl">{currentTime.toLocaleTimeString()}</div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
@@ -351,7 +350,7 @@ const App: React.FC = () => {
                  <div key={notif.id} className={`p-5 rounded-2xl border transition-all relative group ${notif.isRead ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-purple-100 dark:border-purple-900 shadow-sm'}`}>
                     <div className="flex items-start justify-between mb-3">
                        <div className={`p-2 rounded-lg ${notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' : notif.type === 'warning' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'}`}>
-                          {notif.type === 'success' ? <Check size={14} /> : notif.type === 'warning' ? <AlertCircle size={14} /> : <Info size={14} />}
+                          {notif.type === 'success' ? <><Check size={14} /></> : notif.type === 'warning' ? <AlertCircle size={14} /> : <Info size={14} />}
                        </div>
                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{notif.timestamp}</span>
                     </div>
