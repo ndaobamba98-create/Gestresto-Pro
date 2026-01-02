@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Calendar, Search, ArrowRight, User as UserIcon, Wallet, Bell, Languages, X, Check, Eye, Trash2, BellOff
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Calendar, Search, ArrowRight, User as UserIcon, Wallet, Bell, Languages, X, Check, Eye, Trash2, BellOff, Palette
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Supplier, Purchase, Language } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS } from './constants';
@@ -16,21 +17,15 @@ import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
 
-// Composant Logo stylisé
+// Composant Logo stylisé qui respecte le thème
 export const AppLogo = ({ className = "w-14 h-14", iconOnly = false }) => (
   <div className={`flex items-center ${iconOnly ? 'justify-center' : 'space-x-4'} ${className}`}>
     <div className="relative group shrink-0">
-      <div className="absolute -inset-1.5 bg-gradient-to-r from-purple-600 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
+      <div className="absolute -inset-1.5 bg-accent rounded-2xl blur opacity-25 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
       <div className="relative w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden">
         <svg viewBox="0 0 100 100" className="w-9/12 h-9/12" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7614 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill="white" className="fill-current"/>
-          <circle cx="20" cy="20" r="10" fill="url(#grad1)" />
-          <defs>
-            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{stopColor:'#a855f7', stopOpacity:1}} />
-              <stop offset="100%" style={{stopColor:'#3b82f6', stopOpacity:1}} />
-            </linearGradient>
-          </defs>
+          <circle cx="20" cy="20" r="10" fill="var(--accent-color)" />
         </svg>
       </div>
     </div>
@@ -39,7 +34,7 @@ export const AppLogo = ({ className = "w-14 h-14", iconOnly = false }) => (
         <span className="text-white font-black text-xl leading-none uppercase tracking-tighter">
           Sama Pos
         </span>
-        <span className="text-purple-500 font-black text-sm uppercase tracking-[0.2em] mt-0.5">
+        <span className="text-accent font-black text-sm uppercase tracking-[0.2em] mt-0.5">
           +
         </span>
       </div>
@@ -97,7 +92,7 @@ const App: React.FC = () => {
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
     { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] },
     { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout'] },
-    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] }
+    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] }
   ]));
 
   const t = useCallback((key: TranslationKey): string => {
@@ -195,7 +190,6 @@ const App: React.FC = () => {
     });
     setProducts(updatedProducts);
 
-    // FIXED: Use ISO Date format (YYYY-MM-DD) for reliable filtering
     const now = new Date();
     const isoDate = now.toISOString().split('T')[0];
     const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -203,7 +197,7 @@ const App: React.FC = () => {
     const sale: SaleOrder = {
       id: `S-${Date.now()}`,
       customer: newSaleData.customer || 'Client',
-      date: `${isoDate} ${time}`, // Storage as ISO friendly string
+      date: `${isoDate} ${time}`,
       total: newSaleData.total || 0,
       status: newSaleData.status || 'confirmed',
       items: saleItems,
@@ -257,13 +251,13 @@ const App: React.FC = () => {
       <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-900 theme-${config.theme}`}>
         <div className="mb-12 text-center">
           <AppLogo className="w-32 h-32 mx-auto mb-6 scale-150" iconOnly />
-          <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-purple-600">+</span></h1>
+          <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
           <div className="mt-8 text-white/40 font-mono text-xl">{currentTime.toLocaleTimeString()}</div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
           {APP_USERS.map((user) => (
-            <button key={user.id} onClick={() => { setCurrentUser(user); setIsLocked(false); }} className="bg-slate-800 p-6 rounded-3xl border border-slate-700 hover:border-purple-500 transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105">
-              <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg`}>{user.initials}</div>
+            <button key={user.id} onClick={() => { setCurrentUser(user); setIsLocked(false); }} className="bg-slate-800 p-6 rounded-3xl border border-slate-700 hover:border-accent transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105 group">
+              <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg group-hover:scale-110 transition-transform`}>{user.initials}</div>
               <p className="text-white font-black uppercase text-xs">{user.name}</p>
             </button>
           ))}
@@ -335,19 +329,19 @@ const App: React.FC = () => {
             <div className="p-8 border-b flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
                <div>
                   <h3 className="text-xl font-black uppercase tracking-tighter flex items-center">
-                    <Bell className="mr-3 text-purple-600" size={24} /> Centre d'Alertes
+                    <Bell className="mr-3 text-accent" size={24} /> Centre d'Alertes
                   </h3>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{unreadCount} messages non-lus</p>
                </div>
                <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all"><X size={28} /></button>
             </div>
             <div className="p-4 border-b flex items-center justify-between space-x-2 bg-white dark:bg-slate-900">
-               <button onClick={markAllAsRead} disabled={unreadCount === 0} className="flex-1 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-600 hover:text-white transition-all disabled:opacity-50">Tout marquer lu</button>
+               <button onClick={markAllAsRead} disabled={unreadCount === 0} className="flex-1 py-2 bg-accent/10 text-accent rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-accent hover:text-white transition-all disabled:opacity-50">Tout marquer lu</button>
                <button onClick={clearNotifications} className="p-2.5 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 transition-all"><Trash2 size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
                {notificationHistory.length > 0 ? notificationHistory.map(notif => (
-                 <div key={notif.id} className={`p-5 rounded-2xl border transition-all relative group ${notif.isRead ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-purple-100 dark:border-purple-900 shadow-sm'}`}>
+                 <div key={notif.id} className={`p-5 rounded-2xl border transition-all relative group ${notif.isRead ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-accent/20 shadow-sm'}`}>
                     <div className="flex items-start justify-between mb-3">
                        <div className={`p-2 rounded-lg ${notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' : notif.type === 'warning' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'}`}>
                           {notif.type === 'success' ? <><Check size={14} /></> : notif.type === 'warning' ? <AlertCircle size={14} /> : <Info size={14} />}
@@ -357,11 +351,11 @@ const App: React.FC = () => {
                     <h4 className={`text-xs font-black uppercase tracking-tight mb-1 ${notif.isRead ? 'text-slate-500' : 'text-slate-800 dark:text-white'}`}>{notif.title}</h4>
                     <p className={`text-[11px] font-bold leading-relaxed ${notif.isRead ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>{notif.message}</p>
                     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                       <button onClick={() => toggleNotificationRead(notif.id)} className="text-[9px] font-black uppercase tracking-widest text-purple-600 flex items-center hover:underline">
+                       <button onClick={() => toggleNotificationRead(notif.id)} className="text-[9px] font-black uppercase tracking-widest text-accent flex items-center hover:underline">
                           {notif.isRead ? <><Bell size={12} className="mr-1.5" /> Marquer non-lu</> : <><CheckCircle size={12} className="mr-1.5" /> Marquer comme lu</>}
                        </button>
                     </div>
-                    {!notif.isRead && <div className="absolute top-4 right-4 w-2 h-2 bg-purple-600 rounded-full shadow-[0_0_8px_#9333ea]"></div>}
+                    {!notif.isRead && <div className="absolute top-4 right-4 w-2 h-2 bg-accent rounded-full shadow-accent"></div>}
                  </div>
                )) : (
                  <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20 space-y-4">
@@ -392,7 +386,7 @@ const App: React.FC = () => {
             { id: 'hr', icon: IdCard, label: t('hr') },
             { id: 'settings', icon: SettingsIcon, label: t('settings') },
           ].filter(item => userPermissions.includes(item.id as ViewType)).map((item) => (
-            <button key={item.id} onClick={() => setActiveView(item.id as ViewType)} className={`w-full flex items-center p-3.5 rounded-2xl transition-all duration-200 ${activeView === item.id ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <button key={item.id} onClick={() => setActiveView(item.id as ViewType)} className={`w-full flex items-center p-3.5 rounded-2xl transition-all duration-200 ${activeView === item.id ? 'bg-accent text-white shadow-lg shadow-accent' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
               <item.icon size={22} />
               {isSidebarOpen && <span className={`${config.language === 'ar' ? 'mr-4' : 'ml-4'} font-bold text-sm tracking-tight`}>{item.label}</span>}
             </button>
@@ -406,19 +400,29 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
+      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 relative">
+        {/* LIGNE DE THÈME EN HAUT DU HEADER */}
+        <div className="absolute top-0 left-0 w-full h-1 bg-accent z-[110]"></div>
+        
         <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-[100] shrink-0">
           <div className="flex items-center space-x-10 rtl:space-x-reverse">
             <div className="flex flex-col">
               <span className="text-2xl font-black font-mono text-slate-800 dark:text-white tracking-tighter leading-none">
                 {currentTime.toLocaleTimeString(config.language === 'ar' ? 'ar-SA' : 'fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
-              <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest mt-1">
+              <span className="text-[10px] font-black text-accent uppercase tracking-widest mt-1">
                 {currentTime.toLocaleDateString(config.language === 'ar' ? 'ar-SA' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
               </span>
             </div>
             <div className="h-10 w-px bg-slate-200 dark:bg-slate-700"></div>
-            <span className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">{config.companyName}</span>
+            <div className="flex flex-col">
+               <span className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">{config.companyName}</span>
+               {/* INDICATEUR DE COULEUR / THEME */}
+               <div className="flex items-center space-x-2 mt-1.5 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-700 w-fit">
+                  <div className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-accent"></div>
+                  <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Thème {config.theme}</span>
+               </div>
+            </div>
           </div>
 
           <div className="flex items-center space-x-4 rtl:space-x-reverse">
@@ -436,7 +440,7 @@ const App: React.FC = () => {
                       { code: 'en', label: 'English' },
                       { code: 'ar', label: 'العربية' }
                     ].map(lang => (
-                      <button key={lang.code} onClick={() => changeLanguage(lang.code as Language)} className={`w-full px-5 py-3 text-left rtl:text-right text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${config.language === lang.code ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-slate-600 dark:text-slate-400'}`}>
+                      <button key={lang.code} onClick={() => changeLanguage(lang.code as Language)} className={`w-full px-5 py-3 text-left rtl:text-right text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${config.language === lang.code ? 'text-accent bg-accent/10' : 'text-slate-600 dark:text-slate-400'}`}>
                         {lang.label}
                       </button>
                     ))}
@@ -451,7 +455,7 @@ const App: React.FC = () => {
                   if (canManageNotifications) setIsNotificationOpen(!isNotificationOpen);
                   else notifyUser("Accès Refusé", "Vous n'avez pas la permission de gérer les notifications.", "warning");
                 }}
-                className={`p-3 rounded-2xl transition-all relative ${isNotificationOpen ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'} ${!canManageNotifications ? 'opacity-50' : ''}`}
+                className={`p-3 rounded-2xl transition-all relative ${isNotificationOpen ? 'bg-accent text-white shadow-accent' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'} ${!canManageNotifications ? 'opacity-50' : ''}`}
               >
                 <Bell size={22} />
                 {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900">{unreadCount}</span>}
@@ -466,7 +470,7 @@ const App: React.FC = () => {
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white font-black shadow-lg text-sm`}>{currentUser.initials}</div>
               <div className="flex flex-col">
                 <span className="text-xs font-black text-slate-800 dark:text-white uppercase leading-none">{currentUser.name}</span>
-                <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest mt-1">{currentUser.role}</span>
+                <span className="text-[9px] font-black text-accent uppercase tracking-widest mt-1">{currentUser.role}</span>
               </div>
             </div>
           </div>
