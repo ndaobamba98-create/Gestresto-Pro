@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -54,10 +55,23 @@
         .text-slate-500 { color: #64748b !important; }
         .dark .text-slate-400 { color: #94a3b8 !important; }
 
+        /* Scrollbar Stylisée et Visible */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { 
+          background: #cbd5e1; 
+          border-radius: 10px; 
+        }
         .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        ::-webkit-scrollbar-thumb:hover { background-color: var(--accent-color, #9333ea); }
+
+        /* Classe utilitaire pour forcer l'affichage de la scrollbar sur le panier */
+        .force-scrollbar::-webkit-scrollbar-thumb {
+          background: #94a3b8;
+        }
+        .dark .force-scrollbar::-webkit-scrollbar-thumb {
+          background: #475569;
+        }
 
         @keyframes slideInRight {
           from { transform: translateX(100%); opacity: 0; }
@@ -97,15 +111,7 @@
                 border: none !important;
             }
             .no-print { display: none !important; }
-            /* Préserver les couleurs à l'impression */
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .bg-slate-950 { background-color: #020617 !important; color: white !important; }
-            .text-purple-600 { color: #9333ea !important; }
-            .bg-slate-900 { background-color: #0f172a !important; }
-            
-            /* Ajustements spécifiques pour les graphiques SVG en impression */
-            svg { max-width: 100% !important; height: auto !important; }
-            .recharts-wrapper { width: 100% !important; height: 300px !important; }
         }
     </style>
 <script type="importmap">

@@ -17,25 +17,31 @@ import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
 
-// Composant Logo stylisé qui respecte le thème
-export const AppLogo = ({ className = "w-14 h-14", iconOnly = false }) => (
+// Composant Logo Premium centralisé avec point indicateur
+export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = false }) => (
   <div className={`flex items-center ${iconOnly ? 'justify-center' : 'space-x-4'} ${className}`}>
     <div className="relative group shrink-0">
-      <div className="absolute -inset-1.5 bg-accent rounded-2xl blur opacity-25 group-hover:opacity-60 transition duration-1000 group-hover:duration-200"></div>
-      <div className="relative w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden">
-        <svg viewBox="0 0 100 100" className="w-9/12 h-9/12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7614 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill="white" className="fill-current"/>
-          <circle cx="20" cy="20" r="10" fill="var(--accent-color)" />
+      <div className="absolute -inset-2 bg-accent rounded-2xl blur-lg opacity-20 group-hover:opacity-50 transition duration-1000"></div>
+      <div className={`relative w-12 h-12 ${light ? 'bg-white' : 'bg-slate-900'} rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden transform group-hover:rotate-6 transition-transform duration-500`}>
+        <svg viewBox="0 0 100 100" className="w-8/12 h-8/12" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7614 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill={light ? "#0f172a" : "white"} />
+          <circle cx="20" cy="20" r="12" className="fill-accent" />
         </svg>
       </div>
     </div>
     {!iconOnly && (
       <div className="flex flex-col">
-        <span className="text-white font-black text-xl leading-none uppercase tracking-tighter">
-          Sama Pos
-        </span>
-        <span className="text-accent font-black text-sm uppercase tracking-[0.2em] mt-0.5">
-          +
+        <div className="flex items-center">
+          <span className={`${light ? 'text-slate-900' : 'text-white'} font-black text-xl leading-none uppercase tracking-tighter`}>
+            Sama Pos
+          </span>
+          <div className="ml-2 flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </div>
+        </div>
+        <span className="text-accent font-black text-xs uppercase tracking-[0.4em] mt-0.5 opacity-80">
+          SYSTEM +
         </span>
       </div>
     )}
@@ -249,16 +255,16 @@ const App: React.FC = () => {
   if (isLocked) {
     return (
       <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-900 theme-${config.theme}`}>
-        <div className="mb-12 text-center">
-          <AppLogo className="w-32 h-32 mx-auto mb-6 scale-150" iconOnly />
+        <div className="mb-12 text-center animate-fadeIn">
+          <AppLogo className="mx-auto mb-6 scale-[1.8]" iconOnly />
           <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
           <div className="mt-8 text-white/40 font-mono text-xl">{currentTime.toLocaleTimeString()}</div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 animate-slideUp">
           {APP_USERS.map((user) => (
-            <button key={user.id} onClick={() => { setCurrentUser(user); setIsLocked(false); }} className="bg-slate-800 p-6 rounded-3xl border border-slate-700 hover:border-accent transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105 group">
+            <button key={user.id} onClick={() => { setCurrentUser(user); setIsLocked(false); }} className="bg-slate-800/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700 hover:border-accent transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105 group">
               <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg group-hover:scale-110 transition-transform`}>{user.initials}</div>
-              <p className="text-white font-black uppercase text-xs">{user.name}</p>
+              <p className="text-white font-black uppercase text-[10px] tracking-widest">{user.name}</p>
             </button>
           ))}
         </div>
@@ -470,7 +476,7 @@ const App: React.FC = () => {
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white font-black shadow-lg text-sm`}>{currentUser.initials}</div>
               <div className="flex flex-col">
                 <span className="text-xs font-black text-slate-800 dark:text-white uppercase leading-none">{currentUser.name}</span>
-                <span className="text-[9px] font-black text-accent uppercase tracking-widest mt-1">{currentUser.role}</span>
+                <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest mt-1">{currentUser.role}</span>
               </div>
             </div>
           </div>

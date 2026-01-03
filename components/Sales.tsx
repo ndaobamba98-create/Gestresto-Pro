@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { SaleOrder, ERPConfig, Product, SaleItem, PaymentMethod } from '../types';
 import { 
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AppLogoDoc } from './Invoicing';
+import { AppLogo } from '../App';
 
 interface Props {
   sales: SaleOrder[];
@@ -183,7 +185,7 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
            <div className="flex items-center space-x-6">
               {canExport && (
                 <>
-                  <button onClick={handleExportJournalPDF} className="flex items-center text-[100%] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
+                  <button onClick={handleExportJournalPDF} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
                     <Printer size={18} className="mr-2 text-blue-400" /> Journal PDF
                   </button>
                   <button onClick={() => handleExportExcel(sales.filter(s => selectedIds.includes(s.id)))} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-emerald-400 transition-colors">
@@ -276,59 +278,14 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
           </div>
       </div>
 
-      {/* MODAL DETAIL VENTE */}
-      {selectedSale && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 sm:p-10 animate-fadeIn no-print">
-          <div className="bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden animate-scaleIn flex flex-col max-h-full border border-white/20">
-            <div className="px-8 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur-md sticky top-0 z-10">
-              <div className="flex items-center space-x-3">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Détail Opération</span>
-                <span className={`px-2.5 py-1 text-[9px] font-black rounded-lg uppercase tracking-widest ${getStatusStyle(selectedSale.status)}`}>#{selectedSale.id.slice(-8)}</span>
-              </div>
-              <button onClick={() => setSelectedSale(null)} className="p-2 text-slate-400 hover:text-rose-500 transition-colors"><X size={24} /></button>
-            </div>
-            <div className="p-10 sm:p-16 overflow-y-auto bg-white flex-1 text-slate-950 scrollbar-hide">
-              <div className="flex justify-between items-start mb-12 pb-12 border-b border-slate-100">
-                <div className="space-y-6">
-                  <AppLogoDoc className="w-20 h-20" />
-                  <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">{config.companyName}</h2>
-                </div>
-                <div className="text-right">
-                  <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900 mb-2">Bon de Vente</h1>
-                  <p className="text-xl font-mono font-black text-purple-600">REF-{selectedSale.id.slice(-8)}</p>
-                  <p className="text-xs font-black bg-slate-100 px-3 py-1 rounded-lg mt-4 uppercase">{selectedSale.date}</p>
-                </div>
-              </div>
-              <div className="rounded-[1.5rem] border border-slate-200 overflow-hidden mb-12 shadow-sm">
-                <table className="w-full text-left">
-                  <thead><tr className="bg-slate-900 text-white"><th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Articles</th><th className="px-8 py-5 text-center text-[10px] font-black uppercase tracking-widest">Qté</th><th className="px-8 py-5 text-right text-[10px] font-black uppercase tracking-widest">Total</th></tr></thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {selectedSale.items?.map((item, idx) => (
-                      <tr key={idx} className={`group hover:bg-slate-50 transition-colors ${selectedSale.status === 'refunded' ? 'opacity-40 line-through' : ''}`}>
-                        <td className="px-8 py-6 font-black uppercase text-xs text-slate-900">{item.name}</td>
-                        <td className="px-8 py-6 text-center"><span className="bg-slate-100 px-3 py-1 rounded-lg font-black text-xs">{item.quantity}</span></td>
-                        <td className="px-8 py-6 text-right font-black text-xs">{(item.quantity * item.price).toLocaleString()} {config.currency}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex flex-col items-end">
-                 <div className="w-[320px] bg-slate-950 text-white p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] mb-4 opacity-40">TOTAL PAYÉ TTC</p>
-                    <div className="flex items-baseline"><span className="text-5xl font-black font-mono tracking-tighter leading-none">{selectedSale.total.toLocaleString()}</span><span className="text-md font-bold ml-2 text-purple-500 uppercase">{config.currency}</span></div>
-                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* VUE PRINCIPALE */}
+      {/* HEADER PRINCIPAL AVEC LOGO */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
-        <div>
-           <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Ventes & Journal</h1>
-           <p className="text-sm text-slate-500 font-medium">Gestion du journal de caisse et archivage mensuel</p>
+        <div className="flex items-center space-x-6">
+           <AppLogo iconOnly className="w-14 h-14" />
+           <div>
+              <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Journal des Ventes</h1>
+              <p className="text-sm text-slate-500 font-medium mt-1">Historique financier et archivage mensuel</p>
+           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
            {/* FILTRES DE DATES */}
@@ -376,7 +333,7 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
                   className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center shadow-sm"
                   title="Exporter le journal Excel du mois en cours"
                 >
-                  <FileSpreadsheet size={18} className="mr-2 text-emerald-600" /> Excel Mensuel
+                  <FileSpreadsheet size={18} className="mr-2 text-emerald-600" /> Excel
                 </button>
              </div>
            )}
@@ -417,7 +374,7 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {filteredSales.map((sale) => (
-                <tr key={sale.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group ${sale.status === 'refunded' ? 'opacity-60' : ''} ${selectedIds.includes(sale.id) ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}>
+                <tr key={sale.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group ${sale.status === 'refunded' ? 'opacity-60' : ''} ${selectedIds.includes(sale.id) ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}>
                   <td className="px-6 py-5 text-center">
                     <button onClick={() => toggleSelect(sale.id)} className={`transition-colors ${selectedIds.includes(sale.id) ? 'text-purple-600' : 'text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}>
                        {selectedIds.includes(sale.id) ? <CheckSquare size={18} /> : <Square size={18} />}
