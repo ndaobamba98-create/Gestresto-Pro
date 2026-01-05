@@ -1,12 +1,12 @@
 
 import React, { useState, useMemo, useRef } from 'react';
-import { SaleOrder, ERPConfig, Product, Expense, ViewType } from '../types';
+import { SaleOrder, ERPConfig, Product, Expense, ViewType, PaymentMethod } from '../types';
 import { 
   ShoppingCart, Filter, Download, Plus, CheckCircle2, Clock, Truck, X, Printer, Mail, 
   DownloadCloud, RotateCcw, Calendar, ChefHat, Trash2, AlertTriangle, MapPin, Phone, 
   Banknote, FileText, Search, User, Package, PlusCircle, MinusCircle, QrCode, 
   CreditCard, Smartphone, Wallet, FileSpreadsheet, Globe, FileDown, CheckSquare, 
-  Square, Eye, ArrowUpRight, ArrowDownLeft, Scale, Wallet2
+  Square, Eye, ArrowUpRight, ArrowDownLeft, Scale, Wallet2, Edit3, Save, History
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AppLogoDoc } from './Invoicing';
@@ -14,7 +14,7 @@ import { AppLogo } from '../App';
 
 interface Props {
   sales: SaleOrder[];
-  expenses?: Expense[]; // Ajout des dépenses pour le journal global
+  expenses?: Expense[];
   onUpdate: (sales: SaleOrder[]) => void;
   config: ERPConfig;
   products: Product[];
@@ -46,35 +46,27 @@ const PaymentIcons = ({ sale }: { sale: SaleOrder }) => {
 const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, products, userRole, onAddSale, notify, t, userPermissions }) => {
   const [viewMode, setViewMode] = useState<'sales_only' | 'journal_complet'>('journal_complet');
   const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [editingSale, setEditingSale] = useState<SaleOrder | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  const startInputRef = useRef<HTMLInputElement>(null);
-  const endInputRef = useRef<HTMLInputElement>(null);
-
-  const canExport = userPermissions.includes('manage_sales') || userRole === 'admin';
-
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    return d.toISOString().split('T')[0]; // Par défaut aujourd'hui pour le journal de caisse
+    return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const canExport = userPermissions.includes('manage_sales') || userRole === 'admin';
+  const canEdit = userPermissions.includes('manage_sales') || userRole === 'admin';
 
   const normalizeDate = (dateStr: string) => {
     if (!dateStr) return "";
     if (dateStr.includes('-') && dateStr.indexOf('-') === 4) return dateStr.substring(0, 10);
-    if (dateStr.includes('/')) {
-      const parts = dateStr.split(' ')[0].replace(',', '').split('/');
-      if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-    }
     return dateStr;
   };
 
-  // Fusion des flux de trésorerie (Ventes + Dépenses)
   const journalEntries = useMemo(() => {
     const allEntries: any[] = [];
     
-    // Ajouter les ventes
     sales.forEach(s => {
       const date = normalizeDate(s.date);
       if (date >= startDate && date <= endDate) {
@@ -91,7 +83,6 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, produc
       }
     });
 
-    // Ajouter les dépenses (si mode complet activé)
     if (viewMode === 'journal_complet') {
       expenses.forEach(e => {
         const date = normalizeDate(e.date);
@@ -131,21 +122,50 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, produc
     return { income, outcome, net: income - outcome };
   }, [filteredEntries]);
 
-  const handleExportExcel = () => {
+  const handleDetailedExport = () => {
     const data = filteredEntries.map(e => ({
       'Flux': e.type === 'sale' ? 'ENTRÉE' : 'SORTIE',
-      'Date': e.date,
+      'Date/Heure': e.date,
       'Référence': e.id,
-      'Libellé': e.label,
+      'Libellé Client/Objet': e.label,
+      'Mode de Règlement': e.method,
       'Montant': e.amount,
-      'Mode': e.method,
-      'Statut': e.status.toUpperCase()
+      'Statut': e.status.toUpperCase(),
+      'Catégorie/Zone': e.original.orderLocation || e.original.category || 'N/A'
     }));
+
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Journal");
-    XLSX.writeFile(workbook, `Journal_Caisse_${startDate}_au_${endDate}.xlsx`);
-    notify("Export", "Le journal de caisse a été généré.", "success");
+    XLSX.writeFile(workbook, `Journal_Ventes_${startDate}_au_${endDate}.xlsx`);
+    notify("Export réussi", "Le journal détaillé a été téléchargé.", "success");
+  };
+
+  const handleDownloadPDFJournal = () => {
+    const element = document.getElementById('sales-print-area');
+    if (!element) return;
+
+    const opt = {
+      margin: 10,
+      filename: `Journal_SamaPos_${startDate}_au_${endDate}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    // @ts-ignore
+    window.html2pdf().set(opt).from(element).save();
+    notify("Téléchargement PDF", "Le journal est en cours de téléchargement.", "success");
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSale) return;
+    
+    const updatedSales = sales.map(s => s.id === editingSale.id ? editingSale : s);
+    onUpdate(updatedSales);
+    setEditingSale(null);
+    notify("Vente Mise à jour", `La commande #${editingSale.id.slice(-6)} a été modifiée.`, "success");
   };
 
   return (
@@ -175,16 +195,20 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, produc
            </div>
 
            {canExport && (
-             <button onClick={handleExportExcel} className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center shadow-sm">
-               <FileDown size={18} className="mr-2 text-emerald-600" /> Excel
-             </button>
+             <div className="flex items-center space-x-2">
+                <button onClick={handleDetailedExport} className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center shadow-sm">
+                  <FileDown size={18} className="mr-2 text-emerald-600" /> Excel
+                </button>
+                <button onClick={handleDownloadPDFJournal} className="bg-rose-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-rose-700 transition-all flex items-center">
+                  <FileText size={18} className="mr-2" /> PDF
+                </button>
+             </div>
            )}
         </div>
       </div>
 
-      {/* ZONE JOURNAL TYPE ODOO / COMPTABILITÉ */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 no-print">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30">
+      <div id="sales-print-area" className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30 no-print">
           <div className="relative w-full max-w-xl">
              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Chercher une écriture (Réf, Client, Libellé...)" className="w-full pl-12 pr-6 py-3.5 bg-white dark:bg-slate-800 border-none rounded-2xl text-xs font-bold outline-none shadow-sm focus:ring-2 focus:ring-purple-500" />
@@ -201,7 +225,7 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, produc
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-center">Règlement</th>
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Entrée (+)</th>
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Sortie (-)</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Action</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right no-print">Action</th>
                </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -240,10 +264,17 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, produc
                     <td className="px-8 py-6 text-right font-black text-sm text-rose-600">
                        {isOutcome ? `-${entry.amount.toLocaleString()}` : '--'}
                     </td>
-                    <td className="px-8 py-6 text-right">
-                       <button onClick={() => entry.type === 'sale' ? setSelectedSale(entry.original) : notify("Info", "Détails de dépense non modifiables ici.", "info")} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm">
-                          <Eye size={16} />
-                       </button>
+                    <td className="px-8 py-6 text-right no-print">
+                       <div className="flex items-center justify-end space-x-2">
+                          {canEdit && entry.type === 'sale' && (
+                            <button onClick={() => setEditingSale(entry.original)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm opacity-0 group-hover:opacity-100">
+                               <Edit3 size={16} />
+                            </button>
+                          )}
+                          <button onClick={() => entry.type === 'sale' ? setSelectedSale(entry.original) : notify("Info", "Détails de dépense non modifiables ici.", "info")} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm">
+                             <Eye size={16} />
+                          </button>
+                       </div>
                     </td>
                   </tr>
                 );
@@ -252,6 +283,93 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, produc
           </table>
         </div>
       </div>
+
+      {/* MODAL ÉDITION DE VENTE */}
+      {editingSale && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
+            <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+               <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/20"><Edit3 size={24}/></div>
+                  <div>
+                    <h3 className="text-xl font-black uppercase tracking-tighter">Édition Vente</h3>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">Référence: {editingSale.id}</p>
+                  </div>
+               </div>
+               <button onClick={() => setEditingSale(null)} className="p-2 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-all"><X size={28}/></button>
+            </div>
+            
+            <form onSubmit={handleSaveEdit} className="p-10 space-y-6 max-h-[75vh] overflow-y-auto scrollbar-hide">
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom du Client</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input 
+                      value={editingSale.customer} 
+                      onChange={e => setEditingSale({...editingSale, customer: e.target.value})} 
+                      className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-2xl font-black outline-none transition-all" 
+                    />
+                  </div>
+               </div>
+
+               <div className="grid grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Statut Fiscal</label>
+                    <select 
+                      value={editingSale.status} 
+                      onChange={e => setEditingSale({...editingSale, status: e.target.value as any})}
+                      className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-2xl font-black text-xs uppercase tracking-widest outline-none appearance-none"
+                    >
+                      <option value="draft">Brouillon</option>
+                      <option value="confirmed">Confirmé</option>
+                      <option value="delivered">Livré</option>
+                      <option value="refunded">Annulé / Avoir</option>
+                    </select>
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Mode de Règlement</label>
+                    <select 
+                      value={editingSale.paymentMethod} 
+                      onChange={e => setEditingSale({...editingSale, paymentMethod: e.target.value as any})}
+                      className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-2xl font-black text-xs uppercase tracking-widest outline-none appearance-none"
+                    >
+                      <option value="Especes">Espèces</option>
+                      <option value="Bankily">Bankily</option>
+                      <option value="Masrvi">Masrvi</option>
+                      <option value="Sedad">Sedad</option>
+                      <option value="Bimbank">Bimbank</option>
+                    </select>
+                 </div>
+               </div>
+
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Date d'opération</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input 
+                      type="datetime-local"
+                      value={editingSale.date.substring(0, 16)} 
+                      onChange={e => setEditingSale({...editingSale, date: e.target.value})} 
+                      className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-blue-500 rounded-2xl font-black outline-none transition-all" 
+                    />
+                  </div>
+               </div>
+
+               <div className="bg-slate-900 text-white p-6 rounded-[2rem] border border-white/10 flex justify-between items-center shadow-lg">
+                  <div className="flex flex-col">
+                     <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Montant de la commande</span>
+                     <span className="text-2xl font-black tracking-tighter">{editingSale.total.toLocaleString()} {config.currency}</span>
+                  </div>
+                  <History size={32} className="text-white/10" />
+               </div>
+
+               <button type="submit" className="w-full py-5 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center">
+                  <Save size={18} className="mr-3" /> Enregistrer les modifications
+               </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* BANDEAU RÉCAPITULATIF DE CAISSE (FLOATING FOOTER) */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-5xl no-print px-4">

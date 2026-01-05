@@ -2,17 +2,25 @@
 import React, { useState, useMemo } from 'react';
 import { SaleOrder, ERPConfig, Product, ViewType, Attachment, PaymentMethod } from '../types';
 import { 
-  FileText, Search, Plus, Download, Eye, Printer, X, RotateCcw, Calendar, MapPin, Phone, Trash, QrCode, User, CreditCard, Paperclip, File, Save, CheckCircle2, ShoppingCart, Smartphone, Banknote, Wallet, FileSpreadsheet, Mail, CheckSquare, Square, FileDown, MoreHorizontal, Split
+  FileText, Search, Plus, Download, Eye, Printer, X, RotateCcw, Calendar, MapPin, Phone, Trash, QrCode, User, CreditCard, Paperclip, File, Save, CheckCircle2, ShoppingCart, Smartphone, Banknote, Wallet, FileSpreadsheet, Mail, CheckSquare, Square, FileDown, ArrowLeft, ChevronRight, BadgeCheck, Receipt, Hash, UserCircle2, Coins
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { PAYMENT_METHODS_LIST } from '../constants';
 
 export const AppLogoDoc = ({ className = "w-16 h-16" }) => (
-  <div className={`relative ${className}`}>
-    <div className="w-full h-full bg-slate-900 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden border border-slate-700">
-      <svg viewBox="0 0 100 100" className="w-10/12 h-10/12" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <div className={`${className} flex items-center justify-center`}>
+    <div style={{
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#0f172a',
+      borderRadius: '12px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      border: '2px solid #1e293b'
+    }}>
+      <svg viewBox="0 0 100 100" style={{ width: '70%', height: '70%' }} fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7614 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill="#a855f7"/>
-        <circle cx="20" cy="20" r="10" fill="#3b82f6" />
+        <circle cx="20" cy="20" r="12" fill="#3b82f6" />
       </svg>
     </div>
   </div>
@@ -32,8 +40,7 @@ interface Props {
 
 const Invoicing: React.FC<Props> = ({ sales, config, onUpdate, products, userRole, onAddSale, notify, userPermissions, t }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
-  const [selectedInvoice, setSelectedInvoice] = useState<SaleOrder | null>(null);
+  const [viewedInvoice, setViewedInvoice] = useState<SaleOrder | null>(null);
 
   const invoices = useMemo(() => sales.map(s => ({ ...s, invoiceStatus: s.invoiceStatus || 'posted' })), [sales]);
   
@@ -44,164 +51,112 @@ const Invoicing: React.FC<Props> = ({ sales, config, onUpdate, products, userRol
     );
   }, [invoices, searchTerm]);
 
-  const toggleSelectAll = () => {
-    if (selectedInvoices.length === filteredInvoices.length) {
-      setSelectedInvoices([]);
-    } else {
-      setSelectedInvoices(filteredInvoices.map(i => i.id));
-    }
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelectedInvoices(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
-
   const handleExportGlobalExcel = () => {
     const data = filteredInvoices.map(inv => ({
       'Référence': inv.id,
-      'Date': inv.date,
+      'Date': new Date(inv.date).toLocaleDateString('fr-FR'),
       'Client': inv.customer,
-      'Montant HT': (inv.total / (1 + config.taxRate/100)).toFixed(2),
-      'TVA': (inv.total - (inv.total / (1 + config.taxRate/100))).toFixed(2),
       'Total TTC': inv.total,
-      'Devise': config.currency,
       'Mode de Paiement': inv.paymentMethod || 'Espèces',
       'Statut': inv.invoiceStatus === 'refunded' ? 'AVOIR' : 'FACTURE'
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Journal Facturation");
-    XLSX.writeFile(workbook, `Journal_Factures_${config.companyName.replace(/\s+/g, '_')}_${Date.now()}.xlsx`);
-    notify("Succès", "Journal global exporté avec succès.", "success");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Journal");
+    XLSX.writeFile(workbook, `Journal_Factures_${Date.now()}.xlsx`);
   };
 
-  const handleExportBatchExcel = () => {
-    const selectedData = invoices.filter(inv => selectedInvoices.includes(inv.id)).map(inv => ({
-      'Référence': inv.id,
-      'Date': inv.date,
-      'Client': inv.customer,
-      'Montant TTC': inv.total,
-      'Paiement': inv.paymentMethod
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(selectedData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Selection");
-    XLSX.writeFile(workbook, `Export_Selection_${selectedInvoices.length}_Factures.xlsx`);
-    notify("Export", `${selectedInvoices.length} factures exportées.`, "info");
-    setSelectedInvoices([]);
-  };
+  if (viewedInvoice) {
+    return (
+      <InvoiceSinglePageView 
+        sale={viewedInvoice} 
+        config={config} 
+        onBack={() => setViewedInvoice(null)} 
+        notify={notify} 
+      />
+    );
+  }
 
   return (
     <div className="h-full flex flex-col space-y-8 animate-fadeIn pb-10 pr-2">
-      {selectedInvoice && (
-        <InvoiceModal sale={selectedInvoice} config={config} onClose={() => setSelectedInvoice(null)} notify={notify} />
-      )}
-
-      {/* BARRE D'ACTIONS FLOTTANTE (ODOO STYLE) */}
-      {selectedInvoices.length > 0 && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-[2rem] shadow-2xl z-[150] flex items-center space-x-8 animate-slideUp">
-           <div className="flex items-center space-x-3 border-r border-slate-700 pr-8">
-              <span className="bg-purple-600 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs">{selectedInvoices.length}</span>
-              <span className="text-xs font-black uppercase tracking-widest">Documents sélectionnés</span>
-           </div>
-           <div className="flex items-center space-x-4">
-              <button onClick={handleExportBatchExcel} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
-                <FileSpreadsheet size={18} className="mr-2 text-emerald-500" /> Export Excel
-              </button>
-              <button onClick={() => window.print()} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
-                <Printer size={18} className="mr-2 text-blue-400" /> Impression
-              </button>
-              <div className="h-4 w-px bg-slate-700"></div>
-              <button onClick={() => setSelectedInvoices([])} className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-rose-500">Annuler</button>
-           </div>
-        </div>
-      )}
-
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Facturation</h1>
-          <p className="text-sm text-slate-500 font-medium">Sortir et archiver vos documents comptables</p>
+        <div className="flex items-center space-x-5">
+           <div className="p-4 bg-purple-600 text-white rounded-3xl shadow-xl shadow-purple-900/20"><Receipt size={32} /></div>
+           <div>
+              <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Facturation</h1>
+              <p className="text-sm text-slate-500 font-medium mt-1">Audit et gestion des pièces comptables</p>
+           </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={handleExportGlobalExcel}
-            className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm flex items-center"
-          >
-            <Download size={18} className="mr-2 text-purple-600" /> Export Global Excel
-          </button>
-        </div>
+        <button onClick={handleExportGlobalExcel} className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-all shadow-sm flex items-center group">
+          <FileSpreadsheet size={18} className="mr-3 text-emerald-600 group-hover:scale-110 transition-transform" /> Export Master Excel
+        </button>
       </div>
 
-      <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 relative">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-           <div className="flex items-center space-x-4">
-              <button 
-                onClick={toggleSelectAll}
-                className="p-2 text-slate-400 hover:text-purple-600 transition-colors"
-              >
-                {selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0 ? <CheckSquare size={20} className="text-purple-600" /> : <Square size={20} />}
-              </button>
-              <div className="relative w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Chercher une facture (N°, Client...)" className="w-full pl-12 pr-6 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-2xl text-[11px] font-bold outline-none focus:border-purple-500" />
-              </div>
+      <div className="bg-white dark:bg-slate-950 rounded-[3rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 flex flex-col">
+        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50/50 dark:bg-slate-900/30">
+           <div className="relative w-full max-w-xl">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Rechercher par numéro, client ou montant..." className="w-full pl-14 pr-8 py-4 bg-white dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl text-xs font-bold outline-none shadow-sm transition-all" />
            </div>
-           <div className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              <FileText size={14} />
-              <span>{filteredInvoices.length} Documents au total</span>
+           <div className="flex items-center space-x-3 px-6 py-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{filteredInvoices.length} Documents enregistrés</span>
            </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto flex-1">
           <table className="w-full text-left">
             <thead>
-              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b bg-slate-50/20">
-                <th className="px-6 py-6 w-10"></th>
-                <th className="px-10 py-6">Référence</th>
+              <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b bg-slate-50/20">
+                <th className="px-10 py-6">Document</th>
                 <th className="px-10 py-6">Date d'émission</th>
-                <th className="px-10 py-6">Client / Entité</th>
+                <th className="px-10 py-6">Client / Bénéficiaire</th>
                 <th className="px-10 py-6 text-right">Montant TTC</th>
-                <th className="px-10 py-6 text-center">État</th>
-                <th className="px-10 py-6 text-right">Ouvrir</th>
+                <th className="px-10 py-6 text-center">Statut Fiscal</th>
+                <th className="px-10 py-6 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
               {filteredInvoices.map((inv) => (
-                <tr key={inv.id} className={`hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group ${selectedInvoices.includes(inv.id) ? 'bg-purple-50/50 dark:bg-purple-900/10' : ''}`}>
-                  <td className="px-6 py-6">
-                    <button onClick={() => toggleSelect(inv.id)} className={`transition-colors ${selectedInvoices.includes(inv.id) ? 'text-purple-600' : 'text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}>
-                       {selectedInvoices.includes(inv.id) ? <CheckSquare size={18} /> : <Square size={18} />}
-                    </button>
+                <tr key={inv.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition-all group">
+                  <td className="px-10 py-6">
+                    <div className="flex items-center space-x-3">
+                       <div className={`p-2 rounded-lg ${inv.invoiceStatus === 'refunded' ? 'bg-rose-50 text-rose-500' : 'bg-purple-50 text-purple-600'}`}>
+                          <FileText size={18} />
+                       </div>
+                       <span className="font-black text-slate-900 dark:text-white font-mono text-xs uppercase tracking-tighter">#{inv.id.slice(-8)}</span>
+                    </div>
                   </td>
-                  <td className="px-10 py-6 font-black text-purple-600 font-mono text-xs">#{inv.id.slice(-8)}</td>
-                  <td className="px-10 py-6 text-xs font-bold text-slate-500">{inv.date.split(',')[0]}</td>
-                  <td className="px-10 py-6 font-black uppercase text-xs truncate max-w-[200px]">{inv.customer}</td>
-                  <td className="px-10 py-6 text-right font-black text-sm">{inv.total.toLocaleString()} {config.currency}</td>
+                  <td className="px-10 py-6">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{new Date(inv.date).toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'})}</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase mt-0.5">{new Date(inv.date).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span>
+                    </div>
+                  </td>
+                  <td className="px-10 py-6">
+                    <div className="flex items-center space-x-3">
+                       <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-400">{inv.customer.charAt(0)}</div>
+                       <span className="font-black uppercase text-xs text-slate-800 dark:text-slate-100 tracking-tight">{inv.customer}</span>
+                    </div>
+                  </td>
+                  <td className="px-10 py-6 text-right">
+                    <div className="flex flex-col items-end">
+                      <span className="font-black text-sm text-slate-900 dark:text-white">{inv.total.toLocaleString()} {config.currency}</span>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">{inv.paymentMethod || 'Espèces'}</span>
+                    </div>
+                  </td>
                   <td className="px-10 py-6 text-center">
-                    <span className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest inline-flex items-center ${
-                      inv.invoiceStatus === 'refunded' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
-                    }`}>
-                      {inv.invoiceStatus === 'refunded' ? <RotateCcw size={10} className="mr-1.5" /> : <CheckCircle2 size={10} className="mr-1.5" />}
-                      {inv.invoiceStatus === 'refunded' ? 'Avoir' : 'Facturé'}
+                    <span className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border-2 ${inv.invoiceStatus === 'refunded' ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                      {inv.invoiceStatus === 'refunded' ? 'Avoir / Retour' : 'Validé & Payé'}
                     </span>
                   </td>
                   <td className="px-10 py-6 text-right">
-                    <button onClick={() => setSelectedInvoice(inv)} className="p-3 bg-white dark:bg-slate-800 border rounded-2xl text-slate-400 hover:text-purple-600 hover:border-purple-500 transition-all shadow-sm"><Eye size={20} /></button>
+                    <button onClick={() => setViewedInvoice(inv)} className="p-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl text-slate-400 hover:text-purple-600 hover:border-purple-200 transition-all shadow-sm group-hover:scale-110" title="Consulter le document">
+                      <Eye size={20} />
+                    </button>
                   </td>
                 </tr>
               ))}
-              {filteredInvoices.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-20 text-center opacity-30">
-                    <FileText size={48} className="mx-auto mb-4" />
-                    <p className="font-black uppercase text-sm tracking-widest">Aucune facture trouvée</p>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -210,191 +165,200 @@ const Invoicing: React.FC<Props> = ({ sales, config, onUpdate, products, userRol
   );
 };
 
-const InvoiceModal = ({ sale, config, onClose, notify }: { sale: SaleOrder, config: ERPConfig, onClose: () => void, notify: any }) => {
+const InvoiceSinglePageView = ({ sale, config, onBack, notify }: { sale: SaleOrder, config: ERPConfig, onBack: () => void, notify: any }) => {
   const isRefund = sale.invoiceStatus === 'refunded';
 
-  const handleExportSingleExcel = () => {
-    const header = [
-      [config.companyName.toUpperCase()],
-      [config.showSloganOnInvoice ? config.companySlogan : ""],
-      [`Siège: ${config.showAddressOnInvoice ? config.address : ""}`],
-      [`Contact: ${config.showPhoneOnInvoice ? config.phone : ""} | ${config.showEmailOnInvoice ? config.email : ""}`],
-      [`Matricule Fiscal: ${config.showRegNumberOnInvoice ? config.registrationNumber : ""}`],
-      [""],
-      [isRefund ? "AVOIR FINANCIER" : "FACTURE COMMERCIALE"],
-      ["Référence", sale.id],
-      ["Client", sale.customer],
-      ["Date de facturation", sale.date],
-      ["Mode de Règlement", sale.paymentMethod || "Espèces"],
-      [""],
-      ["DESIGNATION", "PU TTC", "QTE", "MONTANT TTC"]
-    ];
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('invoice-print-area');
+    if (!element) return;
 
-    const rows = (sale.items || []).map(item => [
-      item.name.toUpperCase(),
-      item.price,
-      item.quantity,
-      item.price * item.quantity
-    ]);
+    const opt = {
+      margin: 0,
+      filename: `Facture_${sale.id.slice(-8)}.pdf`,
+      image: { type: 'jpeg', quality: 1.0 },
+      html2canvas: { 
+        scale: 3, // Haute résolution
+        useCORS: true, 
+        letterRendering: true,
+        backgroundColor: '#ffffff',
+      },
+      jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' }
+    };
 
-    const footer = [
-      [""],
-      ["", "", "TOTAL NET A PAYER", `${sale.total} ${config.currency}`],
-      [""],
-      [`Certifié conforme par Sama Pos + Cloud - Le ${new Date().toLocaleString()}`]
-    ];
-
-    const worksheet = XLSX.utils.aoa_to_sheet([...header, ...rows, ...footer]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Facturation Detail");
-    
-    worksheet['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 12 }, { wch: 15 }];
-
-    XLSX.writeFile(workbook, `Facture_${sale.id.slice(-6)}.xlsx`);
-    notify("Export XLSX", "Le détail financier a été exporté avec les coordonnées entreprise.", "success");
+    // @ts-ignore
+    window.html2pdf().set(opt).from(element).save().then(() => {
+       notify("Document exporté", "Le PDF A5 est prêt.", "success");
+    });
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[200] flex items-center justify-center p-4 sm:p-10 animate-fadeIn">
-      <div className="bg-white w-full max-w-4xl rounded-[2rem] shadow-2xl overflow-hidden animate-scaleIn flex flex-col max-h-full border border-white/20">
-        <div className="px-8 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur-md no-print sticky top-0 z-10">
-          <div className="flex items-center space-x-3">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Document {isRefund ? 'Avoir' : 'Facture'}</span>
-            <span className="px-2.5 py-1 bg-purple-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest shadow-lg">#{sale.id.slice(-8)}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button onClick={handleExportSingleExcel} className="bg-white border-2 border-slate-100 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center hover:bg-slate-50 transition-all"><FileSpreadsheet size={16} className="mr-2 text-emerald-600" /> Excel</button>
-            <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center shadow-xl hover:bg-black transition-all"><Printer size={16} className="mr-2" /> PDF / Imprimer</button>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><X size={24} /></button>
+    <div className="h-full flex flex-col space-y-6 animate-fadeIn pb-10">
+      <div className="flex items-center justify-between no-print bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center space-x-5">
+          <button onClick={onBack} className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-all text-slate-600 dark:text-slate-400">
+            <ArrowLeft size={22} />
+          </button>
+          <div>
+            <div className="flex items-center space-x-2">
+               <h2 className="text-xl font-black uppercase tracking-tighter">{isRefund ? 'Note d\'Avoir' : 'Facture Client'}</h2>
+               <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${isRefund ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>{isRefund ? 'Retourné' : 'Validé'}</span>
+            </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase mt-0.5 tracking-widest flex items-center"><Hash size={10} className="mr-1"/> Réf: {sale.id}</p>
           </div>
         </div>
+        <div className="flex items-center space-x-3">
+          <button onClick={handleDownloadPDF} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-900/20 hover:bg-emerald-700 transition-all flex items-center">
+            <FileDown size={20} className="mr-3" /> Exporter PDF A5
+          </button>
+          <button onClick={() => window.print()} className="bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center">
+            <Printer size={20} className="mr-3" /> Impression Directe
+          </button>
+        </div>
+      </div>
 
-        <div id="invoice-print-area" className="p-10 sm:p-16 overflow-y-auto bg-white flex-1 text-slate-950 scrollbar-hide relative">
-          <div className="absolute inset-0 flex items-center justify-center opacity-[0.02] pointer-events-none select-none">
-            <span className="text-[8rem] font-black uppercase -rotate-45 tracking-[1rem]">{isRefund ? 'RETOUR' : 'PAYÉ'}</span>
-          </div>
+      <div className="flex-1 flex justify-center overflow-y-auto scrollbar-hide py-4">
+        {/* LE CONTENEUR A5 RÉEL (148mm x 210mm) */}
+        <div 
+          id="invoice-print-area" 
+          className="bg-white text-slate-950 shadow-2xl relative flex flex-col print:shadow-none font-sans"
+          style={{ 
+            width: '148mm', 
+            height: '210mm', 
+            minWidth: '148mm', 
+            minHeight: '210mm',
+            padding: '10mm',
+            boxSizing: 'border-box',
+            backgroundColor: '#ffffff'
+          }}
+        >
+          {/* BANDEAU D'ÉTAT SUPÉRIEUR */}
+          <div className={`absolute top-0 left-0 right-0 h-1.5 ${isRefund ? 'bg-rose-600' : 'bg-emerald-600'}`}></div>
 
-          <div className="relative z-10">
-            {/* EN-TÊTE PROFESSIONNEL AVEC COORDONNÉES COMPLETES */}
-            <div className="flex justify-between items-start mb-12 pb-12 border-b border-slate-100">
-              <div className="space-y-6">
-                {config.showLogoOnInvoice && <AppLogoDoc className="w-24 h-24" />}
-                <div className="space-y-1">
-                  <h1 className="text-3xl font-black uppercase tracking-tighter leading-none">{config.companyName}</h1>
-                  {config.showSloganOnInvoice && <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.3em] mb-4">{config.companySlogan}</p>}
-                  <div className="space-y-1 text-[11px] font-bold text-slate-500 uppercase tracking-widest">
-                    {config.showAddressOnInvoice && <p className="flex items-center"><MapPin size={12} className="mr-2 text-slate-300" /> {config.address}</p>}
-                    {config.showPhoneOnInvoice && <p className="flex items-center"><Phone size={12} className="mr-2 text-slate-300" /> {config.phone}</p>}
-                    {config.showEmailOnInvoice && <p className="flex items-center"><Mail size={12} className="mr-2 text-slate-300" /> {config.email}</p>}
-                    {config.showRegNumberOnInvoice && <p className="flex items-center mt-3 pt-3 border-t border-slate-50 font-black text-slate-900 text-xs">RC/NIF: {config.registrationNumber}</p>}
+          <div className="relative z-10 flex flex-col h-full">
+            
+            {/* EN-TÊTE COMPAGNIE */}
+            <div className="flex justify-between items-start border-b border-slate-200 pb-4 mb-4">
+              <div className="flex items-start space-x-4">
+                {config.showLogoOnInvoice && <AppLogoDoc className="w-12 h-12" />}
+                <div className="space-y-0.5">
+                  <h1 className="text-md font-black uppercase leading-none text-slate-900">{config.companyName}</h1>
+                  {config.showSloganOnInvoice && <p className="text-[7.5px] font-black text-purple-600 uppercase tracking-widest opacity-80">{config.companySlogan}</p>}
+                  <div className="pt-2 space-y-0.5">
+                    {config.showAddressOnInvoice && <div className="flex items-start text-[6.5px] font-bold text-slate-500 uppercase max-w-[150px]"><MapPin size={7} className="mr-1 mt-0.5 shrink-0"/> {config.address}</div>}
+                    {config.showPhoneOnInvoice && <div className="flex items-center text-[6.5px] font-bold text-slate-500"><Phone size={7} className="mr-1 shrink-0"/> {config.phone}</div>}
+                    {config.showRegNumberOnInvoice && <div className="text-[6.5px] font-black text-slate-900 uppercase mt-1 bg-slate-100 px-1.5 py-0.5 rounded inline-block">NIF: {config.registrationNumber}</div>}
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <h2 className="text-4xl font-black uppercase tracking-tighter text-slate-900 mb-2">{isRefund ? 'Avoir' : 'Facture'}</h2>
-                <p className="text-xl font-mono font-black text-purple-600 tracking-tighter">REF-{sale.id.slice(-8)}</p>
-                <div className="mt-8 flex flex-col items-end space-y-1">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Émise le</span>
-                  <p className="text-xs font-black bg-slate-900 text-white px-4 py-1.5 rounded-xl">{sale.date}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-10 mb-12">
-              <div className="space-y-2 p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Destinataire / Client</p>
-                <h3 className="text-2xl font-black uppercase tracking-tighter">{sale.customer}</h3>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center mt-2 pt-2 border-t border-slate-200/50"><User size={12} className="mr-2" /> Client Particulier</p>
-              </div>
-              <div className="space-y-2 text-right p-8">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Détails financiers</p>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    {sale.payments ? sale.payments.map((p, i) => (
-                      <p key={i} className="text-[11px] font-black uppercase tracking-widest flex items-center justify-end text-purple-600">
-                        {p.method} : {p.amount.toLocaleString()} {config.currency}
-                      </p>
-                    )) : (
-                      <p className="text-base font-black uppercase tracking-widest flex items-center justify-end text-purple-600">
-                        <CreditCard size={18} className="mr-2" /> {sale.paymentMethod || 'Espèces'}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-[10px] font-bold text-slate-500 uppercase space-y-1">
-                    <p>Point de vente : {sale.orderLocation || 'Comptoir Pro'}</p>
-                    <p className="text-emerald-600 font-black">Statut de paiement : ACQUITTÉ</p>
-                  </div>
+              
+              <div className="text-right flex flex-col items-end">
+                <h2 className="text-lg font-black uppercase tracking-tight text-slate-900 mb-1">{isRefund ? 'Avoir' : 'Facture'}</h2>
+                <p className="text-[9px] font-mono font-black text-slate-900 uppercase tracking-tighter">#{sale.id.slice(-8)}</p>
+                <div className="mt-4 text-right">
+                   <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest">Date Émission</p>
+                   <p className="text-[8px] font-black text-slate-900 uppercase">{new Date(sale.date).toLocaleDateString('fr-FR')}</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[1.5rem] border border-slate-200 overflow-hidden mb-12 shadow-sm">
-              <table className="w-full text-left">
+            {/* SECTION CLIENTS */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+                <div>
+                   <p className="text-[6px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Destinataire</p>
+                   <h3 className="text-[10px] font-black uppercase truncate text-slate-900">{sale.customer}</h3>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-200/50">
+                   <p className="text-[7px] font-bold text-slate-500 uppercase">Zone : {sale.orderLocation || 'Générale'}</p>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between text-right">
+                <div>
+                   <p className="text-[6px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Paiement</p>
+                   <span className="text-[9px] font-black uppercase text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-100 inline-block">{sale.paymentMethod || 'Espèces'}</span>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-200/50">
+                   <p className="text-[7px] font-bold text-slate-500 uppercase">État : Libéré</p>
+                </div>
+              </div>
+            </div>
+
+            {/* TABLEAU DES ARTICLES (DESIGN ÉPURÉ) */}
+            <div className="flex-1">
+              <table className="w-full text-left text-[8.5px] border-collapse">
                 <thead>
-                  <tr className="bg-slate-900 text-white">
-                    <th className="px-10 py-6 text-[10px] font-black uppercase tracking-[0.2em]">Désignation</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black uppercase tracking-[0.2em]">Qté</th>
-                    <th className="px-10 py-6 text-right text-[10px] font-black uppercase tracking-[0.2em]">Prix Unitaire</th>
-                    <th className="px-10 py-6 text-right text-[10px] font-black uppercase tracking-[0.2em]">Total TTC</th>
+                  <tr className="bg-slate-900 text-white border-b border-slate-900">
+                    <th className="px-3 py-2 uppercase font-black tracking-widest">Désignation</th>
+                    <th className="px-2 py-2 text-center uppercase font-black tracking-widest">Qté</th>
+                    <th className="px-3 py-2 text-right uppercase font-black tracking-widest">P.U</th>
+                    <th className="px-3 py-2 text-right uppercase font-black tracking-widest">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {sale.items?.map((item, idx) => (
-                    <tr key={idx} className="group hover:bg-slate-50 transition-colors">
-                      <td className="px-10 py-6 font-black uppercase text-xs text-slate-900">{item.name}</td>
-                      <td className="px-10 py-6 text-center">
-                        <span className="bg-slate-100 px-4 py-1.5 rounded-xl font-black text-xs">{item.quantity}</span>
+                    <tr key={idx} className={idx % 2 === 0 ? 'bg-transparent' : 'bg-slate-50/50'}>
+                      <td className="px-3 py-2 font-black uppercase text-slate-800 leading-tight">
+                         {item.name}
                       </td>
-                      <td className="px-10 py-6 text-right font-bold text-xs">{item.price.toLocaleString()}</td>
-                      <td className="px-10 py-6 text-right font-black text-xs tracking-tighter">{(item.quantity * item.price).toLocaleString()} {config.currency}</td>
+                      <td className="px-2 py-2 text-center font-black text-slate-900">x{item.quantity}</td>
+                      <td className="px-3 py-2 text-right font-bold text-slate-500">{item.price.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right font-black text-slate-900">{(item.quantity * item.price).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {/* Remplissage visuel */}
+                  {[...Array(Math.max(0, 8 - (sale.items?.length || 0)))].map((_, i) => (
+                    <tr key={`empty-${i}`} className="border-none">
+                      <td className="px-3 py-2 h-7" colSpan={4}></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-16">
-               <div className="flex-1 space-y-6">
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-1">Mentions Légales</p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase leading-relaxed">
-                      {config.receiptFooter || "Merci de votre fidélité ! Toute réclamation doit être accompagnée de ce document."}
-                    </p>
+            {/* TOTAUX & SIGNATURES */}
+            <div className="border-t-2 border-slate-900 pt-3">
+               <div className="flex justify-between items-start">
+                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 space-y-1 min-w-[100px]">
+                     <p className="text-[6px] font-black text-slate-400 uppercase border-b pb-1 mb-1 flex items-center">Détail Encaissement</p>
+                     <div className="flex justify-between text-[7px] font-bold">
+                        <span className="text-slate-500">Recu:</span>
+                        <span className="text-slate-900">{(sale.amountReceived || sale.total).toLocaleString()}</span>
+                     </div>
+                     <div className="flex justify-between text-[7px] font-bold">
+                        <span className="text-slate-500">Rendu:</span>
+                        <span className="text-emerald-600">{(sale.change || 0).toLocaleString()}</span>
+                     </div>
+                  </div>
+
+                  <div className="text-right">
+                     <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-lg">
+                        <p className="text-[6px] font-black text-purple-400 uppercase tracking-[0.2em] mb-1">Total TTC ({config.currency})</p>
+                        <div className="text-2xl font-black font-mono tracking-tighter">
+                          {sale.total.toLocaleString()}
+                        </div>
+                     </div>
                   </div>
                </div>
-               
-               <div className="w-full md:w-[350px]">
-                  <div className="bg-slate-950 text-white p-10 rounded-[2.5rem] shadow-2xl flex flex-col items-center relative overflow-hidden group">
-                    <p className="text-[11px] font-black uppercase tracking-[0.4em] mb-5 opacity-40">TOTAL NET À RÉGLER</p>
-                    <div className="flex items-baseline relative z-10">
-                      <span className="text-6xl font-black font-mono tracking-tighter leading-none">{sale.total.toLocaleString()}</span>
-                      <span className="text-lg font-bold ml-2 text-purple-500 uppercase">{config.currency}</span>
-                    </div>
-                    <div className="mt-8 flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-2xl text-emerald-400 shadow-inner">
-                       <CheckCircle2 size={14} />
-                       <span>Document Payé intégralement</span>
-                    </div>
+
+               <div className="mt-8 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                     {config.showQrCodeOnInvoice && <div className="p-1.5 border border-slate-900 rounded-lg"><QrCode size={30} className="text-slate-900" /></div>}
+                     <div className="space-y-0.5">
+                       <p className="text-[6.5px] font-black uppercase text-slate-900">Certifié Authentique</p>
+                       <p className="text-[5.5px] font-bold text-slate-400 uppercase max-w-[120px]">Ce document électronique ARCH/2025 fait foi de preuve d'achat.</p>
+                     </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-center">
+                     <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest mb-4">Cachet & Signature</p>
+                     <div className="w-24 h-px bg-slate-300"></div>
                   </div>
                </div>
             </div>
 
-            <div className="pt-16 border-t border-dashed border-slate-200 flex flex-col md:flex-row justify-between items-center gap-10 text-center md:text-left">
-               <div className="flex items-center space-x-6">
-                  {config.showQrCodeOnInvoice && (
-                    <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100 shadow-inner">
-                      <QrCode size={80} className="text-slate-900" />
-                    </div>
-                  )}
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-900">Archivage Numérique</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed max-w-[220px]">Ce document est certifié par Sama Pos +. Intégrité des données garantie via Blockchain Hash.</p>
-                  </div>
-               </div>
-               <div className="space-y-6 text-center">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Le Gérant (Cachet & Signature)</p>
-                  <div className="w-56 h-px bg-slate-900 mx-auto"></div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 italic">Fait à Nouakchott, le {new Date().toLocaleDateString()}</p>
-               </div>
+            <div className="text-center pt-4 mt-auto">
+               <p className="text-[6.5px] font-black text-slate-400 uppercase tracking-widest italic">{config.receiptFooter || 'Merci de votre fidélité'}</p>
             </div>
           </div>
         </div>

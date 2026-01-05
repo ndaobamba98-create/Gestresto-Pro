@@ -1,5 +1,5 @@
 
-import { Lead, Product, Task, SaleOrder, Employee, ERPConfig, User, Expense, Supplier, PaymentMethod } from './types';
+import { Product, SaleOrder, Employee, ERPConfig, User, Expense, Supplier, PaymentMethod } from './types';
 import { Banknote, Smartphone, Wallet, CreditCard } from 'lucide-react';
 import React from 'react';
 
@@ -25,7 +25,6 @@ export const POS_LOCATIONS = {
   default: 'Comptoir'
 };
 
-// Add missing language property to INITIAL_CONFIG to satisfy ERPConfig type requirement.
 export const INITIAL_CONFIG: ERPConfig = {
   companyName: "FAST FOOD MYA D'OR",
   companySlogan: "Le goût qui vaut de l'or",
@@ -56,7 +55,7 @@ export const INITIAL_CONFIG: ERPConfig = {
   showSloganOnInvoice: true,
   showAddressOnInvoice: true,
   showPhoneOnInvoice: true,
-  showEmailOnInvoice: false,
+  showEmailOnInvoice: true,
   showRegNumberOnInvoice: true,
   showQrCodeOnInvoice: true,
 };
@@ -71,7 +70,6 @@ export const INITIAL_EXPENSES: Expense[] = [
 ];
 
 const RAW_PRODUCTS: Product[] = [
-  // --- PETIT DÉJEUNER (Issu de Nos Repas) ---
   { id: 'PD01', name: 'OMELETTE SIMPLE', sku: 'PD-01', price: 40, stock: 999, category: 'Petit Déjeuner' },
   { id: 'PD02', name: 'OMELETTE FROMAGE', sku: 'PD-02', price: 50, stock: 999, category: 'Petit Déjeuner' },
   { id: 'PD03', name: 'OMELETTE FRMG JAMBON', sku: 'PD-03', price: 70, stock: 999, category: 'Petit Déjeuner' },
@@ -81,8 +79,6 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'PD07', name: 'SANDWICH (Spécial)', sku: 'PD-07', price: 80, stock: 999, category: 'Petit Déjeuner' },
   { id: 'PD08', name: 'CAFÉ TOUBA (PD)', sku: 'PD-08', price: 10, stock: 999, category: 'Petit Déjeuner' },
   { id: 'PD09', name: 'CAFÉ AU LAIT', sku: 'PD-09', price: 15, stock: 999, category: 'Petit Déjeuner' },
-
-  // --- DÉJEUNER (Issu de Nos Repas) ---
   { id: 'DE01', name: 'RIZ AU POISSONS', sku: 'DE-01', price: 50, stock: 999, category: 'Déjeuner' },
   { id: 'DE02', name: 'MAFÉ', sku: 'DE-02', price: 50, stock: 999, category: 'Déjeuner' },
   { id: 'DE03', name: 'SOUPE KANDIA', sku: 'DE-03', price: 50, stock: 999, category: 'Déjeuner' },
@@ -90,8 +86,6 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'DE05', name: 'YASSA POULET / VIANDE', sku: 'DE-05', price: 70, stock: 999, category: 'Déjeuner' },
   { id: 'DE06', name: 'ATHIÉKÉ POISSON', sku: 'DE-06', price: 50, stock: 999, category: 'Déjeuner' },
   { id: 'DE07', name: 'ATHIÉKÉ POULET', sku: 'DE-07', price: 80, stock: 999, category: 'Déjeuner' },
-
-  // --- DÎNER (Issu de Nos Repas) ---
   { id: 'DI01', name: 'SOUPOU', sku: 'DI-01', price: 80, stock: 999, category: 'Dîner' },
   { id: 'DI02', name: 'POISSON BRAISÉ (P)', sku: 'DI-02', price: 50, stock: 999, category: 'Dîner' },
   { id: 'DI03', name: 'POISSON BRAISÉ (G)', sku: 'DI-03', price: 80, stock: 999, category: 'Dîner' },
@@ -100,8 +94,6 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'DI06', name: 'VERMICELLE', sku: 'DI-06', price: 50, stock: 999, category: 'Dîner' },
   { id: 'DI07', name: 'PETIT POIS (Dîner)', sku: 'DI-07', price: 50, stock: 999, category: 'Dîner' },
   { id: 'DI08', name: 'COUS COUS', sku: 'DI-08', price: 50, stock: 999, category: 'Dîner' },
-
-  // --- FAST FOOD & SNACK ---
   { id: 'FF01', name: 'POULET COMPLET', sku: 'FF-01', price: 400, stock: 999, category: 'Fast Food & Snack' },
   { id: 'FF02', name: 'POULET 1/2', sku: 'FF-02', price: 200, stock: 999, category: 'Fast Food & Snack' },
   { id: 'FF03', name: 'POULET 1/4', sku: 'FF-03', price: 80, stock: 999, category: 'Fast Food & Snack' },
@@ -119,8 +111,6 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'FF15', name: 'HAMBURGER', sku: 'FF-15', price: 100, stock: 999, category: 'Fast Food & Snack' },
   { id: 'FF16', name: 'CHAWARMA', sku: 'FF-16', price: 100, stock: 999, category: 'Fast Food & Snack' },
   { id: 'FF17', name: 'SANDWICH AMÉRICAIN', sku: 'FF-17', price: 80, stock: 999, category: 'Fast Food & Snack' },
-
-  // --- CREPES & GAUFRES ---
   { id: 'CG01', name: 'CRÊPES SIMPLE', sku: 'CG-01', price: 40, stock: 999, category: 'Crepes & Gaufres' },
   { id: 'CG02', name: 'CRÊPES MIEL', sku: 'CG-02', price: 50, stock: 999, category: 'Crepes & Gaufres' },
   { id: 'CG03', name: 'CRÊPES MIEL BANANE', sku: 'CG-03', price: 70, stock: 999, category: 'Crepes & Gaufres' },
@@ -138,8 +128,6 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'CG15', name: 'GAUFRE CHOCOLAT BANANE', sku: 'CG-15', price: 90, stock: 999, category: 'Crepes & Gaufres' },
   { id: 'CG16', name: 'GAUFRE NUTELLA', sku: 'CG-16', price: 100, stock: 999, category: 'Crepes & Gaufres' },
   { id: 'CG17', name: 'GAUFRE NUTELLA BANANE', sku: 'CG-17', price: 120, stock: 999, category: 'Crepes & Gaufres' },
-
-  // --- BOISSONS ---
   { id: 'BO01', name: 'SODA', sku: 'BO-01', price: 20, stock: 999, category: 'Boissons' },
   { id: 'BO02', name: 'JUS', sku: 'BO-02', price: 30, stock: 999, category: 'Boissons' },
   { id: 'BO03', name: 'MOJITO', sku: 'BO-03', price: 50, stock: 999, category: 'Boissons' },
@@ -151,17 +139,13 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'BO09', name: 'ICE COFFEE', sku: 'BO-09', price: 70, stock: 999, category: 'Boissons' },
   { id: 'BO10', name: 'CHOCOLAT CHAUD', sku: 'BO-10', price: 100, stock: 999, category: 'Boissons' },
   { id: 'BO11', name: 'THÉ', sku: 'BO-11', price: 70, stock: 999, category: 'Boissons' },
-
-  // --- DESSERTS ---
   { id: 'DS01', name: 'MILK SHAKE', sku: 'DS-01', price: 100, stock: 999, category: 'Desserts' },
   { id: 'DS02', name: 'SALADE DE FRUITS', sku: 'DS-02', price: 30, stock: 999, category: 'Desserts' },
   { id: 'DS03', name: 'BISCUIT / CAKE', sku: 'DS-03', price: 30, stock: 999, category: 'Desserts' },
   { id: 'DS04', name: 'JUS BOUYE', sku: 'DS-04', price: 30, stock: 999, category: 'Desserts' },
-  { id: 'DS05', name: 'JUS BISAP', sku: 'DS-05', price: 30, stock: 999, category: 'Desserts' },
-  { id: 'DS06', name: 'JUS GENGEMBRE', sku: 'DS-06', price: 30, stock: 999, category: 'Desserts' },
-  { id: 'DS07', name: 'THIAKRY / NGALAKH', sku: 'DS-07', price: 30, stock: 999, category: 'Desserts' },
-
-  // --- SUPPLÉMENTS ---
+  { id: 'DS05', name: 'JUS BISAP', sku: 'DS-04', price: 30, stock: 999, category: 'Desserts' },
+  { id: 'DS06', name: 'JUS GENGEMBRE', sku: 'DS-04', price: 30, stock: 999, category: 'Desserts' },
+  { id: 'DS07', name: 'THIAKRY / NGALAKH', sku: 'DS-04', price: 30, stock: 999, category: 'Desserts' },
   { id: 'SP01', name: 'BANANE (SUPP)', sku: 'SP-01', price: 20, stock: 999, category: 'Suppléments' },
   { id: 'SP02', name: 'MIEL (SUPP)', sku: 'SP-02', price: 30, stock: 999, category: 'Suppléments' },
   { id: 'SP03', name: 'FROMAGE (SUPP)', sku: 'SP-03', price: 30, stock: 999, category: 'Suppléments' },
@@ -172,8 +156,6 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'SP08', name: 'FRITES', sku: 'SP-08', price: 30, stock: 999, category: 'Suppléments' },
   { id: 'SP09', name: 'CUISSE POULET', sku: 'SP-09', price: 50, stock: 999, category: 'Suppléments' },
   { id: 'SP10', name: 'KFC LA PIÈCE', sku: 'SP-10', price: 40, stock: 999, category: 'Suppléments' },
-
-  // --- FORMULES ---
   { id: 'FO01', name: 'FORMULE TERANGA PLUS', sku: 'FO-01', price: 550, stock: 999, category: 'Formules' },
   { id: 'FO02', name: 'FORMULE TERANGA POULET', sku: 'FO-02', price: 550, stock: 999, category: 'Formules' },
   { id: 'FO03', name: 'FORMULE TERANGA', sku: 'FO-03', price: 200, stock: 999, category: 'Formules' },

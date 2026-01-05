@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
-import { Employee, AttendanceRecord, ERPConfig, ViewType, Attachment } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Employee, AttendanceRecord, ERPConfig, ViewType, Attachment, LeaveRequest, Payslip } from '../types';
 import { 
-  Plus, Search, Mail, Phone, Briefcase, Calendar, DollarSign, Users, Clock, FileText, UserCheck, LogIn, LogOut, Trash2, AlertTriangle, X, UserPlus, Edit3, Save, Download, Printer, QrCode, AlertCircle, Calculator, FileSpreadsheet, Paperclip, File, FileSignature
+  Plus, Search, Mail, Phone, Briefcase, Calendar, DollarSign, Users, Clock, FileText, 
+  Trash2, X, Edit3, Save, Printer, QrCode, Paperclip, FileSignature, Eye, Camera, 
+  ArrowLeft, FileDown, CheckCircle2, Ban, Landmark, MapPin, Building, CreditCard
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-// Import AppLogoDoc from Invoicing component
 import { AppLogoDoc } from './Invoicing';
 
 interface Props {
@@ -18,77 +19,37 @@ interface Props {
   userPermissions: ViewType[];
 }
 
-type HRTab = 'directory' | 'attendance';
-
-const HR: React.FC<Props> = ({ employees, onUpdate, attendance, onUpdateAttendance, config, notify, userPermissions }) => {
-  const [activeTab, setActiveTab] = useState<HRTab>('directory');
+const HR: React.FC<Props> = ({ employees, onUpdate, attendance, config, notify, userPermissions }) => {
+  const [activeTab, setActiveTab] = useState<'directory' | 'attendance' | 'leaves' | 'payroll'>('directory');
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeDept, setActiveDept] = useState<string>('Tous');
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee> | null>(null);
-  const [selectedForPayslip, setSelectedForPayslip] = useState<Employee | null>(null);
   const [selectedForContract, setSelectedForContract] = useState<Employee | null>(null);
+  const [selectedForPayslip, setSelectedForPayslip] = useState<Employee | null>(null);
+  const [viewerDoc, setViewerDoc] = useState<{name: string, attachments: Attachment[]} | null>(null);
+
+  // Simulation de données pour les congés et la paie (pour démo)
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [payslips, setPayslips] = useState<Payslip[]>([]);
 
   const canEdit = userPermissions.includes('manage_hr');
+  const departments = ['Cuisine', 'Salle', 'Livraison', 'Administration', 'Maintenance'];
 
-  const depts: Employee['department'][] = ['Cuisine', 'Salle', 'Livraison', 'Administration'];
-  const allDepts = ['Tous', ...depts];
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(e => 
+      e.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      e.role.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [employees, searchTerm]);
 
-  const filteredEmployees = employees.filter(e => {
-    const matchesSearch = e.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          e.role.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDept = activeDept === 'Tous' || e.department === activeDept;
-    return matchesSearch && matchesDept;
-  });
-
-  const totalPayroll = employees.reduce((acc, curr) => acc + curr.salary, 0);
-  const presentCount = employees.filter(e => e.isClockedIn).length;
-
-  const handleDelete = () => {
-    if (deleteConfirm) {
-      onUpdate(employees.filter(e => e.id !== deleteConfirm.id));
-      notify("Employé Supprimé", `${deleteConfirm.name} ne fait plus partie des effectifs.`, 'warning');
-      setDeleteConfirm(null);
-    }
-  };
-
-  const handleOpenAddModal = () => {
-    setEditingEmployee({ id: `E${Date.now().toString().slice(-4)}`, name: '', role: '', department: 'Cuisine', salary: 0, status: 'active', joinDate: new Date().toISOString().split('T')[0], isClockedIn: false, attachments: [] });
-    setIsModalOpen(true);
-  };
-
-  const handleOpenEditModal = (emp: Employee) => {
-    setEditingEmployee({ ...emp, attachments: emp.attachments || [] });
-    setIsModalOpen(true);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !editingEmployee) return;
-    (Array.from(files) as File[]).forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const newAttachment: Attachment = {
-          id: `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          name: file.name,
-          type: file.type,
-          url: event.target?.result as string
-        };
-        setEditingEmployee(prev => ({
-          ...prev,
-          attachments: [...(prev?.attachments || []), newAttachment]
-        }));
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const removeAttachment = (id: string) => {
-    setEditingEmployee(prev => ({
-      ...prev,
-      attachments: prev?.attachments?.filter(a => a.id !== id)
-    }));
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingEmployee) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setEditingEmployee(prev => ({ ...prev, photo: event.target?.result as string }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveEmployee = (e: React.FormEvent) => {
@@ -98,371 +59,419 @@ const HR: React.FC<Props> = ({ employees, onUpdate, attendance, onUpdateAttendan
     const exists = employees.find(e => e.id === empToSave.id);
     if (exists) {
       onUpdate(employees.map(e => e.id === empToSave.id ? empToSave : e));
-      notify("Fiche mise à jour", `Les informations de ${empToSave.name} ont été actualisées.`, 'success');
     } else {
-      onUpdate([...employees, empToSave]);
-      notify("Nouveau Collaborateur", `${empToSave.name} a rejoint l'équipe.`, 'success');
+      onUpdate([...employees, { ...empToSave, attachments: empToSave.attachments || [], status: 'active', isClockedIn: false }]);
     }
     setIsModalOpen(false);
     setEditingEmployee(null);
+    notify("Succès", "Fiche agent mise à jour.", "success");
   };
 
-  const handleExportPayrollReport = () => {
-    const data = employees.map(e => ({ 'ID Employé': e.id, 'Nom Complet': e.name, 'Poste': e.role, 'Département': e.department, 'Salaire de Base': e.salary, 'Devise': config.currency, 'Statut Actuel': e.isClockedIn ? 'Présent' : 'Absent', 'Date Embauche': e.joinDate }));
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Rapport de Paie");
-    XLSX.writeFile(workbook, `Paie_Mensuelle_${new Date().getMonth() + 1}_${new Date().getFullYear()}.xlsx`);
-  };
+  if (selectedForContract) {
+    return <ContractView employee={selectedForContract} config={config} onBack={() => setSelectedForContract(null)} notify={notify} />;
+  }
+
+  if (selectedForPayslip) {
+    return <PayslipView employee={selectedForPayslip} config={config} onBack={() => setSelectedForPayslip(null)} notify={notify} />;
+  }
 
   return (
-    <div className="h-full flex flex-col space-y-6 animate-fadeIn pb-10">
-      {selectedForPayslip && <PayslipModal employee={selectedForPayslip} config={config} onClose={() => setSelectedForPayslip(null)} />}
-      {selectedForContract && <ContractModal employee={selectedForContract} config={config} onClose={() => setSelectedForContract(null)} />}
-
-      {isModalOpen && editingEmployee && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-scaleIn border border-slate-200 dark:border-slate-800">
-            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-purple-600 text-white rounded-xl shadow-lg"><UserPlus size={20} /></div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">{employees.find(e => e.id === editingEmployee.id) ? 'Modifier' : 'Nouveau'} Collaborateur</h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiche signalétique RH</p>
-                </div>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-400 hover:text-rose-500"><X size={24} /></button>
-            </div>
-
-            <form onSubmit={handleSaveEmployee} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto scrollbar-hide">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nom Complet</label>
-                  <input type="text" required value={editingEmployee.name} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none transition-all" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Poste / Rôle</label>
-                  <input type="text" required value={editingEmployee.role} onChange={e => setEditingEmployee({...editingEmployee, role: e.target.value})} className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Département</label>
-                  <select value={editingEmployee.department} onChange={e => setEditingEmployee({...editingEmployee, department: e.target.value as any})} className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none">
-                    {depts.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Salaire ({config.currency})</label>
-                  <input type="number" required value={editingEmployee.salary || ''} onChange={e => setEditingEmployee({...editingEmployee, salary: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Date d'embauche</label>
-                  <input type="date" required value={editingEmployee.joinDate} onChange={e => setEditingEmployee({...editingEmployee, joinDate: e.target.value})} className="w-full px-4 py-3 rounded-xl border dark:bg-slate-800 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none" />
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center">
-                    <Paperclip size={14} className="mr-2" /> Documents (Contrats, CV, CNI)
-                  </label>
-                  <label className="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg text-[10px] font-black text-purple-600 uppercase cursor-pointer hover:bg-purple-600 hover:text-white transition-all">
-                    Ajouter un fichier
-                    <input type="file" multiple className="hidden" onChange={handleFileUpload} />
-                  </label>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {editingEmployee.attachments?.map((file) => (
-                    <div key={file.id} className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between group">
-                      <div className="flex items-center space-x-3 overflow-hidden">
-                        <File size={16} className="text-purple-600 shrink-0" />
-                        <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold truncate hover:text-purple-600 transition-all">{file.name}</a>
-                      </div>
-                      <button type="button" onClick={() => removeAttachment(file.id)} className="p-1.5 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14}/></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex space-x-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 uppercase text-[10px] tracking-widest">Annuler</button>
-                <button type="submit" className="flex-[2] bg-purple-600 text-white py-3 rounded-xl font-black shadow-lg hover:bg-purple-700 transition-all uppercase text-[10px] tracking-widest flex items-center justify-center">
-                  <Save size={16} className="mr-2" /> Enregistrer les modifications
-                </button>
-              </div>
-            </form>
-          </div>
+    <div className="h-full flex flex-col space-y-6 animate-fadeIn pb-10 pr-2 overflow-hidden">
+      
+      {/* HEADER RH */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black uppercase tracking-tighter">Gestion Humaine</h1>
+          <p className="text-sm text-slate-500 font-medium">Administration du personnel & paie</p>
         </div>
+        <div className="flex items-center space-x-3">
+          <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 p-1 rounded-2xl flex shadow-sm">
+            {[
+              { id: 'directory', label: 'Annuaire', icon: Users },
+              { id: 'attendance', label: 'Présences', icon: Clock },
+              { id: 'leaves', label: 'Congés', icon: Ban },
+              { id: 'payroll', label: 'Paie', icon: DollarSign }
+            ].map(tab => (
+              <button 
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)} 
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center ${activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                <tab.icon size={14} className="mr-2" />
+                <span className="hidden md:inline">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+          {canEdit && (
+            <button 
+              onClick={() => { setEditingEmployee({ id: `E${Date.now()}`, name: '', role: '', salary: 0, department: 'Salle', joinDate: new Date().toISOString().split('T')[0] }); setIsModalOpen(true); }}
+              className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl hover:bg-black transition-all"
+            >
+              <Plus size={18} className="mr-2" /> Recruter
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* RECHERCHE */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center">
+        <Search className="text-slate-400 ml-4" size={20} />
+        <input 
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          placeholder="Rechercher par nom, poste ou département..."
+          className="flex-1 px-4 py-2 bg-transparent outline-none font-bold text-sm"
+        />
+      </div>
+
+      {/* CONTENU ONGLET */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
+        {activeTab === 'directory' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredEmployees.map(emp => (
+              <EmployeeCard 
+                key={emp.id} 
+                employee={emp} 
+                onEdit={() => { setEditingEmployee(emp); setIsModalOpen(true); }}
+                onContract={() => setSelectedForContract(emp)}
+                onPayslip={() => setSelectedForPayslip(emp)}
+                onViewDocs={() => setViewerDoc({ name: emp.name, attachments: emp.attachments || [] })}
+              />
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'attendance' && <AttendanceTable attendance={attendance} />}
+
+        {activeTab === 'leaves' && <LeavesTable leaves={leaves} employees={employees} onAdd={() => notify("Info", "Module de demande de congé en cours d'activation", "info")} />}
+
+        {activeTab === 'payroll' && <PayrollTable employees={employees} config={config} onGenerate={(emp) => setSelectedForPayslip(emp)} />}
+      </div>
+
+      {/* MODAL ÉDITION EMPLOYE */}
+      {isModalOpen && editingEmployee && (
+        <EmployeeModal 
+          employee={editingEmployee} 
+          setEmployee={setEditingEmployee} 
+          onSave={handleSaveEmployee} 
+          onClose={() => setIsModalOpen(false)}
+          onPhotoUpload={handlePhotoUpload}
+          departments={departments}
+        />
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div><h1 className="text-2xl font-bold text-slate-800 dark:text-white uppercase">Ressources Humaines</h1><p className="text-sm text-slate-500 font-medium">Gestion du personnel et paies</p></div>
-        <div className="flex items-center space-x-3">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl flex">
-            <button onClick={() => setActiveTab('directory')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'directory' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Users size={14} className="inline mr-2" /> Annuaire</button>
-            <button onClick={() => setActiveTab('attendance')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'attendance' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><Clock size={14} className="inline mr-2" /> Présences</button>
-          </div>
-          <button onClick={handleExportPayrollReport} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-black uppercase tracking-widest hover:bg-emerald-700 flex items-center shadow-lg"><FileSpreadsheet size={18} className="mr-2" /> Rapport Paie</button>
-          {canEdit && <button onClick={handleOpenAddModal} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 flex items-center shadow-sm transition-all"><Plus size={18} className="mr-2" /> Nouveau</button>}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatItem icon={Users} title="Effectif Total" value={`${employees.length} collaborateurs`} color="bg-blue-100 text-blue-600" />
-        <StatItem icon={UserCheck} title="En Poste Actuellement" value={`${presentCount} / ${employees.length}`} color="bg-emerald-100 text-emerald-600" />
-        <StatItem icon={DollarSign} title="Masse Salariale" value={`${totalPayroll.toLocaleString()} ${config.currency}`} color="bg-purple-100 text-purple-600" />
-      </div>
-
-      {activeTab === 'directory' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredEmployees.map(emp => (
-            <div key={emp.id} className={`bg-white dark:bg-slate-900 rounded-2xl border transition-all group relative overflow-hidden ${emp.isClockedIn ? 'border-emerald-500' : 'border-slate-200 dark:border-slate-800'}`}>
-              <div className="p-6 flex flex-col items-center text-center">
-                <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center text-2xl font-black mb-4 ${emp.isClockedIn ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700'}`}>{emp.name.split(' ').map(n => n[0]).join('')}</div>
-                <h3 className="font-bold text-slate-800 dark:text-white leading-tight mb-1">{emp.name}</h3>
-                <p className="text-xs font-medium text-slate-500 mb-6">{emp.role}</p>
-                <div className="w-full space-y-2 mb-6 text-left bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
-                  <div className="flex items-center text-[10px] text-slate-400 font-black uppercase"><Briefcase size={10} className="mr-2" /> {emp.department}</div>
-                  <div className="flex items-center text-[10px] text-slate-400 font-black uppercase"><DollarSign size={10} className="mr-2" /> {emp.salary.toLocaleString()} {config.currency}</div>
-                </div>
-                <div className="w-full grid grid-cols-1 gap-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => setSelectedForPayslip(emp)} className="bg-slate-900 text-white py-2.5 rounded-xl text-[9px] font-black uppercase flex items-center justify-center hover:bg-purple-600 transition-all shadow-sm"><FileText size={12} className="mr-1.5" /> Fiche Paie</button>
-                    <button onClick={() => setSelectedForContract(emp)} className="bg-purple-600 text-white py-2.5 rounded-xl text-[9px] font-black uppercase flex items-center justify-center hover:bg-slate-900 transition-all shadow-sm"><FileSignature size={12} className="mr-1.5" /> Contrat</button>
-                  </div>
-                  {canEdit && <button onClick={() => handleOpenEditModal(emp)} className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-2.5 rounded-xl text-[10px] font-black uppercase flex items-center justify-center hover:bg-purple-600 hover:text-white transition-all"><Edit3 size={14} className="mr-2" /> Modifier Fiche</button>}
-                </div>
-              </div>
+      {/* VISIONNEUSE DOCUMENTS */}
+      {viewerDoc && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10">
+            <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+              <h3 className="text-lg font-black uppercase tracking-tight">Dossier de {viewerDoc.name}</h3>
+              <button onClick={() => setViewerDoc(null)}><X size={24}/></button>
             </div>
-          ))}
+            <div className="p-8 space-y-3 max-h-[50vh] overflow-y-auto">
+              {viewerDoc.attachments.map(att => (
+                <div key={att.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border">
+                  <span className="text-xs font-bold truncate pr-4">{att.name}</span>
+                  <a href={att.url} target="_blank" rel="noopener noreferrer" className="p-2 bg-purple-600 text-white rounded-lg"><Eye size={16}/></a>
+                </div>
+              ))}
+              {viewerDoc.attachments.length === 0 && <p className="text-center py-10 text-slate-400 font-black uppercase text-[10px]">Aucun document</p>}
+            </div>
+          </div>
         </div>
-      ) : (
-        <AttendanceTable attendance={attendance} />
       )}
     </div>
   );
 };
 
-const StatItem = ({ icon: Icon, title, value, color }: any) => (
-  <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center space-x-4">
-    <div className={`p-3 rounded-lg ${color}`}><Icon size={24} /></div>
-    <div><p className="text-sm font-medium text-slate-500">{title}</p><h4 className="text-xl font-bold dark:text-white">{value}</h4></div>
+// COMPOSANTS INTERNES RH
+
+const EmployeeCard = ({ employee, onEdit, onContract, onPayslip, onViewDocs }: any) => (
+  <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-50 dark:border-slate-800 p-6 flex flex-col items-center text-center group hover:shadow-2xl hover:border-purple-200 transition-all relative">
+    <div className="relative mb-4">
+      <div className={`w-24 h-24 rounded-[2.5rem] border-4 overflow-hidden shadow-xl ${employee.isClockedIn ? 'border-emerald-500' : 'border-slate-200'}`}>
+        {employee.photo ? (
+          <img src={employee.photo} alt={employee.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-slate-100 flex items-center justify-center text-3xl font-black text-slate-300">{employee.name[0]}</div>
+        )}
+      </div>
+      {employee.isClockedIn && <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-white dark:border-slate-900 animate-pulse"></div>}
+    </div>
+    
+    <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-tight text-md leading-tight">{employee.name}</h3>
+    <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest mt-1 mb-4">{employee.role}</p>
+    
+    <div className="w-full grid grid-cols-4 gap-2 border-t pt-4 border-slate-50 dark:border-slate-800">
+      <button onClick={onViewDocs} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-purple-600 transition-all" title="Dossier"><Paperclip size={16} /></button>
+      <button onClick={onContract} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-blue-600 transition-all" title="Contrat"><FileSignature size={16} /></button>
+      <button onClick={onPayslip} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-emerald-600 transition-all" title="Bulletin"><DollarSign size={16} /></button>
+      <button onClick={onEdit} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-slate-900 transition-all" title="Modifier"><Edit3 size={16} /></button>
+    </div>
   </div>
 );
 
-const AttendanceTable = ({ attendance }: { attendance: AttendanceRecord[] }) => (
-  <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-fadeIn">
-    <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-      <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tighter flex items-center"><Clock className="mr-2 text-purple-600" size={18} /> Journal de Pointage</h3>
-      <span className="bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-3 py-1 rounded-full text-[10px] font-black">{attendance.length} pointages</span>
+const EmployeeModal = ({ employee, setEmployee, onSave, onClose, onPhotoUpload, departments }: any) => (
+  <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-scaleIn border border-slate-200">
+      <div className="p-8 border-b flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+        <h3 className="text-lg font-black uppercase tracking-tight">Fiche Collaborateur Odoo</h3>
+        <button onClick={onClose}><X size={24} /></button>
+      </div>
+      <form onSubmit={onSave} className="p-10 space-y-8 max-h-[80vh] overflow-y-auto scrollbar-hide">
+        <div className="flex flex-col md:flex-row gap-10">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="relative group">
+              <div className="w-32 h-32 rounded-[2.5rem] bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-200 overflow-hidden flex items-center justify-center">
+                {employee.photo ? <img src={employee.photo} alt="Profil" className="w-full h-full object-cover" /> : <Camera size={32} className="text-slate-300" />}
+              </div>
+              <label className="absolute bottom-0 right-0 bg-purple-600 text-white p-2.5 rounded-2xl shadow-lg cursor-pointer hover:scale-110 transition-all">
+                <Plus size={16} />
+                <input type="file" className="hidden" accept="image/*" onChange={onPhotoUpload} />
+              </label>
+            </div>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Format Carré recommandé</span>
+          </div>
+
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2 space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nom Complet de l'agent</label>
+              <input required value={employee.name} onChange={e => setEmployee({...employee, name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 font-bold" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Poste occupé</label>
+              <input required value={employee.role} onChange={e => setEmployee({...employee, role: e.target.value})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 font-bold" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Département</label>
+              <select value={employee.department} onChange={e => setEmployee({...employee, department: e.target.value})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 font-bold">
+                {departments.map((d: any) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Salaire Mensuel Brut</label>
+              <input type="number" required value={employee.salary || ''} onChange={e => setEmployee({...employee, salary: parseFloat(e.target.value) || 0})} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-none outline-none focus:ring-2 focus:ring-purple-500 font-black text-purple-600" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Téléphonique</label>
+              <div className="flex">
+                <div className="px-3 py-3 bg-slate-200 dark:bg-slate-700 rounded-l-xl flex items-center"><Phone size={14}/></div>
+                <input value={employee.phone || ''} onChange={e => setEmployee({...employee, phone: e.target.value})} className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-r-xl border-none outline-none focus:ring-2 focus:ring-purple-500 font-bold" />
+              </div>
+            </div>
+            <div className="md:col-span-2 space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Coordonnées Bancaires (RIB / IBAN)</label>
+              <div className="flex">
+                <div className="px-3 py-3 bg-slate-200 dark:bg-slate-700 rounded-l-xl flex items-center"><Landmark size={14}/></div>
+                <input value={employee.bankAccount || ''} onChange={e => setEmployee({...employee, bankAccount: e.target.value})} className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-r-xl border-none outline-none focus:ring-2 focus:ring-purple-500 font-mono text-xs font-bold" placeholder="Entrez le RIB de l'agent..." />
+              </div>
+            </div>
+          </div>
+        </div>
+        <button type="submit" className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-black transition-all">Enregistrer le profil RH</button>
+      </form>
     </div>
+  </div>
+);
+
+const PayslipView = ({ employee, config, onBack, notify }: any) => {
+  const handleDownload = () => {
+    const element = document.getElementById('payslip-area');
+    if (!element) return;
+    const opt = { margin: 0, filename: `Bulletin_${employee.name}.pdf`, jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' } };
+    // @ts-ignore
+    window.html2pdf().set(opt).from(element).save();
+    notify("Succès", "Bulletin de paie généré.", "success");
+  };
+
+  return (
+    <div className="h-full flex flex-col space-y-6">
+      <div className="flex items-center justify-between no-print bg-white p-4 rounded-3xl border">
+        <button onClick={onBack} className="p-3 bg-slate-100 rounded-xl"><ArrowLeft/></button>
+        <h2 className="text-xl font-black uppercase">Bulletin de Salaire</h2>
+        <button onClick={handleDownload} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase flex items-center"><FileDown size={18} className="mr-2"/> Exporter A5</button>
+      </div>
+      <div className="flex-1 flex justify-center py-4 overflow-y-auto scrollbar-hide">
+        <div id="payslip-area" className="bg-white text-slate-950 p-[10mm] flex flex-col border border-slate-100 shadow-xl" style={{ width: '148mm', height: '210mm' }}>
+           <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-6">
+              <div className="space-y-1">
+                 <h1 className="text-xl font-black uppercase leading-none">{config.companyName}</h1>
+                 <p className="text-[8px] font-bold text-slate-500 uppercase">{config.address}</p>
+              </div>
+              <div className="text-right">
+                 <h2 className="text-xl font-black uppercase text-slate-900 leading-none">Bulletin de Paie</h2>
+                 <p className="text-[9px] font-bold text-slate-400 mt-1">PÉRIODE : {new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</p>
+              </div>
+           </div>
+           
+           <div className="grid grid-cols-2 gap-8 mb-8">
+              <div className="p-4 bg-slate-50 rounded-xl space-y-2">
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Employé(e)</p>
+                 <h3 className="text-md font-black uppercase">{employee.name}</h3>
+                 <p className="text-[9px] font-bold text-slate-600 uppercase">{employee.role}</p>
+                 <p className="text-[9px] font-bold text-slate-600 uppercase">{employee.department}</p>
+              </div>
+              <div className="p-4 space-y-2 text-right">
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Coordonnées Bancaires</p>
+                 <p className="text-[9px] font-mono font-bold">{employee.bankAccount || 'Règlement par Espèces'}</p>
+              </div>
+           </div>
+
+           <div className="flex-1">
+              <table className="w-full text-left text-[10px]">
+                 <thead className="bg-slate-900 text-white font-black uppercase">
+                    <tr>
+                       <th className="px-4 py-2">Désignation</th>
+                       <th className="px-2 py-2 text-center">Base</th>
+                       <th className="px-4 py-2 text-right">Gains</th>
+                       <th className="px-4 py-2 text-right">Retenues</th>
+                    </tr>
+                 </thead>
+                 <tbody className="divide-y border-b">
+                    <tr><td className="px-4 py-3 font-bold uppercase">Salaire de Base</td><td className="px-2 py-3 text-center">1.00</td><td className="px-4 py-3 text-right">{employee.salary.toLocaleString()}</td><td className="px-4 py-3 text-right">-</td></tr>
+                    <tr><td className="px-4 py-3 font-bold uppercase">Prime de Transport</td><td className="px-2 py-3 text-center">-</td><td className="px-4 py-3 text-right">0</td><td className="px-4 py-3 text-right">-</td></tr>
+                    <tr className="bg-slate-50"><td className="px-4 py-3 font-bold uppercase">Cotisations Sociales</td><td className="px-2 py-3 text-center">-</td><td className="px-4 py-3 text-right">-</td><td className="px-4 py-3 text-right text-rose-600">0</td></tr>
+                 </tbody>
+              </table>
+           </div>
+
+           <div className="mt-auto border-t-4 border-slate-900 pt-6">
+              <div className="flex justify-between items-center bg-slate-900 text-white p-6 rounded-2xl">
+                 <span className="text-sm font-black uppercase tracking-widest">NET À PAYER</span>
+                 <span className="text-3xl font-black font-mono tracking-tighter">{employee.salary.toLocaleString()} {config.currency}</span>
+              </div>
+              <div className="mt-10 grid grid-cols-2 gap-10 text-center">
+                 <div className="space-y-12"><p className="text-[8px] font-black uppercase text-slate-400">Signature Salarié</p><div className="h-px bg-slate-200"></div></div>
+                 <div className="space-y-12"><p className="text-[8px] font-black uppercase text-slate-400">Cachet Direction</p><div className="h-px bg-slate-200"></div></div>
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AttendanceTable = ({ attendance }: { attendance: AttendanceRecord[] }) => (
+  <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm overflow-hidden">
     <div className="overflow-x-auto">
       <table className="w-full text-left">
-        <thead>
-          <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-            <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Employé</th>
-            <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Arrivée</th>
-            <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Départ</th>
-            <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+        <thead className="bg-slate-900 text-white">
+          <tr className="text-[10px] font-black uppercase tracking-widest">
+            <th className="px-10 py-5">Collaborateur</th>
+            <th className="px-10 py-5 text-center">Arrivée</th>
+            <th className="px-10 py-5 text-center">Départ</th>
+            <th className="px-10 py-5 text-right">Date</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
           {attendance.map((rec) => (
-            <tr key={rec.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-              <td className="px-6 py-4 flex items-center space-x-3"><div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] font-black text-slate-600 dark:text-slate-400">{rec.employeeName.charAt(0)}</div><span className="text-sm font-bold text-slate-800 dark:text-slate-200">{rec.employeeName}</span></td>
-              <td className="px-6 py-4"><span className="inline-flex items-center px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 rounded-lg text-xs font-black"><LogIn size={12} className="mr-1.5" /> {rec.checkIn}</span></td>
-              <td className="px-6 py-4">{rec.checkOut ? <span className="inline-flex items-center px-2 py-1 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-lg text-xs font-black"><LogOut size={12} className="mr-1.5" /> {rec.checkOut}</span> : <span className="text-[10px] font-black text-emerald-500 animate-pulse tracking-widest uppercase">En poste</span>}</td>
-              <td className="px-6 py-4 text-xs font-bold text-slate-500">{rec.date}</td>
+            <tr key={rec.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+              <td className="px-10 py-6 font-black uppercase text-xs">{rec.employeeName}</td>
+              <td className="px-10 py-6 text-center"><span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-lg font-black text-[10px]">{rec.checkIn}</span></td>
+              <td className="px-10 py-6 text-center"><span className={`px-3 py-1 rounded-lg font-black text-[10px] ${rec.checkOut ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>{rec.checkOut || '--:--'}</span></td>
+              <td className="px-10 py-6 text-right text-xs font-bold text-slate-400">{rec.date}</td>
             </tr>
           ))}
+          {attendance.length === 0 && <tr><td colSpan={4} className="py-20 text-center opacity-20"><Clock size={48} className="mx-auto mb-4" /><p className="font-black uppercase text-xs tracking-widest">Aucun log</p></td></tr>}
         </tbody>
       </table>
     </div>
   </div>
 );
 
-const PayslipModal = ({ employee, config, onClose }: any) => {
-  return (
-    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 sm:p-10 animate-fadeIn">
-      <div className="bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl overflow-hidden animate-scaleIn flex flex-col max-h-full border border-white/20">
-         <div className="px-8 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur-md no-print sticky top-0 z-10">
-           <div className="flex items-center space-x-3">
-             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Bulletin de Paie Mensuel</span>
-             <span className="px-2.5 py-1 bg-slate-900 text-white text-[9px] font-black rounded-lg uppercase tracking-widest">#{employee.id}</span>
-           </div>
-           <div className="flex items-center space-x-3">
-             <button onClick={() => window.print()} className="bg-purple-600 text-white px-5 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center shadow-xl hover:bg-purple-700 transition-all"><Printer size={16} className="mr-2" /> Imprimer</button>
-             <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><X size={24} /></button>
-           </div>
-         </div>
+const LeavesTable = ({ leaves }: any) => (
+  <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm overflow-hidden">
+    <table className="w-full text-left">
+      <thead className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+        <tr><th className="px-10 py-5">Agent</th><th className="px-10 py-5">Type</th><th className="px-10 py-5 text-center">Dates</th><th className="px-10 py-5 text-right">Statut</th></tr>
+      </thead>
+      <tbody>
+        {leaves.length === 0 && <tr><td colSpan={4} className="py-20 text-center opacity-20"><Ban size={48} className="mx-auto mb-4" /><p className="font-black uppercase text-xs tracking-widest">Aucune demande de congé</p></td></tr>}
+      </tbody>
+    </table>
+  </div>
+);
 
-         <div id="invoice-print-area" className="p-10 sm:p-12 overflow-y-auto bg-white flex-1 text-slate-950 scrollbar-hide relative">
-            <div className="flex justify-between items-start mb-16">
-              <div className="space-y-4">
-                <AppLogoDoc className="w-16 h-16" />
-                <div>
-                  <h2 className="text-2xl font-black uppercase tracking-tighter leading-none mb-1">{config.companyName}</h2>
-                  <p className="text-[9px] font-black text-purple-600 uppercase tracking-[0.3em]">Établissement Certifié</p>
-                </div>
+const PayrollTable = ({ employees, config, onGenerate }: any) => (
+  <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-50 dark:border-slate-800 shadow-sm overflow-hidden">
+    <table className="w-full text-left">
+      <thead className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+        <tr><th className="px-10 py-5">Collaborateur</th><th className="px-10 py-5">Salaire Net</th><th className="px-10 py-5 text-center">RIB</th><th className="px-10 py-5 text-right">Actions</th></tr>
+      </thead>
+      <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+        {employees.map((emp: any) => (
+          <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+            <td className="px-10 py-6 font-black uppercase text-xs">{emp.name}</td>
+            <td className="px-10 py-6 font-black text-purple-600">{emp.salary.toLocaleString()} {config.currency}</td>
+            <td className="px-10 py-6 text-center text-[10px] font-mono opacity-50">{emp.bankAccount ? 'Configuré' : 'Non défini'}</td>
+            <td className="px-10 py-6 text-right">
+               <button onClick={() => onGenerate(emp)} className="p-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all flex items-center justify-center space-x-2 ml-auto shadow-md">
+                 <Printer size={16} />
+                 <span className="text-[10px] font-black uppercase">Générer Bulletin</span>
+               </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+const ContractView = ({ employee, config, onBack, notify }: any) => {
+  const handleDownload = () => {
+    const element = document.getElementById('contract-area');
+    if (!element) return;
+    const opt = { margin: 0, filename: `Contrat_${employee.name}.pdf`, jsPDF: { unit: 'mm', format: 'a5', orientation: 'portrait' } };
+    // @ts-ignore
+    window.html2pdf().set(opt).from(element).save();
+    notify("Succès", "Contrat généré avec succès.", "success");
+  };
+
+  return (
+    <div className="h-full flex flex-col space-y-6">
+      <div className="flex items-center justify-between no-print bg-white p-4 rounded-3xl border">
+        <button onClick={onBack} className="p-3 bg-slate-100 rounded-xl"><ArrowLeft/></button>
+        <h2 className="text-xl font-black uppercase tracking-tighter">Contrat de Travail</h2>
+        <button onClick={handleDownload} className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase flex items-center shadow-lg"><FileDown size={18} className="mr-2"/> Exporter PDF</button>
+      </div>
+      <div className="flex-1 flex justify-center py-4 overflow-y-auto scrollbar-hide">
+        <div id="contract-area" className="bg-white text-slate-950 p-[12mm] flex flex-col border border-slate-100" style={{ width: '148mm', height: '210mm' }}>
+           <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
+              <div className="space-y-1">
+                 <h1 className="text-xl font-black uppercase">{config.companyName}</h1>
+                 <p className="text-[8px] font-bold text-slate-500">{config.address}</p>
               </div>
               <div className="text-right">
-                <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-900 mb-1">BULLETIN DE PAIE</h2>
-                <p className="text-lg font-mono font-black text-purple-600 tracking-tighter">MAI 2025</p>
+                 <h2 className="text-2xl font-black uppercase text-slate-900 leading-none">Contrat</h2>
+                 <p className="text-[9px] font-black text-purple-600 mt-2 tracking-widest">RH/CID/{employee.id.slice(-6)}</p>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-10 mb-12 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-               <div>
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Collaborateur</p>
-                 <h4 className="text-xl font-black uppercase tracking-tighter">{employee.name}</h4>
-                 <p className="text-[10px] font-bold text-purple-600 uppercase tracking-widest">{employee.role}</p>
-                 <p className="text-[9px] text-slate-500 font-medium mt-1">Matricule: {employee.id}</p>
-               </div>
-               <div className="text-right">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Période du service</p>
-                 <p className="text-sm font-black">01/05 au 31/05/2025</p>
-                 <p className="text-[9px] text-slate-500 font-medium mt-1">Département: {employee.department}</p>
-               </div>
-            </div>
-
-            <div className="space-y-3 mb-12">
-               <div className="flex justify-between p-5 bg-white border border-slate-100 rounded-2xl">
-                 <span className="text-xs font-black uppercase text-slate-400 tracking-widest">Désignation</span>
-                 <span className="text-xs font-black uppercase text-slate-400 tracking-widest">Montant Brut</span>
-               </div>
-               <div className="flex justify-between p-5 bg-slate-50/50 rounded-2xl">
-                 <span className="font-bold text-xs uppercase tracking-tight">Salaire de Base Mensuel</span>
-                 <span className="font-black text-sm">{employee.salary.toLocaleString()} {config.currency}</span>
-               </div>
-            </div>
-
-            <div className="flex flex-col items-end mb-16">
-               <div className="w-[280px] bg-slate-950 text-white p-8 rounded-[2rem] shadow-2xl flex flex-col items-center">
-                 <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-4 opacity-40 text-center">NET À PAYER CE MOIS</p>
-                 <div className="flex items-baseline">
-                   <span className="text-5xl font-black font-mono tracking-tighter leading-none">{employee.salary.toLocaleString()}</span>
-                   <span className="text-sm font-bold ml-2 text-purple-500 uppercase">{config.currency}</span>
-                 </div>
-               </div>
-            </div>
-
-            <div className="pt-12 border-t border-dashed border-slate-200 flex flex-col md:flex-row justify-between items-center gap-10 text-center md:text-left">
-               <div className="flex items-center space-x-4">
-                  <QrCode size={60} className="text-slate-900" />
-                  <div className="space-y-0.5">
-                    <p className="text-[9px] font-black uppercase tracking-widest">Certificat RH</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase leading-relaxed max-w-[150px]">Bulletin dématérialisé conforme à la gestion SamaCaisse Pro.</p>
-                  </div>
-               </div>
-               <div className="space-y-4 text-center">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Signature & Cachet</p>
-                  <div className="w-40 h-px bg-slate-900 mx-auto"></div>
-               </div>
-            </div>
-         </div>
-      </div>
-    </div>
-  );
-};
-
-const ContractModal = ({ employee, config, onClose }: any) => {
-  return (
-    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 sm:p-10 animate-fadeIn">
-      <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-scaleIn flex flex-col max-h-full border border-white/20">
-         <div className="px-8 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur-md no-print sticky top-0 z-10">
-           <div className="flex items-center space-x-3">
-             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Contrat de Travail</span>
-             <span className="px-2.5 py-1 bg-purple-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest shadow-lg">#{employee.id}</span>
            </div>
-           <div className="flex items-center space-x-3">
-             <button onClick={() => window.print()} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center shadow-xl hover:bg-black transition-all"><Printer size={16} className="mr-2" /> Imprimer Document</button>
-             <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><X size={24} /></button>
+           
+           <div className="flex gap-6 mb-8">
+              <div className="w-24 h-32 bg-slate-50 border-2 rounded-xl overflow-hidden shrink-0">
+                 {employee.photo ? <img src={employee.photo} alt="Agent" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Camera size={24} className="text-slate-200"/></div>}
+              </div>
+              <div className="flex-1 space-y-3 pt-1">
+                 <div><p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Agent Employé</p><h3 className="text-lg font-black uppercase">{employee.name}</h3></div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div><p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poste</p><p className="text-[10px] font-black uppercase">{employee.role}</p></div>
+                    <div><p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Département</p><p className="text-[10px] font-black uppercase">{employee.department}</p></div>
+                 </div>
+              </div>
            </div>
-         </div>
 
-         <div id="invoice-print-area" className="p-16 sm:p-20 overflow-y-auto bg-white flex-1 text-slate-950 scrollbar-hide relative text-justify">
-            <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
-              <span className="text-[10rem] font-black uppercase -rotate-45 tracking-[2rem]">CONTRAT</span>
-            </div>
+           <div className="flex-1 text-[9px] leading-relaxed text-slate-800 space-y-4">
+              <p className="font-black uppercase border-b pb-1">Conditions de travail</p>
+              <p>Ce contrat est conclu à durée déterminée entre {config.companyName} et Monsieur/Madame {employee.name}.</p>
+              <p>L'employé percevra une rémunération nette de {employee.salary.toLocaleString()} {config.currency} par mois.</p>
+              <p>Le règlement intérieur de l'établissement s'applique intégralement au présent contrat.</p>
+           </div>
 
-            <div className="relative z-10 space-y-12">
-              <div className="flex justify-between items-start">
-                <div className="space-y-4">
-                  <AppLogoDoc className="w-20 h-20" />
-                  <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tighter leading-none mb-1">{config.companyName}</h2>
-                    <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.3em]">Direction des Ressources Humaines</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900 mb-2">Contrat de Travail</h1>
-                  <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Document Juridique Officiel</p>
-                </div>
-              </div>
-
-              <div className="space-y-6 text-sm leading-relaxed border-l-4 border-purple-600 pl-8">
-                 <p className="font-bold">ENTRE LES SOUSSIGNÉS :</p>
-                 <p>
-                   L'entreprise <span className="font-black uppercase">{config.companyName}</span>, dont le siège social est situé à <span className="font-bold">{config.address}</span>, immatriculée au RC sous le numéro <span className="font-bold">{config.registrationNumber}</span>, représentée par sa Direction Générale, ci-après dénommée "L'Employeur".
-                 </p>
-                 <p className="italic">ET :</p>
-                 <p>
-                   M./Mme <span className="font-black uppercase">{employee.name}</span>, demeurant à Nouakchott, ci-après dénommé(e) "Le Salarié".
-                 </p>
-              </div>
-
-              <div className="space-y-8">
-                 <section className="space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-purple-600 border-b pb-1">Article 1 : Fonctions et Qualifications</h3>
-                    <p className="text-xs">
-                      Le Salarié est engagé par l'Employeur en qualité de <span className="font-black uppercase">{employee.role}</span> au sein du département <span className="font-bold uppercase">{employee.department}</span>. Il exercera ses fonctions sous l'autorité de la direction.
-                    </p>
-                 </section>
-
-                 <section className="space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-purple-600 border-b pb-1">Article 2 : Date d'Effet</h3>
-                    <p className="text-xs">
-                      Le présent contrat prend effet à compter du <span className="font-black">{employee.joinDate}</span> pour une durée indéterminée.
-                    </p>
-                 </section>
-
-                 <section className="space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-purple-600 border-b pb-1">Article 3 : Rémunération</h3>
-                    <p className="text-xs">
-                      En contrepartie de son travail, le Salarié percevra un salaire mensuel brut de <span className="font-black text-sm">{employee.salary.toLocaleString()} {config.currency}</span>, payable à la fin de chaque mois civil après déduction des taxes en vigueur.
-                    </p>
-                 </section>
-
-                 <section className="space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-purple-600 border-b pb-1">Article 4 : Obligations Professionnelles</h3>
-                    <p className="text-xs italic">
-                      Le Salarié s'engage à observer les horaires de travail fixés par l'établissement, à respecter le règlement intérieur et à faire preuve de discrétion absolue concernant les informations liées au savoir-faire de l'entreprise MYA D'OR.
-                    </p>
-                 </section>
-              </div>
-
-              <div className="pt-20 grid grid-cols-2 gap-20">
-                 <div className="text-center space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Signature du Salarié</p>
-                    <div className="h-24 border-2 border-dashed border-slate-200 rounded-2xl flex items-end justify-center pb-2">
-                       <span className="text-[8px] text-slate-300 uppercase">Mention "Lu et approuvé"</span>
-                    </div>
-                 </div>
-                 <div className="text-center space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Cachet de l'Employeur</p>
-                    <div className="h-24 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center relative overflow-hidden">
-                       <div className="opacity-10 scale-150 rotate-12">
-                          <AppLogoDoc className="w-16 h-16" />
-                       </div>
-                       <QrCode size={40} className="text-slate-100 absolute" />
-                    </div>
-                 </div>
-              </div>
-
-              <div className="pt-12 text-center">
-                 <p className="text-[8px] text-slate-400 uppercase tracking-widest italic">Édité à Nouakchott, le {new Date().toLocaleDateString()} via SamaCaisse Pro RH System</p>
-              </div>
-            </div>
-         </div>
+           <div className="mt-auto grid grid-cols-2 gap-10 pt-10 text-center">
+              <div className="space-y-10"><p className="text-[7px] font-black uppercase text-slate-400">Signature de l'Employé</p><div className="h-px bg-slate-300"></div></div>
+              <div className="space-y-10"><p className="text-[7px] font-black uppercase text-slate-400">Cachet Direction</p><div className="h-px bg-slate-300"></div></div>
+           </div>
+        </div>
       </div>
     </div>
   );

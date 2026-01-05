@@ -8,6 +8,8 @@
     <meta name="theme-color" content="#8b5cf6">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Bibliothèque pour la conversion HTML vers PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -21,7 +23,7 @@
               }
             },
             animation: {
-              'progressDecrease': 'progressDecrease 2s linear forwards',
+              'progressDecrease': 'progressDecrease 5s linear forwards',
             },
             keyframes: {
               progressDecrease: {
@@ -81,6 +83,14 @@
           animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        @keyframes slideInDown {
+          from { transform: translate(-50%, -100%); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .animate-slideInDown {
+          animation: slideInDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
         /* Thèmes de couleurs dynamiques */
         :root { --accent-color: #9333ea; --accent-glow: rgba(147, 51, 234, 0.2); }
         
@@ -100,9 +110,10 @@
             body { background: white !important; color: black !important; }
             body * { visibility: hidden; }
             #invoice-print-area, #invoice-print-area *,
-            #report-print-area, #report-print-area * { visibility: visible; }
+            #report-print-area, #report-print-area *,
+            #sales-print-area, #sales-print-area * { visibility: visible; }
             
-            #invoice-print-area, #report-print-area {
+            #invoice-print-area, #report-print-area, #sales-print-area {
                 position: absolute; left: 0; top: 0; width: 100%; height: auto;
                 background: white !important; color: black !important;
                 padding: 0 !important;

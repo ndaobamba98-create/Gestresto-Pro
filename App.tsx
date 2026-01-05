@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Calendar, Search, ArrowRight, User as UserIcon, Wallet, Bell, Languages, X, Check, Eye, Trash2, BellOff, Palette
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle
 } from 'lucide-react';
-import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Supplier, Purchase, Language } from './types';
+import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS } from './constants';
 import { translations, TranslationKey } from './translations';
 import Dashboard from './components/Dashboard';
@@ -17,7 +17,7 @@ import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
 
-// Composant Logo Premium centralisé
+// Logo Premium
 export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = false }) => (
   <div className={`flex items-center ${iconOnly ? 'justify-center' : 'space-x-4'} ${className}`}>
     <div className="relative group shrink-0">
@@ -57,32 +57,25 @@ interface Toast {
   isRead?: boolean;
 }
 
+const loadStored = <T extends unknown>(key: string, initial: T): T => {
+  const saved = localStorage.getItem(key);
+  if (!saved) return initial;
+  try {
+    return JSON.parse(saved);
+  } catch {
+    return initial;
+  }
+};
+
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<ViewType>('pos');
+  const [activeView, setActiveView] = useState<ViewType>('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [notificationHistory, setNotificationHistory] = useState<Toast[]>(() => {
-    const saved = localStorage.getItem('notificationHistory');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [notificationHistory, setNotificationHistory] = useState<Toast[]>(() => loadStored('notificationHistory', []));
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
-  
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
-    return saved ? JSON.parse(saved) : false;
-  });
-
-  const loadStored = <T extends unknown>(key: string, initial: T): T => {
-    const saved = localStorage.getItem(key);
-    try {
-      return saved ? JSON.parse(saved) : initial;
-    } catch {
-      return initial;
-    }
-  };
+  const [darkMode, setDarkMode] = useState(() => loadStored('darkMode', false));
 
   const [currentUser, setCurrentUser] = useState<User>(() => loadStored('currentUser', APP_USERS[0]));
   const [config, setConfig] = useState<ERPConfig>(() => loadStored('config', { ...INITIAL_CONFIG, language: 'fr' }));
@@ -93,8 +86,6 @@ const App: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadStored('suppliers', INITIAL_SUPPLIERS));
   const [employees, setEmployees] = useState<Employee[]>(() => loadStored('employees', INITIAL_EMPLOYEES));
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => loadStored('attendance', []));
-  
-  // GESTION SESSION PERSISTANTE
   const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
@@ -102,6 +93,30 @@ const App: React.FC = () => {
     { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout'] },
     { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] }
   ]));
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    if (darkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }, [darkMode]);
+
+  // Synchronisation Persistence
+  useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
+  useEffect(() => { localStorage.setItem('config', JSON.stringify(config)); }, [config]);
+  useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem('sales', JSON.stringify(sales)); }, [sales]);
+  useEffect(() => { localStorage.setItem('expenses', JSON.stringify(expenses)); }, [expenses]);
+  useEffect(() => { localStorage.setItem('purchases', JSON.stringify(purchases)); }, [purchases]);
+  useEffect(() => { localStorage.setItem('suppliers', JSON.stringify(suppliers)); }, [suppliers]);
+  useEffect(() => { localStorage.setItem('employees', JSON.stringify(employees)); }, [employees]);
+  useEffect(() => { localStorage.setItem('attendance', JSON.stringify(attendance)); }, [attendance]);
+  useEffect(() => { localStorage.setItem('currentSession', JSON.stringify(currentSession)); }, [currentSession]);
+  useEffect(() => { localStorage.setItem('rolePermissions', JSON.stringify(rolePermissions)); }, [rolePermissions]);
 
   const t = useCallback((key: TranslationKey): string => {
     return (translations[config.language || 'fr'] as any)[key] || key;
@@ -119,126 +134,104 @@ const App: React.FC = () => {
       return updated;
     });
     
+    // Durée de 5 secondes avant de disparaître
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 2000);
+    }, 5000);
   }, []);
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const unreadNotificationsCount = useMemo(() => notificationHistory.filter(n => !n.isRead).length, [notificationHistory]);
 
-  useEffect(() => {
-    localStorage.setItem('darkMode', JSON.stringify(darkMode));
-    if (darkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  }, [darkMode]);
+  const userPermissions = useMemo(() => rolePermissions.find(p => p.role === currentUser.role)?.allowedViews || [], [rolePermissions, currentUser.role]);
+  const canManageNotifications = useMemo(() => userPermissions.includes('manage_notifications'), [userPermissions]);
 
-  // SAUVEGARDE AUTOMATIQUE LOCALSTORAGE
-  useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
-  useEffect(() => { localStorage.setItem('config', JSON.stringify(config)); }, [config]);
-  useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
-  useEffect(() => { localStorage.setItem('sales', JSON.stringify(sales)); }, [sales]);
-  useEffect(() => { localStorage.setItem('expenses', JSON.stringify(expenses)); }, [expenses]);
-  useEffect(() => { localStorage.setItem('purchases', JSON.stringify(purchases)); }, [purchases]);
-  useEffect(() => { localStorage.setItem('suppliers', JSON.stringify(suppliers)); }, [suppliers]);
-  useEffect(() => { localStorage.setItem('employees', JSON.stringify(employees)); }, [employees]);
-  useEffect(() => { localStorage.setItem('attendance', JSON.stringify(attendance)); }, [attendance]);
-  useEffect(() => { localStorage.setItem('currentSession', JSON.stringify(currentSession)); }, [currentSession]);
-  useEffect(() => { localStorage.setItem('rolePermissions', JSON.stringify(rolePermissions)); }, [rolePermissions]);
+  const markAllNotificationsAsRead = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    if (!canManageNotifications) {
+      notifyUser("Accès Refusé", "Vous n'avez pas la permission de tout lire.", "warning");
+      return;
+    }
+    
+    setNotificationHistory(prev => prev.map(n => ({ ...n, isRead: true })));
+    setToasts([]);
+    notifyUser("Workspace", "Toutes les activités sont marquées comme lues.", "success");
+  };
 
-  const changeLanguage = (lang: Language) => {
-    setConfig(prev => ({ ...prev, language: lang }));
-    setIsLanguageOpen(false);
+  const markNotificationAsRead = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setNotificationHistory(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  };
+
+  const deleteNotification = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!canManageNotifications) {
+      notifyUser("Accès Refusé", "Suppression interdite.", "warning");
+      return;
+    }
+    setNotificationHistory(prev => prev.filter(n => n.id !== id));
+  };
+
+  const deleteAllNotifications = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!canManageNotifications) return;
+    setNotificationHistory([]);
+    notifyUser("Notifications", "Historique vidé.", "info");
   };
 
   const handleAddSale = (newSaleData: Partial<SaleOrder>) => {
     const saleItems = newSaleData.items || [];
     const isRefund = newSaleData.status === 'refunded';
-    
-    // GESTION DE LA SÉQUENCE DE NUMÉROTATION
-    const prefix = config.invoicePrefix || 'FAC/';
-    const currentNum = config.nextInvoiceNumber || 1;
-    const formattedNum = currentNum.toString().padStart(4, '0');
-    const generatedReference = `${prefix}${formattedNum}`;
+    const generatedReference = `${config.invoicePrefix || 'FAC/'}${config.nextInvoiceNumber.toString().padStart(4, '0')}`;
 
-    const updatedProducts = products.map(p => {
-      const itemInSale = saleItems.find(item => item.productId === p.id);
-      if (itemInSale) {
-        const stockChange = isRefund ? itemInSale.quantity : -itemInSale.quantity;
-        return { ...p, stock: Math.max(0, p.stock + stockChange) };
+    setProducts(prev => prev.map(p => {
+      const item = saleItems.find(i => i.productId === p.id);
+      if (item) {
+        const newStock = Math.max(0, p.stock + (isRefund ? item.quantity : -item.quantity));
+        if (!isRefund && newStock <= (p.lowStockThreshold || 10)) {
+          notifyUser("Alerte Stock", `${p.name} est épuisé !`, "warning");
+        }
+        return { ...p, stock: newStock };
       }
       return p;
-    });
-    setProducts(updatedProducts);
-
-    const now = new Date();
-    const isoDate = now.toISOString().split('T')[0];
-    const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    }));
 
     const sale: SaleOrder = {
-      id: generatedReference, // Utilisation de la référence séquentielle comme ID
+      id: generatedReference,
       customer: newSaleData.customer || 'Client Comptoir',
-      date: `${isoDate} ${time}`,
+      date: new Date().toISOString(),
       total: newSaleData.total || 0,
       status: newSaleData.status || 'confirmed',
       items: saleItems,
       paymentMethod: newSaleData.paymentMethod || 'Especes',
       payments: newSaleData.payments || [],
+      amountReceived: newSaleData.amountReceived || newSaleData.total || 0,
+      change: newSaleData.change || 0,
+      orderLocation: newSaleData.orderLocation || 'Comptoir',
       invoiceStatus: isRefund ? 'refunded' : 'paid',
-      orderLocation: newSaleData.orderLocation || 'Comptoir'
     };
     
     setSales(prev => [sale, ...prev]);
+    if (!isRefund) setConfig(prev => ({ ...prev, nextInvoiceNumber: prev.nextInvoiceNumber + 1 }));
+    notifyUser(isRefund ? "Avoir" : "Vente", `${generatedReference} validée.`, isRefund ? 'warning' : 'success');
+  };
 
-    // INC RÉMENTATION DU COMPTEUR DANS LA CONFIG
-    if (!isRefund) {
-      setConfig(prev => ({
-        ...prev,
-        nextInvoiceNumber: currentNum + 1
-      }));
+  const renderContent = () => {
+    const commonProps = { notify: notifyUser, userPermissions, t };
+    switch (activeView) {
+      case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
+      case 'pos': return <POS products={products} sales={sales} onSaleComplete={handleAddSale} config={config} session={currentSession} onOpenSession={(bal, id) => setCurrentSession({id: `S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, status: 'open', cashierName: APP_USERS.find(u=>u.id===id)?.name||'', cashierId: id})} onCloseSession={() => setCurrentSession(null)} {...commonProps} />;
+      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
+      case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} />;
+      case 'expenses': return <Expenses expenses={expenses} setExpenses={setExpenses} purchases={purchases} onAddPurchase={p => setPurchases(v => [p, ...v])} onDeletePurchase={() => {}} suppliers={suppliers} setSuppliers={setSuppliers} products={products} config={config} userRole={currentUser.role} notify={notifyUser} t={t} />;
+      case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
+      case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
+      case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
+      case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
+      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} />;
+      default: return null;
     }
-
-    notifyUser(
-      isRefund ? "Avoir Validé" : "Vente Validée", 
-      `${generatedReference} - ${sale.total.toLocaleString()} ${config.currency}`, 
-      isRefund ? 'warning' : 'success'
-    );
   };
-
-  const handleAddPurchase = (purchase: Purchase) => {
-    setPurchases(prev => [purchase, ...prev]);
-    const updatedProducts = products.map(p => 
-      p.id === purchase.productId ? { ...p, stock: p.stock + purchase.quantity } : p
-    );
-    setProducts(updatedProducts);
-    notifyUser("Stock Mis à Jour", `+${purchase.quantity} ${purchase.productName}`, "success");
-  };
-
-  const handleOpenSession = (openingBalance: number, cashierId: string) => {
-    const cashier = APP_USERS.find(u => u.id === cashierId);
-    const newSession: CashSession = {
-      id: `SESS-${Date.now()}`,
-      openedAt: new Date().toISOString(),
-      openingBalance,
-      expectedBalance: openingBalance,
-      status: 'open',
-      cashierName: cashier?.name || 'Inconnu',
-      cashierId
-    };
-    setCurrentSession(newSession);
-    notifyUser("Ouverture Session", `Caisse activée par ${newSession.cashierName}`, "success");
-  };
-
-  const handleCloseSession = (closingBalance: number) => {
-    setCurrentSession(null);
-    notifyUser("Clôture Session", "Session archivée et verrouillée.", "info");
-  };
-
-  const userPermissions = useMemo(() => {
-    return rolePermissions.find(p => p.role === currentUser.role)?.allowedViews || [];
-  }, [rolePermissions, currentUser.role]);
 
   if (isLocked) {
     return (
@@ -260,62 +253,10 @@ const App: React.FC = () => {
     );
   }
 
-  const renderContent = () => {
-    const commonProps = { notify: notifyUser, userPermissions, t };
-    switch (activeView) {
-      case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
-      case 'pos': return <POS products={products} sales={sales} onSaleComplete={handleAddSale} config={config} session={currentSession} onOpenSession={handleOpenSession} onCloseSession={handleCloseSession} {...commonProps} />;
-      case 'sales': return <Sales sales={sales} onUpdate={setSales} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
-      case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} />;
-      case 'expenses': return (
-        <Expenses 
-          expenses={expenses} 
-          setExpenses={setExpenses} 
-          purchases={purchases}
-          onAddPurchase={handleAddPurchase}
-          onDeletePurchase={() => {}}
-          suppliers={suppliers} 
-          setSuppliers={setSuppliers} 
-          products={products}
-          config={config} 
-          userRole={currentUser.role} 
-          notify={notifyUser} 
-          t={t}
-        />
-      );
-      case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
-      case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
-      case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
-      case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
-      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} />;
-      default: return null;
-    }
-  };
-
   return (
     <div className={`flex h-screen overflow-hidden theme-${config.theme} ${darkMode ? 'dark text-slate-100' : 'text-slate-900'} ${config.language === 'ar' ? 'font-ar' : ''}`}>
-      {/* Toast notifications */}
-      <div className={`fixed top-24 ${config.language === 'ar' ? 'left-6' : 'right-6'} z-[500] space-y-4 pointer-events-none`}>
-        {toasts.map(toast => (
-          <div key={toast.id} className={`w-80 rounded-2xl border backdrop-blur-xl shadow-2xl flex flex-col pointer-events-auto animate-slideInRight overflow-hidden ${
-            toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' :
-            toast.type === 'warning' ? 'bg-orange-500/10 border-orange-500/20 text-orange-600' : 'bg-blue-500/10 border-blue-500/20 text-blue-600'
-          }`}>
-            <div className="p-4 flex items-start space-x-4">
-              <div className="mt-1">{toast.type === 'success' ? <CheckCircle size={18} /> : toast.type === 'warning' ? <AlertCircle size={18} /> : <Info size={18} />}</div>
-              <div className="flex-1">
-                <h4 className="text-[10px] font-black uppercase tracking-widest">{toast.title}</h4>
-                <p className="text-[11px] font-bold mt-1 leading-tight">{toast.message}</p>
-              </div>
-            </div>
-            <div className="h-1 w-full bg-slate-200/20">
-               <div className={`h-full animate-progressDecrease ${
-                 toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
-               }`} />
-            </div>
-          </div>
-        ))}
-      </div>
+      
+      {isNotificationOpen && <div className="fixed inset-0 z-[110]" onClick={() => setIsNotificationOpen(false)} />}
 
       <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-slate-900 transition-all duration-500 flex flex-col z-20 shadow-2xl`}>
         <div className="p-6 h-28 flex items-center justify-between border-b border-slate-800">
@@ -349,24 +290,97 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 relative">
-        <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-[100] shrink-0">
-          <div className="flex items-center space-x-10">
-            <div className="flex flex-col">
-              <span className="text-2xl font-black font-mono text-slate-800 dark:text-white tracking-tighter leading-none">
-                {currentTime.toLocaleTimeString()}
-              </span>
-              <span className="text-[10px] font-black text-accent uppercase tracking-widest mt-1">
-                {currentTime.toLocaleDateString(config.language === 'ar' ? 'ar-SA' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </span>
-            </div>
+      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
+        <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-[100]">
+          <div className="flex flex-col">
+            <span className="text-2xl font-black font-mono tracking-tighter leading-none">{currentTime.toLocaleTimeString()}</span>
+            <span className="text-[10px] font-black text-accent uppercase tracking-widest mt-1">{currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           </div>
 
           <div className="flex items-center space-x-4">
-            <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:bg-slate-200">
-              {darkMode ? <Sun size={22}/> : <Moon size={22}/>}
-            </button>
-            <div className="flex items-center ml-2 pr-4 space-x-3 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5">
+            <div className="relative">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); setIsNotificationOpen(!isNotificationOpen); }}
+                 className={`p-3 rounded-2xl transition-all relative z-[120] ${unreadNotificationsCount > 0 ? 'bg-accent/10 text-accent' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:bg-slate-200'}`}
+               >
+                 {unreadNotificationsCount > 0 ? <BellRing size={22} className="animate-bounce" /> : <Bell size={22} />}
+                 {unreadNotificationsCount > 0 && <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[9px] font-black w-5 h-5 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-lg">{unreadNotificationsCount}</span>}
+               </button>
+
+               {isNotificationOpen && (
+                 <div className="absolute right-0 mt-3 w-[400px] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[130] flex flex-col overflow-hidden animate-slideUp">
+                    <div className="p-6 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+                       <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">Activités Récentes</h4>
+                       <div className="flex space-x-2">
+                          <button 
+                            onClick={(e) => markAllNotificationsAsRead(e)} 
+                            disabled={!canManageNotifications}
+                            title={canManageNotifications ? "Tout marquer comme lu" : "Permission requise pour cette action"} 
+                            className={`p-2 transition-all flex items-center space-x-1 ${canManageNotifications ? 'text-slate-400 hover:text-emerald-500' : 'text-slate-200 cursor-not-allowed opacity-50'}`}
+                          >
+                            <CheckCheck size={18} />
+                            <span className="text-[8px] font-black uppercase">Tout lire</span>
+                          </button>
+                          {canManageNotifications && (
+                            <button onClick={(e) => deleteAllNotifications(e)} title="Tout effacer" className="p-2 text-slate-400 hover:text-rose-500 transition-all">
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                       </div>
+                    </div>
+                    <div className="flex-1 max-h-[450px] overflow-y-auto scrollbar-hide px-4 py-2">
+                       {notificationHistory.length > 0 ? notificationHistory.map((notif) => (
+                         <div key={notif.id} className="relative group mb-2">
+                            <div 
+                               className={`w-full text-left p-4 rounded-2xl flex items-start space-x-4 transition-all relative overflow-hidden ${notif.isRead ? 'opacity-50 bg-transparent border-transparent' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-700'}`}
+                            >
+                               {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent"></div>}
+                               
+                               <div className={`mt-1 p-2 rounded-xl shrink-0 ${notif.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : notif.type === 'warning' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                                  {notif.type === 'success' ? <CheckCircle size={14}/> : notif.type === 'warning' ? <AlertCircle size={14}/> : <Info size={14}/>}
+                               </div>
+                               
+                               <div className="flex-1 min-w-0" onClick={(e) => { if(!notif.isRead) markNotificationAsRead(notif.id, e); }}>
+                                  <div className="flex justify-between items-start">
+                                     <div className="flex items-center">
+                                       <h5 className={`text-[10px] font-black uppercase truncate pr-2 ${notif.isRead ? 'text-slate-400' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h5>
+                                       {!notif.isRead && <div className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse mr-2"></div>}
+                                     </div>
+                                     <span className="text-[8px] font-bold text-slate-400 whitespace-nowrap">{notif.timestamp}</span>
+                                  </div>
+                                  <p className="text-[10px] font-medium leading-tight mt-1 line-clamp-2 text-slate-500">{notif.message}</p>
+                               </div>
+
+                               {!notif.isRead && (
+                                 <button 
+                                   onClick={(e) => markNotificationAsRead(notif.id, e)}
+                                   className="mt-1 p-2 bg-slate-50 dark:bg-slate-700 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all opacity-0 group-hover:opacity-100"
+                                   title="Marquer comme lu"
+                                 >
+                                   <Check size={14} />
+                                 </button>
+                               )}
+                               {canManageNotifications && (
+                                 <button 
+                                   onClick={(e) => deleteNotification(notif.id, e)}
+                                   className="mt-1 p-2 text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
+                                 >
+                                   <X size={14} />
+                                 </button>
+                               )}
+                            </div>
+                         </div>
+                       )) : (
+                         <div className="py-20 flex flex-col items-center justify-center opacity-20 text-center"><BellOff size={40} className="mb-4"/><p className="text-[10px] font-black uppercase tracking-[0.2em]">Rien à signaler</p></div>
+                       )}
+                    </div>
+                 </div>
+               )}
+            </div>
+
+            <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all">{darkMode ? <Sun size={22}/> : <Moon size={22}/>}</button>
+            
+            <div className="flex items-center ml-2 pr-4 space-x-3 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-700">
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white font-black shadow-lg text-sm`}>{currentUser.initials}</div>
               <div className="flex flex-col">
                 <span className="text-xs font-black text-slate-800 dark:text-white uppercase leading-none">{currentUser.name}</span>
@@ -377,6 +391,31 @@ const App: React.FC = () => {
         </header>
         <div className="flex-1 overflow-auto p-8">{renderContent()}</div>
       </main>
+
+      {/* ZONE NOTIFICATIONS TOAST - AFFICHÉE EN HAUT À DROITE */}
+      <div className="fixed top-28 right-8 z-[300] flex flex-col items-end space-y-4 pointer-events-none w-full max-w-sm">
+        {toasts.map((toast) => (
+          <div 
+            key={toast.id} 
+            className={`w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border p-5 rounded-[2rem] shadow-2xl flex items-start space-x-4 pointer-events-auto animate-slideInRight overflow-hidden relative group`}
+          >
+            <div className={`mt-1 p-2.5 rounded-2xl shrink-0 ${toast.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : toast.type === 'warning' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
+               {toast.type === 'success' ? <CheckCircle size={20}/> : toast.type === 'warning' ? <AlertTriangle size={20}/> : <Info size={20}/>}
+            </div>
+            <div className="flex-1 min-w-0">
+               <h5 className="text-[11px] font-black uppercase tracking-widest text-slate-900 dark:text-white mb-1">{toast.title}</h5>
+               <p className="text-[11px] font-medium text-slate-500 leading-tight">{toast.message}</p>
+            </div>
+            <button 
+              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+              className="p-1 text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all"
+            >
+              <X size={16}/>
+            </button>
+            <div className={`absolute bottom-0 left-0 h-1 ${toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'} animate-progressDecrease`}></div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

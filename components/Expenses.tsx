@@ -4,11 +4,10 @@ import { Expense, Supplier, ERPConfig, Purchase, Product, Attachment } from '../
 import { 
   Plus, Search, Download, Trash2, Edit3, X, Wallet, Calendar, Banknote, 
   ArrowDownRight, PieChart as PieIcon, ShoppingBag, Eye, Printer, 
-  ArrowRight, TrendingDown, Coffee, Truck, Tool, Zap, ChevronRight, BarChart2
+  ArrowRight, TrendingDown, Coffee, Truck, Tool, Zap, ChevronRight, BarChart2, Paperclip, FileText, Image as ImageIcon
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import * as XLSX from 'xlsx';
-import { AppLogoDoc } from './Invoicing';
 
 interface Props {
   expenses: Expense[];
@@ -35,8 +34,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Divers': '#64748b'
 };
 
-const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurchase, suppliers, products, config, notify }) => {
-  const [activeView, setActiveView] = useState<'expenses' | 'purchases' | 'suppliers'>('expenses');
+const Expenses: React.FC<Props> = ({ expenses, setExpenses, config, notify }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('Tous');
   const [showDetailedStats, setShowDetailedStats] = useState(false);
@@ -46,11 +44,7 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
 
   const expenseCategories: Expense['category'][] = ['Loyer', 'Électricité/Eau', 'Salaires', 'Marketing', 'Maintenance', 'Divers', 'Achats Marchandises'];
 
-  // Calculs statistiques
   const stats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const spentToday = expenses.filter(e => e.date === today).reduce((acc, curr) => acc + curr.amount, 0);
-    
     const now = new Date();
     const monthlyExpenses = expenses.filter(e => {
       const d = new Date(e.date);
@@ -58,17 +52,15 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
     });
     const spentMonth = monthlyExpenses.reduce((acc, curr) => acc + curr.amount, 0);
 
-    // Données pour le PieChart par catégorie
     const catMap: Record<string, number> = {};
     monthlyExpenses.forEach(e => {
       catMap[e.category] = (catMap[e.category] || 0) + e.amount;
     });
     const categoryChartData = Object.entries(catMap).map(([name, value]) => ({ name, value }));
 
-    return { today: spentToday, month: spentMonth, categoryChartData };
+    return { month: spentMonth, categoryChartData };
   }, [expenses]);
 
-  // Données pour le graphique à barres (7 derniers jours)
   const barChartData = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
@@ -89,25 +81,81 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
     (categoryFilter === 'Tous' || exp.category === categoryFilter)
   ).sort((a, b) => b.date.localeCompare(a.date)), [expenses, searchTerm, categoryFilter]);
 
+  // Explicitly typing file parameter to avoid 'unknown' type errors during upload.
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !editingExpense) return;
+    
+    Array.from(files).forEach((file: File) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const newAttachment: Attachment = {
+          id: `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          type: file.type,
+          url: event.target?.result as string
+        };
+        setEditingExpense(prev => ({
+          ...prev,
+          attachments: [...(prev?.attachments || []), newAttachment]
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeAttachment = (id: string) => {
+    setEditingExpense(prev => ({
+      ...prev,
+      attachments: prev?.attachments?.filter(a => a.id !== id)
+    }));
+  };
+
   const handleSaveExpense = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingExpense || !editingExpense.description || !editingExpense.amount) return;
-    const newExp = { 
+
+    const isEdit = !!editingExpense.id;
+    const expenseData = { 
       ...editingExpense, 
       id: editingExpense.id || `EXP-${Date.now()}`, 
       date: editingExpense.date || new Date().toISOString().split('T')[0],
       paymentMethod: editingExpense.paymentMethod || 'Especes',
-      status: 'paid'
+      status: 'paid',
+      attachments: editingExpense.attachments || []
     } as Expense;
-    setExpenses([newExp, ...expenses]);
+
+    if (isEdit) {
+      setExpenses(expenses.map(exp => exp.id === expenseData.id ? expenseData : exp));
+      notify("Écriture mise à jour", "La dépense et ses justificatifs ont été modifiés.", "success");
+    } else {
+      setExpenses([expenseData, ...expenses]);
+      notify("Dépense Enregistrée", `${expenseData.amount.toLocaleString()} ${config.currency}`, "success");
+    }
+
     setIsExpenseModalOpen(false);
-    notify("Dépense Enregistrée", `${newExp.amount.toLocaleString()} ${config.currency}`, "success");
+    setEditingExpense(null);
+  };
+
+  const openEditModal = (expense: Expense) => {
+    setEditingExpense({ ...expense });
+    setIsExpenseModalOpen(true);
+  };
+
+  const openAddModal = () => {
+    setEditingExpense({ 
+      date: new Date().toISOString().split('T')[0], 
+      category: 'Divers', 
+      paymentMethod: 'Especes',
+      description: '',
+      attachments: []
+    });
+    setIsExpenseModalOpen(true);
   };
 
   return (
     <div className="h-full space-y-8 animate-fadeIn pb-10 pr-2 overflow-y-auto scrollbar-hide">
       
-      {/* HEADER PRINCIPAL */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Journal de Caisse</h1>
@@ -123,7 +171,7 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
              <span>{showDetailedStats ? 'Fermer Analyses' : 'Voir Analyses'}</span>
            </button>
            <button 
-             onClick={() => { setEditingExpense({ date: new Date().toISOString().split('T')[0], category: 'Divers', paymentMethod: 'Especes' }); setIsExpenseModalOpen(true); }}
+             onClick={openAddModal}
              className="bg-rose-600 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase shadow-xl hover:bg-rose-700 transition-all flex items-center"
            >
              <Plus size={18} className="mr-2" /> Sortie Rapide
@@ -131,10 +179,8 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
         </div>
       </div>
 
-      {/* VUE ANALYTIQUE DÉTAILLÉE (OUVERTURE/FERMETURE) */}
       {showDetailedStats && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-slideDown">
-           {/* REPARTITION PAR CATEGORIE (PIE CHART) */}
            <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group">
               <div className="flex items-center justify-between mb-8">
                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Répartition du Mois</h3>
@@ -172,7 +218,6 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
               </div>
            </div>
 
-           {/* LISTE RÉSUMÉ PAR CATÉGORIE */}
            <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm">
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-8">Détails par Charge</h3>
               <div className="space-y-4 max-h-72 overflow-y-auto pr-2 scrollbar-hide">
@@ -185,13 +230,9 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
                        <span className="text-sm font-black text-slate-900 dark:text-white">{c.value.toLocaleString()}</span>
                     </div>
                  ))}
-                 {stats.categoryChartData.length === 0 && (
-                   <p className="text-center py-10 text-[10px] font-black uppercase text-slate-400 opacity-50">Aucune donnée ce mois</p>
-                 )}
               </div>
            </div>
 
-           {/* TENDANCE 7 DERNIERS JOURS */}
            <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm">
               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-8">Flux Quotidien (7j)</h3>
               <div className="h-56">
@@ -208,15 +249,10 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-6 flex items-center justify-between text-[10px] font-black uppercase">
-                 <span className="text-slate-400">Charge moyenne</span>
-                 <span className="text-slate-900 dark:text-white">{(barChartData.reduce((a,b)=>a+b.amount,0)/7).toFixed(0)} {config.currency} / j</span>
-              </div>
            </div>
         </div>
       )}
 
-      {/* ZONE JOURNAL CHRONOLOGIQUE */}
       <div className="bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
         <div className="p-8 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/50">
           <div className="relative flex-1 max-w-md">
@@ -236,6 +272,7 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
                 <th className="px-10 py-6">Date</th>
                 <th className="px-10 py-6">Désignation</th>
                 <th className="px-10 py-6">Catégorie</th>
+                <th className="px-10 py-6 text-center">PJ</th>
                 <th className="px-10 py-6 text-right">Montant Sorti</th>
                 <th className="px-10 py-6 text-right">Actions</th>
               </tr>
@@ -248,7 +285,7 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
                   <React.Fragment key={e.id}>
                     {isNewDate && (
                       <tr className="bg-slate-50 dark:bg-slate-800/30">
-                        <td colSpan={5} className="px-10 py-3 text-[9px] font-black text-rose-500 uppercase tracking-[0.2em] bg-slate-100/50 dark:bg-slate-800">
+                        <td colSpan={6} className="px-10 py-3 text-[9px] font-black text-rose-500 uppercase tracking-[0.2em] bg-slate-100/50 dark:bg-slate-800">
                           {e.date === todayStr ? "Aujourd'hui" : new Date(e.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                         </td>
                       </tr>
@@ -266,9 +303,21 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
                           {e.category}
                         </span>
                       </td>
+                      <td className="px-10 py-6 text-center">
+                        {e.attachments && e.attachments.length > 0 && (
+                          <div className="flex justify-center">
+                             <div className="p-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-lg shadow-sm">
+                               <Paperclip size={14} />
+                             </div>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-10 py-6 text-right font-black text-rose-600 text-base">-{e.amount.toLocaleString()}</td>
                       <td className="px-10 py-6 text-right">
-                        <button onClick={() => setExpenses(expenses.filter(item => item.id !== e.id))} className="p-2.5 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={16} /></button>
+                        <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEditModal(e)} className="p-2.5 text-slate-400 hover:text-purple-600 transition-colors"><Edit3 size={16} /></button>
+                          <button onClick={() => setExpenses(expenses.filter(item => item.id !== e.id))} className="p-2.5 text-slate-300 hover:text-rose-500 transition-colors"><Trash2 size={16} /></button>
+                        </div>
                       </td>
                     </tr>
                   </React.Fragment>
@@ -276,44 +325,34 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
               })}
             </tbody>
           </table>
-          {filteredExpenses.length === 0 && (
-            <div className="py-20 text-center opacity-20 flex flex-col items-center">
-              <Wallet size={64} className="mb-4" />
-              <p className="font-black uppercase tracking-widest">Aucun historique pour cette période</p>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* MODAL SORTIE RAPIDE */}
       {isExpenseModalOpen && editingExpense && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10 animate-scaleIn">
-            <div className="p-8 bg-rose-600 text-white flex justify-between items-center">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10 animate-scaleIn">
+            <div className={`p-8 ${editingExpense.id ? 'bg-purple-600' : 'bg-rose-600'} text-white flex justify-between items-center transition-colors`}>
               <div className="flex items-center space-x-4">
                 <div className="p-3 bg-white/20 rounded-2xl"><Banknote size={24}/></div>
                 <div>
-                  <h3 className="text-xl font-black uppercase tracking-tighter">Sortie de Caisse</h3>
-                  <p className="text-[10px] font-black uppercase opacity-60">Enregistrement immédiat</p>
+                  <h3 className="text-xl font-black uppercase tracking-tighter">{editingExpense.id ? 'Modifier l\'écriture' : 'Sortie de Caisse'}</h3>
+                  <p className="text-[10px] font-black uppercase opacity-60">Référence comptable</p>
                 </div>
               </div>
-              <button onClick={() => setIsExpenseModalOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={28}/></button>
+              <button onClick={() => { setIsExpenseModalOpen(false); setEditingExpense(null); }} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={28}/></button>
             </div>
             
-            <form onSubmit={handleSaveExpense} className="p-10 space-y-6">
+            <form onSubmit={handleSaveExpense} className="p-10 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-hide">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Objet de la dépense</label>
-                <div className="relative">
-                  <Coffee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                  <input 
-                    required 
-                    autoFocus 
-                    value={editingExpense.description || ''} 
-                    onChange={e => setEditingExpense({...editingExpense, description: e.target.value})} 
-                    placeholder="ex: Réparation clim, Achat gaz..." 
-                    className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-rose-500 rounded-2xl font-bold outline-none transition-all" 
-                  />
-                </div>
+                <input 
+                  required 
+                  autoFocus 
+                  value={editingExpense.description || ''} 
+                  onChange={e => setEditingExpense({...editingExpense, description: e.target.value})} 
+                  placeholder="ex: Réparation clim, Achat gaz..." 
+                  className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent rounded-2xl font-bold outline-none transition-all ${editingExpense.id ? 'focus:border-purple-500' : 'focus:border-rose-500'}`} 
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
@@ -322,9 +361,9 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
                   <input 
                     type="number" 
                     required 
-                    value={editingExpense.amount || ''} 
+                    value={editingExpense.amount ?? ''} 
                     onChange={e => setEditingExpense({...editingExpense, amount: parseFloat(e.target.value) || 0})} 
-                    className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-rose-500 rounded-2xl font-black text-2xl text-rose-600 outline-none transition-all" 
+                    className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent rounded-2xl font-black text-2xl outline-none transition-all ${editingExpense.id ? 'text-purple-600 focus:border-purple-500' : 'text-rose-600 focus:border-rose-500'}`} 
                   />
                 </div>
                 <div className="space-y-2">
@@ -332,40 +371,40 @@ const Expenses: React.FC<Props> = ({ expenses, setExpenses, purchases, onAddPurc
                   <select 
                     value={editingExpense.category} 
                     onChange={e => setEditingExpense({...editingExpense, category: e.target.value as any})} 
-                    className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest outline-none transition-all appearance-none"
+                    className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent rounded-2xl font-black text-[10px] uppercase tracking-widest outline-none appearance-none"
                   >
                     {expenseCategories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Mode Paiement</label>
-                  <select 
-                    value={editingExpense.paymentMethod} 
-                    onChange={e => setEditingExpense({...editingExpense, paymentMethod: e.target.value as any})} 
-                    className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-rose-500 rounded-2xl font-black text-[10px] uppercase tracking-widest outline-none transition-all appearance-none"
-                  >
-                    <option value="Especes">Espèces</option>
-                    <option value="Bankily">Bankily</option>
-                    <option value="Masrvi">Masrvi</option>
-                    <option value="Sedad">Sedad</option>
-                  </select>
+              {/* SECTION PIÈCES JOINTES */}
+              <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center">
+                    <Paperclip size={14} className="mr-2" /> Justificatifs (Reçu, Facture)
+                  </label>
+                  <label className="cursor-pointer bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-xl text-[10px] font-black text-purple-600 uppercase hover:bg-purple-600 hover:text-white transition-all">
+                    Ajouter
+                    <input type="file" multiple className="hidden" onChange={handleFileUpload} />
+                  </label>
                 </div>
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Date</label>
-                   <input 
-                     type="date" 
-                     value={editingExpense.date || new Date().toISOString().split('T')[0]} 
-                     onChange={e => setEditingExpense({...editingExpense, date: e.target.value})} 
-                     className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-rose-500 rounded-2xl font-bold outline-none transition-all" 
-                   />
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                   {editingExpense.attachments?.map((file) => (
+                     <div key={file.id} className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700 flex items-center justify-between group">
+                        <div className="flex items-center space-x-3 overflow-hidden">
+                           {file.type.startsWith('image/') ? <ImageIcon size={16} className="text-purple-500 shrink-0" /> : <FileText size={16} className="text-blue-500 shrink-0" />}
+                           <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold truncate hover:text-purple-600">{file.name}</a>
+                        </div>
+                        <button type="button" onClick={() => removeAttachment(file.id)} className="p-1.5 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><X size={14}/></button>
+                     </div>
+                   ))}
                 </div>
               </div>
 
-              <button type="submit" className="w-full py-5 bg-rose-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-rose-900/20 active:scale-95 transition-all flex items-center justify-center">
-                Confirmer la Sortie <ArrowRight size={18} className="ml-3" />
+              <button type="submit" className={`w-full py-5 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center ${editingExpense.id ? 'bg-purple-600' : 'bg-rose-600'}`}>
+                {editingExpense.id ? 'Mettre à jour' : 'Confirmer la Sortie'} <ArrowRight size={18} className="ml-3" />
               </button>
             </form>
           </div>
