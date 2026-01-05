@@ -1,12 +1,12 @@
 
 import React, { useState, useMemo, useRef } from 'react';
-import { SaleOrder, ERPConfig, Product, SaleItem, PaymentMethod } from '../types';
+import { SaleOrder, ERPConfig, Product, Expense, ViewType } from '../types';
 import { 
   ShoppingCart, Filter, Download, Plus, CheckCircle2, Clock, Truck, X, Printer, Mail, 
   DownloadCloud, RotateCcw, Calendar, ChefHat, Trash2, AlertTriangle, MapPin, Phone, 
   Banknote, FileText, Search, User, Package, PlusCircle, MinusCircle, QrCode, 
   CreditCard, Smartphone, Wallet, FileSpreadsheet, Globe, FileDown, CheckSquare, 
-  Square, Eye 
+  Square, Eye, ArrowUpRight, ArrowDownLeft, Scale, Wallet2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AppLogoDoc } from './Invoicing';
@@ -14,6 +14,7 @@ import { AppLogo } from '../App';
 
 interface Props {
   sales: SaleOrder[];
+  expenses?: Expense[]; // Ajout des dépenses pour le journal global
   onUpdate: (sales: SaleOrder[]) => void;
   config: ERPConfig;
   products: Product[];
@@ -24,8 +25,26 @@ interface Props {
   t: (key: any) => string;
 }
 
-const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, onAddSale, notify, t, userPermissions }) => {
-  const [activeTab, setActiveTab] = useState<'all' | 'quotation' | 'confirmed' | 'delivered' | 'refunded'>('all');
+const PaymentIcons = ({ sale }: { sale: SaleOrder }) => {
+  const methods = sale.payments ? sale.payments.map(p => p.method) : [sale.paymentMethod || 'Especes'];
+  
+  return (
+    <div className="flex -space-x-1">
+      {Array.from(new Set(methods)).map((m, i) => {
+        switch(m) {
+          case 'Bankily': return <Smartphone key={i} size={12} className="text-orange-500 bg-orange-50 dark:bg-orange-950/30 p-0.5 rounded-sm border border-orange-100" />;
+          case 'Masrvi': return <Wallet key={i} size={12} className="text-blue-500 bg-blue-50 dark:bg-blue-950/30 p-0.5 rounded-sm border border-blue-100" />;
+          case 'Especes': return <Banknote key={i} size={12} className="text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 p-0.5 rounded-sm border border-emerald-100" />;
+          case 'Sedad': return <CreditCard key={i} size={12} className="text-purple-500 bg-purple-50 dark:bg-purple-950/30 p-0.5 rounded-sm border border-purple-100" />;
+          default: return <Wallet2 key={i} size={12} className="text-slate-400 p-0.5 rounded-sm border" />;
+        }
+      })}
+    </div>
+  );
+};
+
+const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, products, userRole, onAddSale, notify, t, userPermissions }) => {
+  const [viewMode, setViewMode] = useState<'sales_only' | 'journal_complet'>('journal_complet');
   const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,366 +52,232 @@ const Sales: React.FC<Props> = ({ sales, onUpdate, config, products, userRole, o
   const startInputRef = useRef<HTMLInputElement>(null);
   const endInputRef = useRef<HTMLInputElement>(null);
 
-  // Permissions
   const canExport = userPermissions.includes('manage_sales') || userRole === 'admin';
 
-  // Plage de dates par défaut : Mois en cours (du 1er au dernier jour)
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+    return d.toISOString().split('T')[0]; // Par défaut aujourd'hui pour le journal de caisse
   });
-  const [endDate, setEndDate] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
-  });
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const tabMap: any = { 'quotation': 'quotation', 'confirmed': 'confirmed', 'delivered': 'delivered', 'refunded': 'refunded' };
-  
-  // Fonction utilitaire pour normaliser les dates stockées (JJ/MM/AAAA ou AAAA-MM-JJ)
   const normalizeDate = (dateStr: string) => {
     if (!dateStr) return "";
-    // Format ISO AAAA-MM-JJ
-    if (dateStr.includes('-') && dateStr.indexOf('-') === 4) {
-      return dateStr.substring(0, 10);
-    }
-    // Format localisé JJ/MM/AAAA
+    if (dateStr.includes('-') && dateStr.indexOf('-') === 4) return dateStr.substring(0, 10);
     if (dateStr.includes('/')) {
       const parts = dateStr.split(' ')[0].replace(',', '').split('/');
-      if (parts.length === 3) {
-        // On assume JJ/MM/AAAA -> AAAA-MM-JJ
-        return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-      }
+      if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
     }
     return dateStr;
   };
 
-  const filteredSales = useMemo(() => {
-    return sales.filter(s => {
-      // Filtre de statut
-      const matchesTab = activeTab === 'all' || s.status === tabMap[activeTab];
-      
-      // Filtre de recherche
-      const matchesSearch = s.customer.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           s.id.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // Filtrage par date normalisée
-      const saleDateStr = normalizeDate(s.date);
-      const matchesDate = saleDateStr >= startDate && saleDateStr <= endDate;
-
-      return matchesTab && matchesSearch && matchesDate;
-    });
-  }, [sales, activeTab, searchTerm, startDate, endDate]);
-
-  const salesToPrint = useMemo(() => {
-    if (selectedIds.length > 0) {
-      return sales.filter(s => selectedIds.includes(s.id));
-    }
-    return filteredSales;
-  }, [sales, selectedIds, filteredSales]);
-
-  const totalsByMethod = useMemo(() => {
-    const summary: Record<string, number> = {};
-    salesToPrint.forEach(s => {
-      const m = s.paymentMethod || 'Espèces';
-      if (s.status !== 'refunded') {
-        summary[m] = (summary[m] || 0) + s.total;
-      } else {
-        summary[m] = (summary[m] || 0) - s.total;
+  // Fusion des flux de trésorerie (Ventes + Dépenses)
+  const journalEntries = useMemo(() => {
+    const allEntries: any[] = [];
+    
+    // Ajouter les ventes
+    sales.forEach(s => {
+      const date = normalizeDate(s.date);
+      if (date >= startDate && date <= endDate) {
+        allEntries.push({
+          type: 'sale',
+          id: s.id,
+          date: s.date,
+          label: s.customer,
+          amount: s.total,
+          status: s.status,
+          method: s.paymentMethod,
+          original: s
+        });
       }
     });
-    return Object.entries(summary);
-  }, [salesToPrint]);
 
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filteredSales.length && filteredSales.length > 0) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredSales.map(s => s.id));
-    }
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
-
-  const handleExportJournalPDF = () => {
-    if (salesToPrint.length === 0) {
-      notify("Export impossible", "Aucune donnée sur cette période.", "warning");
-      return;
-    }
-    window.print();
-  };
-
-  const handleExportExcel = (data: SaleOrder[]) => {
-    if (data.length === 0) {
-      notify("Export Excel", "Aucune donnée à exporter.", "warning");
-      return;
+    // Ajouter les dépenses (si mode complet activé)
+    if (viewMode === 'journal_complet') {
+      expenses.forEach(e => {
+        const date = normalizeDate(e.date);
+        if (date >= startDate && date <= endDate) {
+          allEntries.push({
+            type: 'expense',
+            id: e.id,
+            date: e.date,
+            label: e.description,
+            amount: e.amount,
+            status: 'paid',
+            category: e.category,
+            method: e.paymentMethod,
+            original: e
+          });
+        }
+      });
     }
 
-    // Préparation des données pour Excel
-    const exportData = data.map(s => ({
-      'Référence': s.id,
-      'Date & Heure': s.date,
-      'Nom du Client': s.customer,
-      'Mode de Paiement': s.paymentMethod || 'Espèces',
-      'Statut de la Vente': s.status.toUpperCase(),
-      'Source/Lieu': s.orderLocation || 'Comptoir',
-      'Montant Net': s.total,
-      'Devise': config.currency
+    return allEntries.sort((a, b) => b.date.localeCompare(a.date));
+  }, [sales, expenses, startDate, endDate, viewMode]);
+
+  const filteredEntries = useMemo(() => {
+    return journalEntries.filter(entry => 
+      entry.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      entry.id.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [journalEntries, searchTerm]);
+
+  const totals = useMemo(() => {
+    let income = 0;
+    let outcome = 0;
+    filteredEntries.forEach(e => {
+      if (e.type === 'sale' && e.status !== 'refunded') income += e.amount;
+      else if (e.type === 'expense' || e.status === 'refunded') outcome += e.amount;
+    });
+    return { income, outcome, net: income - outcome };
+  }, [filteredEntries]);
+
+  const handleExportExcel = () => {
+    const data = filteredEntries.map(e => ({
+      'Flux': e.type === 'sale' ? 'ENTRÉE' : 'SORTIE',
+      'Date': e.date,
+      'Référence': e.id,
+      'Libellé': e.label,
+      'Montant': e.amount,
+      'Mode': e.method,
+      'Statut': e.status.toUpperCase()
     }));
-
-    // Création de la feuille Excel
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    
-    // Auto-ajustement de la largeur des colonnes
-    const wscols = [
-      {wch: 15}, {wch: 20}, {wch: 25}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 12}, {wch: 10}
-    ];
-    worksheet['!cols'] = wscols;
-
+    const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Journal des Ventes");
-    
-    // Nom de fichier dynamique basé sur le mois en cours
-    const monthName = new Date(startDate).toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
-    const fileName = `Journal_Ventes_MYADOR_${monthName.replace(/\s+/g, '_')}.xlsx`;
-    
-    XLSX.writeFile(workbook, fileName);
-    notify("Journal Excel", `${data.length} transactions exportées pour ${monthName}.`, "success");
-    setSelectedIds([]);
-  };
-
-  const getStatusStyle = (status: string) => {
-    switch(status) {
-      case 'confirmed': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
-      case 'delivered': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
-      case 'quotation': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
-      case 'refunded': return 'bg-rose-100 text-rose-700 dark:bg-rose-100/30 dark:text-rose-400';
-      default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400';
-    }
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Journal");
+    XLSX.writeFile(workbook, `Journal_Caisse_${startDate}_au_${endDate}.xlsx`);
+    notify("Export", "Le journal de caisse a été généré.", "success");
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn pb-10 pr-2">
+    <div className="space-y-8 animate-fadeIn pb-24 pr-2">
       
-      {/* BARRE ACTIONS FLOTTANTE */}
-      {selectedIds.length > 0 && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-[2rem] shadow-2xl z-[150] flex items-center space-x-8 animate-slideUp no-print">
-           <div className="flex items-center space-x-3 border-r border-slate-700 pr-8">
-              <span className="bg-purple-600 w-8 h-8 rounded-full flex items-center justify-center font-black text-xs">{selectedIds.length}</span>
-              <span className="text-xs font-black uppercase tracking-widest">Sélectionnés</span>
-           </div>
-           <div className="flex items-center space-x-6">
-              {canExport && (
-                <>
-                  <button onClick={handleExportJournalPDF} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-purple-400 transition-colors">
-                    <Printer size={18} className="mr-2 text-blue-400" /> Journal PDF
-                  </button>
-                  <button onClick={() => handleExportExcel(sales.filter(s => selectedIds.includes(s.id)))} className="flex items-center text-[10px] font-black uppercase tracking-widest hover:text-emerald-400 transition-colors">
-                    <FileSpreadsheet size={18} className="mr-2 text-emerald-500" /> Export Excel
-                  </button>
-                </>
-              )}
-              <div className="h-4 w-px bg-slate-700"></div>
-              <button onClick={() => setSelectedIds([])} className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-rose-500">Annuler</button>
-           </div>
-        </div>
-      )}
-
-      {/* ZONE D'IMPRESSION JOURNAL */}
-      <div id="report-print-area" className="hidden print:block p-12 bg-white text-slate-950">
-          <div className="flex justify-between items-start mb-12 border-b-2 pb-8 border-slate-200">
-             <div className="flex items-center space-x-5">
-                <AppLogoDoc className="w-16 h-16" />
-                <div>
-                   <h1 className="text-2xl font-black uppercase tracking-tighter">{config.companyName}</h1>
-                   <p className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Journal Central des Ventes</p>
-                </div>
-             </div>
-             <div className="text-right">
-                <h2 className="text-xl font-black uppercase">Rapport de Ventes</h2>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Période du {startDate} au {endDate}</p>
-             </div>
-          </div>
-
-          <table className="w-full text-left mb-10">
-             <thead>
-                <tr className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest">
-                   <th className="px-4 py-4">Réf</th>
-                   <th className="px-4 py-4">Date & Heure</th>
-                   <th className="px-4 py-4">Client</th>
-                   <th className="px-4 py-4">Mode</th>
-                   <th className="px-4 py-4 text-center">Statut</th>
-                   <th className="px-4 py-4 text-right">Montant</th>
-                </tr>
-             </thead>
-             <tbody className="divide-y border-b text-[9px] font-bold text-slate-800">
-                {salesToPrint.map(s => (
-                   <tr key={s.id} className={s.status === 'refunded' ? 'opacity-50 text-rose-600' : ''}>
-                      <td className="px-4 py-4 font-mono">#{s.id.slice(-8)}</td>
-                      <td className="px-4 py-4 whitespace-nowrap">{s.date}</td>
-                      <td className="px-4 py-4 uppercase truncate max-w-[150px]">{s.customer}</td>
-                      <td className="px-4 py-4">{s.paymentMethod || 'Espèces'}</td>
-                      <td className="px-4 py-4 text-center uppercase text-[8px]">{s.status}</td>
-                      <td className="px-4 py-4 text-right font-black">{s.total.toLocaleString()} {config.currency}</td>
-                   </tr>
-                ))}
-             </tbody>
-             <tfoot>
-                <tr className="bg-slate-100 font-black text-xs">
-                   <td colSpan={5} className="px-4 py-6 text-right uppercase tracking-widest">Total Net des Recettes :</td>
-                   <td className="px-4 py-6 text-right text-purple-600">
-                      {salesToPrint.reduce((a,b) => b.status === 'refunded' ? a - b.total : a + b.total, 0).toLocaleString()} {config.currency}
-                   </td>
-                </tr>
-             </tfoot>
-          </table>
-
-          <div className="grid grid-cols-2 gap-12 mt-12">
-             <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 border-b pb-2">Résumé par Paiement</h3>
-                <table className="w-full text-left">
-                   <thead>
-                      <tr className="text-[8px] font-black uppercase text-slate-400 border-b">
-                         <th className="py-2">Mode</th>
-                         <th className="py-2 text-right">Cumul</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y text-[9px] font-bold text-slate-700">
-                      {totalsByMethod.map(([method, val]) => (
-                         <tr key={method}>
-                            <td className="py-3 uppercase">{method}</td>
-                            <td className="py-3 text-right font-black">{val.toLocaleString()} {config.currency}</td>
-                         </tr>
-                      ))}
-                   </tbody>
-                </table>
-             </div>
-             <div className="bg-slate-50 p-6 rounded-2xl flex flex-col items-center justify-center text-center space-y-4">
-                <QrCode size={60} className="opacity-20" />
-                <p className="text-[8px] font-bold text-slate-400 uppercase leading-relaxed">
-                   Validation Numérique Sama Pos +<br/>
-                   Document généré le {new Date().toLocaleString()}
-                </p>
-             </div>
-          </div>
-      </div>
-
-      {/* HEADER PRINCIPAL AVEC LOGO */}
+      {/* HEADER PROFESSIONNEL */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 no-print">
         <div className="flex items-center space-x-6">
-           <AppLogo iconOnly className="w-14 h-14" />
+           <div className="p-4 bg-slate-900 text-white rounded-3xl shadow-xl"><FileText size={28} /></div>
            <div>
-              <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Journal des Ventes</h1>
-              <p className="text-sm text-slate-500 font-medium mt-1">Historique financier et archivage mensuel</p>
+              <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none">Journal Central</h1>
+              <p className="text-sm text-slate-500 font-medium mt-1">Audit complet des flux Entrées/Sorties</p>
            </div>
         </div>
+        
         <div className="flex flex-wrap items-center gap-3">
-           {/* FILTRES DE DATES */}
-           <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-             <div 
-               onClick={() => startInputRef.current?.showPicker()} 
-               className="flex items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-1 rounded-xl transition-all"
-             >
-               <Calendar size={16} className="text-purple-600 mr-2" />
-               <input 
-                 ref={startInputRef}
-                 type="date" 
-                 value={startDate} 
-                 onChange={e => setStartDate(e.target.value)} 
-                 className="bg-transparent text-[10px] font-black uppercase outline-none text-slate-600 dark:text-slate-300 cursor-pointer" 
-               />
-             </div>
-             <span className="text-slate-300 font-black">→</span>
-             <div 
-               onClick={() => endInputRef.current?.showPicker()} 
-               className="flex items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-1 rounded-xl transition-all"
-             >
-               <input 
-                 ref={endInputRef}
-                 type="date" 
-                 value={endDate} 
-                 onChange={e => setEndDate(e.target.value)} 
-                 className="bg-transparent text-[10px] font-black uppercase outline-none text-slate-600 dark:text-slate-300 cursor-pointer" 
-               />
-               <Calendar size={16} className="text-purple-600 ml-2" />
-             </div>
+           <div className="flex bg-white dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <button onClick={() => setViewMode('journal_complet')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'journal_complet' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400'}`}>Journal Complet</button>
+              <button onClick={() => setViewMode('sales_only')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'sales_only' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400'}`}>Ventes Seules</button>
            </div>
            
+           <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800">
+             <Calendar size={16} className="text-purple-600 ml-2" />
+             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent text-[10px] font-black uppercase outline-none" />
+             <span className="text-slate-300">→</span>
+             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent text-[10px] font-black uppercase outline-none" />
+           </div>
+
            {canExport && (
-             <div className="flex items-center space-x-2">
-                <button 
-                  onClick={handleExportJournalPDF} 
-                  className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center shadow-sm"
-                  title="Exporter le journal PDF de la période"
-                >
-                  <FileDown size={18} className="mr-2 text-rose-600" /> Journal PDF
-                </button>
-                <button 
-                  onClick={() => handleExportExcel(filteredSales)} 
-                  className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center shadow-sm"
-                  title="Exporter le journal Excel du mois en cours"
-                >
-                  <FileSpreadsheet size={18} className="mr-2 text-emerald-600" /> Excel
-                </button>
-             </div>
+             <button onClick={handleExportExcel} className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center shadow-sm">
+               <FileDown size={18} className="mr-2 text-emerald-600" /> Excel
+             </button>
            )}
         </div>
       </div>
 
+      {/* ZONE JOURNAL TYPE ODOO / COMPTABILITÉ */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex-1 no-print">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
-          <div className="flex items-center space-x-4">
-             <button onClick={toggleSelectAll} className="p-2 text-slate-400 hover:text-purple-600 transition-colors">
-                {selectedIds.length === filteredSales.length && filteredSales.length > 0 ? <CheckSquare size={20} className="text-purple-600" /> : <Square size={20} />}
-             </button>
-             <div className="relative w-72">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Réf Doc ou Client..." className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border rounded-xl text-[11px] font-bold outline-none focus:border-purple-500" />
-             </div>
-          </div>
-          <div className="flex border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-hide">
-            {(['all', 'quotation', 'confirmed', 'delivered', 'refunded'] as const).map((tab) => (
-              <button key={tab} onClick={() => { setActiveTab(tab); setSelectedIds([]); }} className={`px-6 py-3 text-[9px] font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap ${activeTab === tab ? 'border-purple-600 text-purple-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
-                <span>{tab === 'all' ? 'Toutes' : tab === 'quotation' ? 'Devis' : tab === 'confirmed' ? 'En Cours' : tab === 'delivered' ? 'Livrées' : 'Retours'}</span>
-              </button>
-            ))}
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30">
+          <div className="relative w-full max-w-xl">
+             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+             <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Chercher une écriture (Réf, Client, Libellé...)" className="w-full pl-12 pr-6 py-3.5 bg-white dark:bg-slate-800 border-none rounded-2xl text-xs font-bold outline-none shadow-sm focus:ring-2 focus:ring-purple-500" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-               <tr className="bg-slate-50/50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800">
-                  <th className="px-6 py-5 w-10"></th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Réf Doc</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Client / Heure</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Montant Net</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-center">Statut</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Consulter</th>
+               <tr className="bg-slate-900 text-white">
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Date / Heure</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Référence</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Libellé Transaction</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-center">Règlement</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Entrée (+)</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Sortie (-)</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Action</th>
                </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-              {filteredSales.map((sale) => (
-                <tr key={sale.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group ${sale.status === 'refunded' ? 'opacity-60' : ''} ${selectedIds.includes(sale.id) ? 'bg-purple-50 dark:bg-purple-900/10' : ''}`}>
-                  <td className="px-6 py-5 text-center">
-                    <button onClick={() => toggleSelect(sale.id)} className={`transition-colors ${selectedIds.includes(sale.id) ? 'text-purple-600' : 'text-slate-200 dark:text-slate-700 hover:text-slate-400'}`}>
-                       {selectedIds.includes(sale.id) ? <CheckSquare size={18} /> : <Square size={18} />}
-                    </button>
-                  </td>
-                  <td className="px-8 py-5 text-xs font-black text-purple-600 font-mono tracking-tighter">#{sale.id.slice(-8)}</td>
-                  <td className="px-8 py-5"><div className="flex flex-col"><span className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase truncate max-w-[150px]">{sale.customer}</span><span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{sale.date}</span></div></td>
-                  <td className={`px-8 py-5 text-sm font-black text-right text-slate-900 dark:text-white ${sale.status === 'refunded' ? 'line-through text-rose-500' : ''}`}>{sale.total.toLocaleString()} {config.currency}</td>
-                  <td className="px-8 py-5 text-center"><span className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${getStatusStyle(sale.status)}`}>{sale.status}</span></td>
-                  <td className="px-8 py-5 text-right"><button onClick={() => setSelectedSale(sale)} className="bg-white dark:bg-slate-800 border p-2 rounded-xl text-slate-400 hover:text-purple-600 hover:border-purple-500 transition-all shadow-sm"><Eye size={18}/></button></td>
-                </tr>
-              ))}
-              {filteredSales.length === 0 && (
-                <tr><td colSpan={6} className="py-20 text-center opacity-20 uppercase font-black tracking-widest text-sm">Aucune donnée trouvée sur cette période</td></tr>
-              )}
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredEntries.map((entry) => {
+                const isSale = entry.type === 'sale' && entry.status !== 'refunded';
+                const isOutcome = entry.type === 'expense' || entry.status === 'refunded';
+                
+                return (
+                  <tr key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
+                    <td className="px-8 py-6">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 uppercase">{entry.date.split(' ')[0]}</span>
+                        <span className="text-[9px] font-bold text-slate-300">{entry.date.split(' ')[1] || '--:--'}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-xs font-mono font-black text-purple-600">#{entry.id.slice(-8)}</td>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center space-x-3">
+                         <div className={`p-2 rounded-lg ${isSale ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                           {isSale ? <ArrowUpRight size={14}/> : <ArrowDownLeft size={14}/>}
+                         </div>
+                         <div className="flex flex-col">
+                            <span className="text-sm font-black uppercase text-slate-800 dark:text-slate-200 truncate max-w-[200px]">{entry.label}</span>
+                            <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">{entry.category || (entry.status === 'refunded' ? 'Avoir client' : 'Vente comptoir')}</span>
+                         </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-center">
+                       <div className="flex justify-center">
+                          {entry.type === 'sale' ? <PaymentIcons sale={entry.original} /> : <span className="text-[9px] font-black text-slate-400 uppercase">{entry.method}</span>}
+                       </div>
+                    </td>
+                    <td className="px-8 py-6 text-right font-black text-sm text-emerald-600">
+                       {isSale ? `+${entry.amount.toLocaleString()}` : '--'}
+                    </td>
+                    <td className="px-8 py-6 text-right font-black text-sm text-rose-600">
+                       {isOutcome ? `-${entry.amount.toLocaleString()}` : '--'}
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                       <button onClick={() => entry.type === 'sale' ? setSelectedSale(entry.original) : notify("Info", "Détails de dépense non modifiables ici.", "info")} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm">
+                          <Eye size={16} />
+                       </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* BANDEAU RÉCAPITULATIF DE CAISSE (FLOATING FOOTER) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-5xl no-print px-4">
+         <div className="bg-slate-900 text-white rounded-[2.5rem] p-6 shadow-2xl flex items-center justify-between border border-white/10 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/10 rounded-full blur-3xl group-hover:bg-purple-600/20 transition-all"></div>
+            
+            <div className="flex items-center space-x-12 relative z-10 px-6">
+               <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center"><ArrowUpRight size={10} className="mr-1"/> Recettes Totales</span>
+                  <span className="text-xl font-black">{totals.income.toLocaleString()} <span className="text-[10px] opacity-40">{config.currency}</span></span>
+               </div>
+               <div className="w-px h-8 bg-slate-700"></div>
+               <div className="flex flex-col">
+                  <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest flex items-center"><ArrowDownLeft size={10} className="mr-1"/> Charges Déduites</span>
+                  <span className="text-xl font-black">{totals.outcome.toLocaleString()} <span className="text-[10px] opacity-40">{config.currency}</span></span>
+               </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 px-10 py-3 rounded-3xl flex flex-col items-center group-hover:bg-white/10 transition-all">
+                <span className="text-[8px] font-black text-purple-400 uppercase tracking-[0.3em] mb-1">Position de Caisse Nette</span>
+                <div className="flex items-baseline space-x-2">
+                   <span className={`text-3xl font-black tracking-tighter ${totals.net >= 0 ? 'text-white' : 'text-rose-500'}`}>{totals.net.toLocaleString()}</span>
+                   <span className="text-xs font-bold opacity-30 uppercase">{config.currency}</span>
+                </div>
+            </div>
+         </div>
       </div>
     </div>
   );

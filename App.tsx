@@ -17,7 +17,7 @@ import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
 
-// Composant Logo Premium centralisé avec point indicateur
+// Composant Logo Premium centralisé
 export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = false }) => (
   <div className={`flex items-center ${iconOnly ? 'justify-center' : 'space-x-4'} ${className}`}>
     <div className="relative group shrink-0">
@@ -93,6 +93,8 @@ const App: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadStored('suppliers', INITIAL_SUPPLIERS));
   const [employees, setEmployees] = useState<Employee[]>(() => loadStored('employees', INITIAL_EMPLOYEES));
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => loadStored('attendance', []));
+  
+  // GESTION SESSION PERSISTANTE
   const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
@@ -122,30 +124,6 @@ const App: React.FC = () => {
     }, 2000);
   }, []);
 
-  const toggleNotificationRead = (id: string) => {
-    setNotificationHistory(prev => {
-      const updated = prev.map(n => n.id === id ? { ...n, isRead: !n.isRead } : n);
-      localStorage.setItem('notificationHistory', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const markAllAsRead = () => {
-    setNotificationHistory(prev => {
-      const updated = prev.map(n => ({ ...n, isRead: true }));
-      localStorage.setItem('notificationHistory', JSON.stringify(updated));
-      return updated;
-    });
-    notifyUser("Notifications", "Tout est marqué comme lu", "success");
-  };
-
-  const clearNotifications = () => {
-    if (window.confirm("Voulez-vous vider l'historique des notifications ?")) {
-      setNotificationHistory([]);
-      localStorage.removeItem('notificationHistory');
-    }
-  };
-
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -157,12 +135,7 @@ const App: React.FC = () => {
     else document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
-  useEffect(() => {
-    const dir = config.language === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.dir = dir;
-    document.documentElement.lang = config.language;
-  }, [config.language]);
-
+  // SAUVEGARDE AUTOMATIQUE LOCALSTORAGE
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   useEffect(() => { localStorage.setItem('config', JSON.stringify(config)); }, [config]);
   useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
@@ -178,19 +151,23 @@ const App: React.FC = () => {
   const changeLanguage = (lang: Language) => {
     setConfig(prev => ({ ...prev, language: lang }));
     setIsLanguageOpen(false);
-    notifyUser(t('language'), lang.toUpperCase(), 'info');
   };
 
   const handleAddSale = (newSaleData: Partial<SaleOrder>) => {
     const saleItems = newSaleData.items || [];
     const isRefund = newSaleData.status === 'refunded';
     
+    // GESTION DE LA SÉQUENCE DE NUMÉROTATION
+    const prefix = config.invoicePrefix || 'FAC/';
+    const currentNum = config.nextInvoiceNumber || 1;
+    const formattedNum = currentNum.toString().padStart(4, '0');
+    const generatedReference = `${prefix}${formattedNum}`;
+
     const updatedProducts = products.map(p => {
       const itemInSale = saleItems.find(item => item.productId === p.id);
       if (itemInSale) {
         const stockChange = isRefund ? itemInSale.quantity : -itemInSale.quantity;
-        const newStock = p.stock + stockChange;
-        return { ...p, stock: newStock };
+        return { ...p, stock: Math.max(0, p.stock + stockChange) };
       }
       return p;
     });
@@ -201,19 +178,33 @@ const App: React.FC = () => {
     const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     const sale: SaleOrder = {
-      id: `S-${Date.now()}`,
-      customer: newSaleData.customer || 'Client',
+      id: generatedReference, // Utilisation de la référence séquentielle comme ID
+      customer: newSaleData.customer || 'Client Comptoir',
       date: `${isoDate} ${time}`,
       total: newSaleData.total || 0,
       status: newSaleData.status || 'confirmed',
       items: saleItems,
       paymentMethod: newSaleData.paymentMethod || 'Especes',
+      payments: newSaleData.payments || [],
       invoiceStatus: isRefund ? 'refunded' : 'paid',
       orderLocation: newSaleData.orderLocation || 'Comptoir'
     };
     
     setSales(prev => [sale, ...prev]);
-    notifyUser(isRefund ? "Remboursement Effectué" : "Commande Validée", `${sale.total.toLocaleString()} ${config.currency} pour ${sale.customer}`, isRefund ? 'warning' : 'success');
+
+    // INC RÉMENTATION DU COMPTEUR DANS LA CONFIG
+    if (!isRefund) {
+      setConfig(prev => ({
+        ...prev,
+        nextInvoiceNumber: currentNum + 1
+      }));
+    }
+
+    notifyUser(
+      isRefund ? "Avoir Validé" : "Vente Validée", 
+      `${generatedReference} - ${sale.total.toLocaleString()} ${config.currency}`, 
+      isRefund ? 'warning' : 'success'
+    );
   };
 
   const handleAddPurchase = (purchase: Purchase) => {
@@ -237,24 +228,21 @@ const App: React.FC = () => {
       cashierId
     };
     setCurrentSession(newSession);
-    notifyUser("Session Ouverte", `${newSession.cashierName}`, "success");
+    notifyUser("Ouverture Session", `Caisse activée par ${newSession.cashierName}`, "success");
   };
 
   const handleCloseSession = (closingBalance: number) => {
     setCurrentSession(null);
-    notifyUser("Session Clôturée", "Synthèse exportée", "info");
+    notifyUser("Clôture Session", "Session archivée et verrouillée.", "info");
   };
 
   const userPermissions = useMemo(() => {
     return rolePermissions.find(p => p.role === currentUser.role)?.allowedViews || [];
   }, [rolePermissions, currentUser.role]);
 
-  const canManageNotifications = userPermissions.includes('manage_notifications');
-  const unreadCount = notificationHistory.filter(n => !n.isRead).length;
-
   if (isLocked) {
     return (
-      <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-900 theme-${config.theme}`}>
+      <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-950 theme-${config.theme}`}>
         <div className="mb-12 text-center animate-fadeIn">
           <AppLogo className="mx-auto mb-6 scale-[1.8]" iconOnly />
           <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
@@ -262,7 +250,7 @@ const App: React.FC = () => {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-6 animate-slideUp">
           {APP_USERS.map((user) => (
-            <button key={user.id} onClick={() => { setCurrentUser(user); setIsLocked(false); }} className="bg-slate-800/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700 hover:border-accent transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105 group">
+            <button key={user.id} onClick={() => { setCurrentUser(user); setIsLocked(false); }} className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-800 hover:border-accent transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105 group">
               <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg group-hover:scale-110 transition-transform`}>{user.initials}</div>
               <p className="text-white font-black uppercase text-[10px] tracking-widest">{user.name}</p>
             </button>
@@ -275,7 +263,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
     switch (activeView) {
-      case 'dashboard': return <Dashboard leads={[]} sales={sales} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
+      case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
       case 'pos': return <POS products={products} sales={sales} onSaleComplete={handleAddSale} config={config} session={currentSession} onOpenSession={handleOpenSession} onCloseSession={handleCloseSession} {...commonProps} />;
       case 'sales': return <Sales sales={sales} onUpdate={setSales} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} />;
@@ -299,13 +287,14 @@ const App: React.FC = () => {
       case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
       case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
-      case 'reports': return <Reports sales={sales} config={config} products={products} t={t} notify={notifyUser} />;
+      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} />;
       default: return null;
     }
   };
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${config.theme} ${darkMode ? 'dark text-slate-100' : 'text-slate-900'} ${config.language === 'ar' ? 'font-ar' : ''}`}>
+      {/* Toast notifications */}
       <div className={`fixed top-24 ${config.language === 'ar' ? 'left-6' : 'right-6'} z-[500] space-y-4 pointer-events-none`}>
         {toasts.map(toast => (
           <div key={toast.id} className={`w-80 rounded-2xl border backdrop-blur-xl shadow-2xl flex flex-col pointer-events-auto animate-slideInRight overflow-hidden ${
@@ -320,7 +309,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="h-1 w-full bg-slate-200/20">
-               <div className={`h-full transition-all ease-linear duration-[2000ms] animate-progressDecrease ${
+               <div className={`h-full animate-progressDecrease ${
                  toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'
                }`} />
             </div>
@@ -328,56 +317,10 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {isNotificationOpen && (
-        <div className="fixed inset-0 z-[300] flex justify-end animate-fadeIn">
-          <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm" onClick={() => setIsNotificationOpen(false)}></div>
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-slideInRight">
-            <div className="p-8 border-b flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
-               <div>
-                  <h3 className="text-xl font-black uppercase tracking-tighter flex items-center">
-                    <Bell className="mr-3 text-accent" size={24} /> Centre d'Alertes
-                  </h3>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{unreadCount} messages non-lus</p>
-               </div>
-               <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-all"><X size={28} /></button>
-            </div>
-            <div className="p-4 border-b flex items-center justify-between space-x-2 bg-white dark:bg-slate-900">
-               <button onClick={markAllAsRead} disabled={unreadCount === 0} className="flex-1 py-2 bg-accent/10 text-accent rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-accent hover:text-white transition-all disabled:opacity-50">Tout marquer lu</button>
-               <button onClick={clearNotifications} className="p-2.5 text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 transition-all"><Trash2 size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
-               {notificationHistory.length > 0 ? notificationHistory.map(notif => (
-                 <div key={notif.id} className={`p-5 rounded-2xl border transition-all relative group ${notif.isRead ? 'bg-slate-50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-accent/20 shadow-sm'}`}>
-                    <div className="flex items-start justify-between mb-3">
-                       <div className={`p-2 rounded-lg ${notif.type === 'success' ? 'bg-emerald-100 text-emerald-600' : notif.type === 'warning' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'}`}>
-                          {notif.type === 'success' ? <><Check size={14} /></> : notif.type === 'warning' ? <AlertCircle size={14} /> : <Info size={14} />}
-                       </div>
-                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{notif.timestamp}</span>
-                    </div>
-                    <h4 className={`text-xs font-black uppercase tracking-tight mb-1 ${notif.isRead ? 'text-slate-500' : 'text-slate-800 dark:text-white'}`}>{notif.title}</h4>
-                    <p className={`text-[11px] font-bold leading-relaxed ${notif.isRead ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>{notif.message}</p>
-                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                       <button onClick={() => toggleNotificationRead(notif.id)} className="text-[9px] font-black uppercase tracking-widest text-accent flex items-center hover:underline">
-                          {notif.isRead ? <><Bell size={12} className="mr-1.5" /> Marquer non-lu</> : <><CheckCircle size={12} className="mr-1.5" /> Marquer comme lu</>}
-                       </button>
-                    </div>
-                    {!notif.isRead && <div className="absolute top-4 right-4 w-2 h-2 bg-accent rounded-full shadow-accent"></div>}
-                 </div>
-               )) : (
-                 <div className="h-full flex flex-col items-center justify-center text-center opacity-20 py-20 space-y-4">
-                    <BellOff size={64} />
-                    <p className="font-black uppercase text-sm tracking-[0.2em]">Historique vide</p>
-                 </div>
-               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-slate-900 transition-all duration-500 flex flex-col z-20 shadow-2xl ${config.language === 'ar' ? 'border-l border-slate-800' : ''}`}>
+      <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-slate-900 transition-all duration-500 flex flex-col z-20 shadow-2xl`}>
         <div className="p-6 h-28 flex items-center justify-between border-b border-slate-800">
           <AppLogo className={isSidebarOpen ? "w-full" : "w-12 h-12"} iconOnly={!isSidebarOpen} />
-          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className={`text-slate-400 hover:text-white ${config.language === 'ar' ? 'mr-2' : 'ml-2'} p-2 hover:bg-slate-800 rounded-xl transition-colors`}><Menu size={20}/></button>
+          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition-colors"><Menu size={20}/></button>
         </div>
         <nav className="flex-1 mt-6 space-y-1.5 px-3 overflow-y-auto scrollbar-hide">
           {[
@@ -394,85 +337,36 @@ const App: React.FC = () => {
           ].filter(item => userPermissions.includes(item.id as ViewType)).map((item) => (
             <button key={item.id} onClick={() => setActiveView(item.id as ViewType)} className={`w-full flex items-center p-3.5 rounded-2xl transition-all duration-200 ${activeView === item.id ? 'bg-accent text-white shadow-lg shadow-accent' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
               <item.icon size={22} />
-              {isSidebarOpen && <span className={`${config.language === 'ar' ? 'mr-4' : 'ml-4'} font-bold text-sm tracking-tight`}>{item.label}</span>}
+              {isSidebarOpen && <span className="ml-4 font-bold text-sm tracking-tight">{item.label}</span>}
             </button>
           ))}
         </nav>
         <div className="p-4 border-t border-slate-800">
            <button onClick={() => setIsLocked(true)} className="w-full flex items-center p-3.5 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm">
              <LogOut size={22} />
-             {isSidebarOpen && <span className={`${config.language === 'ar' ? 'mr-4' : 'ml-4'}`}>{t('logout')}</span>}
+             {isSidebarOpen && <span className="ml-4">{t('logout')}</span>}
            </button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 relative">
-        {/* LIGNE DE THÈME EN HAUT DU HEADER */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-accent z-[110]"></div>
-        
         <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-[100] shrink-0">
-          <div className="flex items-center space-x-10 rtl:space-x-reverse">
+          <div className="flex items-center space-x-10">
             <div className="flex flex-col">
               <span className="text-2xl font-black font-mono text-slate-800 dark:text-white tracking-tighter leading-none">
-                {currentTime.toLocaleTimeString(config.language === 'ar' ? 'ar-SA' : 'fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {currentTime.toLocaleTimeString()}
               </span>
               <span className="text-[10px] font-black text-accent uppercase tracking-widest mt-1">
                 {currentTime.toLocaleDateString(config.language === 'ar' ? 'ar-SA' : 'fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
               </span>
             </div>
-            <div className="h-10 w-px bg-slate-200 dark:bg-slate-700"></div>
-            <div className="flex flex-col">
-               <span className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.2em]">{config.companyName}</span>
-               {/* INDICATEUR DE COULEUR / THEME */}
-               <div className="flex items-center space-x-2 mt-1.5 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-700 w-fit">
-                  <div className="w-2 h-2 rounded-full bg-accent animate-pulse shadow-accent"></div>
-                  <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Thème {config.theme}</span>
-               </div>
-            </div>
           </div>
 
-          <div className="flex items-center space-x-4 rtl:space-x-reverse">
-            <div className="relative">
-              <button onClick={() => setIsLanguageOpen(!isLanguageOpen)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl transition-all hover:bg-slate-200 flex items-center space-x-2 rtl:space-x-reverse">
-                <Languages size={20} />
-                <span className="text-[10px] font-black uppercase">{config.language}</span>
-              </button>
-              {isLanguageOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setIsLanguageOpen(false)}></div>
-                  <div className={`absolute ${config.language === 'ar' ? 'left-0' : 'right-0'} mt-4 w-40 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 z-20 overflow-hidden animate-scaleIn`}>
-                    {[
-                      { code: 'fr', label: 'Français' },
-                      { code: 'en', label: 'English' },
-                      { code: 'ar', label: 'العربية' }
-                    ].map(lang => (
-                      <button key={lang.code} onClick={() => changeLanguage(lang.code as Language)} className={`w-full px-5 py-3 text-left rtl:text-right text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${config.language === lang.code ? 'text-accent bg-accent/10' : 'text-slate-600 dark:text-slate-400'}`}>
-                        {lang.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="relative">
-              <button 
-                onClick={() => {
-                  if (canManageNotifications) setIsNotificationOpen(!isNotificationOpen);
-                  else notifyUser("Accès Refusé", "Vous n'avez pas la permission de gérer les notifications.", "warning");
-                }}
-                className={`p-3 rounded-2xl transition-all relative ${isNotificationOpen ? 'bg-accent text-white shadow-accent' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'} ${!canManageNotifications ? 'opacity-50' : ''}`}
-              >
-                <Bell size={22} />
-                {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900">{unreadCount}</span>}
-              </button>
-            </div>
-
-            <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl transition-all hover:bg-slate-200">
+          <div className="flex items-center space-x-4">
+            <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:bg-slate-200">
               {darkMode ? <Sun size={22}/> : <Moon size={22}/>}
             </button>
-
-            <div className={`flex items-center ${config.language === 'ar' ? 'mr-2 pl-4' : 'ml-2 pr-4'} space-x-3 rtl:space-x-reverse bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5`}>
+            <div className="flex items-center ml-2 pr-4 space-x-3 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5">
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white font-black shadow-lg text-sm`}>{currentUser.initials}</div>
               <div className="flex flex-col">
                 <span className="text-xs font-black text-slate-800 dark:text-white uppercase leading-none">{currentUser.name}</span>

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { SaleOrder, UserRole, ERPConfig, Product, ViewType } from '../types';
+import { SaleOrder, UserRole, ERPConfig, Product, ViewType, Expense } from '../types';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -8,18 +8,17 @@ import {
   Eye, 
   FileText, 
   X, 
-  RotateCcw, 
   ArrowUpRight,
   UserCheck,
-  Download,
   Zap,
-  AlertTriangle,
   Package,
   Banknote,
   Smartphone,
   Wallet,
   CreditCard,
-  History
+  History,
+  TrendingDown,
+  Scale
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
 import * as XLSX from 'xlsx';
@@ -27,6 +26,7 @@ import * as XLSX from 'xlsx';
 interface Props {
   leads: any[];
   sales: SaleOrder[];
+  expenses: Expense[]; // Ajout des dépenses
   userRole: UserRole;
   config: ERPConfig;
   products: Product[];
@@ -52,10 +52,15 @@ const PaymentIcon = ({ method }: { method?: string }) => {
   }
 };
 
-const Dashboard: React.FC<Props> = ({ sales, userRole, config, products, onNavigate }) => {
+const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, products, onNavigate }) => {
   const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
+  
   const totalRevenue = sales.reduce((acc, curr) => curr.status === 'refunded' ? acc - curr.total : acc + curr.total, 0);
+  const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const netProfit = totalRevenue - totalExpenses;
+  
   const averageOrderValue = sales.length > 0 ? (totalRevenue / sales.length).toFixed(0) : 0;
+  
   const chartData = [ { name: 'Jan', sales: 4000 }, { name: 'Feb', sales: 3000 }, { name: 'Mar', sales: 2000 }, { name: 'Apr', sales: 2780 }, { name: 'May', sales: 1890 }, { name: 'Jun', sales: 2390 } ];
   
   const lowStockProducts = useMemo(() => {
@@ -69,10 +74,10 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config, products, onNavig
     const data = [{
       'Date du Rapport': new Date().toLocaleDateString(),
       'Chiffre d\'Affaire': totalRevenue,
+      'Dépenses': totalExpenses,
+      'Bénéfice Net': netProfit,
       'Nombre de Ventes': sales.length,
-      'Panier Moyen': averageOrderValue,
-      'Remboursements': sales.filter(s => s.status === 'refunded').length,
-      'Alertes Stock': lowStockProducts.length
+      'Panier Moyen': averageOrderValue
     }];
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
@@ -126,34 +131,62 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config, products, onNavig
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Bilan du Service</h1>
-          <p className="text-slate-500 text-sm">Rapport consolidé MYA D'OR - {new Date().toLocaleDateString()}</p>
+          <p className="text-slate-500 text-sm">Analyse des flux (Ventes - Charges) MYA D'OR</p>
         </div>
         <button 
           onClick={handleExportFlash}
           className="flex items-center space-x-2 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm"
         >
           <Zap size={16} className="text-amber-500" />
-          <span>Rapport Flash</span>
+          <span>Rapport Financier</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Recettes" value={`${totalRevenue.toLocaleString()} ${config.currency}`} icon={DollarSign} color="bg-blue-500" trend="+12.5%" />
-        <StatCard title="Pointages" value={`${sales.length}`} icon={UserCheck} size={24} color="bg-emerald-500" trend="Staff Actif" />
-        <StatCard title="Panier Moyen" value={`${averageOrderValue} ${config.currency}`} icon={ShoppingCart} color="bg-purple-500" trend="+2.4%" />
+        {/* CARTE RECETTES AVEC DEDUCTION PETITE TAILLE */}
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start justify-between transition-all hover:-translate-y-1 hover:shadow-xl group">
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Recettes Brutes</p>
+            <h4 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{totalRevenue.toLocaleString()} {config.currency}</h4>
+            <div className="flex flex-col space-y-1">
+              <p className="text-[9px] font-black text-rose-500 uppercase flex items-center">
+                <TrendingDown size={10} className="mr-1" /> -{totalExpenses.toLocaleString()} Frais déduits
+              </p>
+            </div>
+          </div>
+          <div className="bg-emerald-500 p-4 rounded-2xl text-white shadow-2xl shadow-emerald-500/20 transition-transform group-hover:scale-110 group-hover:rotate-6">
+            <DollarSign size={24} />
+          </div>
+        </div>
+
+        {/* NOUVELLE CARTE BÉNÉFICE NET */}
+        <div className="bg-slate-900 dark:bg-slate-800 p-8 rounded-3xl border-2 border-purple-500/30 shadow-2xl flex items-start justify-between transition-all hover:-translate-y-1 group">
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em]">Bénéfice Net</p>
+            <h4 className="text-2xl font-black text-white tracking-tighter">{netProfit.toLocaleString()} {config.currency}</h4>
+            <p className="text-[9px] font-black text-emerald-400 uppercase flex items-center">
+              <Scale size={10} className="mr-1" /> Résultat Réel
+            </p>
+          </div>
+          <div className="bg-purple-600 p-4 rounded-2xl text-white shadow-2xl shadow-purple-600/40 transition-transform group-hover:scale-110 group-hover:rotate-6">
+            <Zap size={24} />
+          </div>
+        </div>
+
+        <StatCard title="Pointages" value={`${sales.length}`} icon={UserCheck} color="bg-blue-500" trend="Staff Actif" />
         <StatCard title="Ruptures" value={`${lowStockProducts.length}`} icon={Package} color="bg-rose-500" trend="Alertes Stock" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <h3 className="font-semibold text-slate-800 dark:text-white mb-8 flex items-center justify-between">
-            <span>Graphique des Ventes</span>
+            <span>Tendance des Ventes</span>
             <TrendingUp size={16} className="text-purple-600" />
           </h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
-                <defs><linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs>
+                <defs><linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.1} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 11}} dy={10} />
                 <YAxis hide />
@@ -164,7 +197,6 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config, products, onNavig
           </div>
         </div>
 
-        {/* FLUX DE VENTE DYNAMIQUE */}
         <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[400px]">
           <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50">
             <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-sm flex items-center">
@@ -174,7 +206,7 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config, products, onNavig
               onClick={() => onNavigate('sales')}
               className="group text-[10px] font-black text-purple-600 hover:text-purple-700 uppercase tracking-widest flex items-center transition-all"
             >
-              Voir Journal <ArrowUpRight size={14} className="ml-1 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+              Journal Complet <ArrowUpRight size={14} className="ml-1 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto scrollbar-hide">
@@ -185,12 +217,6 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config, products, onNavig
                     <div className="w-11 h-11 rounded-2xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 font-black text-[10px]">
                        #{sale.id.slice(-3)}
                     </div>
-                    {index === 0 && (
-                       <div className="absolute -top-1 -right-1 flex h-3 w-3">
-                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                         <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                       </div>
-                    )}
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
@@ -223,11 +249,6 @@ const Dashboard: React.FC<Props> = ({ sales, userRole, config, products, onNavig
               </div>
             )}
           </div>
-          {sales.length > 0 && (
-             <div className="p-4 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800 text-center">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Total traité : {sales.length} documents</p>
-             </div>
-          )}
         </div>
       </div>
     </div>
@@ -239,7 +260,7 @@ const StatCard: React.FC<{title: string, value: string, icon: any, color: string
     <div className="space-y-3">
       <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{title}</p>
       <h4 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{value}</h4>
-      <p className={`text-[10px] font-black uppercase flex items-center ${trend.includes(' STAFF') || trend.startsWith('-') ? 'text-blue-500' : 'text-emerald-500'}`}>
+      <p className={`text-[10px] font-black uppercase flex items-center ${trend.includes(' STAFF') ? 'text-blue-500' : 'text-emerald-500'}`}>
         <TrendingUp size={12} className="mr-1.5" /> {trend}
       </p>
     </div>

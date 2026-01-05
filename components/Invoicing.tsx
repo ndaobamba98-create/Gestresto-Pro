@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { SaleOrder, ERPConfig, Product, ViewType, Attachment, PaymentMethod } from '../types';
 import { 
-  FileText, Search, Plus, Download, Eye, Printer, X, RotateCcw, Calendar, MapPin, Phone, Trash, QrCode, User, CreditCard, Paperclip, File, Save, CheckCircle2, ShoppingCart, Smartphone, Banknote, Wallet, FileSpreadsheet, Mail, CheckSquare, Square, FileDown, MoreHorizontal
+  FileText, Search, Plus, Download, Eye, Printer, X, RotateCcw, Calendar, MapPin, Phone, Trash, QrCode, User, CreditCard, Paperclip, File, Save, CheckCircle2, ShoppingCart, Smartphone, Banknote, Wallet, FileSpreadsheet, Mail, CheckSquare, Square, FileDown, MoreHorizontal, Split
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { PAYMENT_METHODS_LIST } from '../constants';
@@ -308,9 +309,17 @@ const InvoiceModal = ({ sale, config, onClose, notify }: { sale: SaleOrder, conf
               <div className="space-y-2 text-right p-8">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Détails financiers</p>
                 <div className="space-y-3">
-                  <p className="text-base font-black uppercase tracking-widest flex items-center justify-end text-purple-600">
-                    <CreditCard size={18} className="mr-2" /> {sale.paymentMethod || 'Espèces'}
-                  </p>
+                  <div className="space-y-2">
+                    {sale.payments ? sale.payments.map((p, i) => (
+                      <p key={i} className="text-[11px] font-black uppercase tracking-widest flex items-center justify-end text-purple-600">
+                        {p.method} : {p.amount.toLocaleString()} {config.currency}
+                      </p>
+                    )) : (
+                      <p className="text-base font-black uppercase tracking-widest flex items-center justify-end text-purple-600">
+                        <CreditCard size={18} className="mr-2" /> {sale.paymentMethod || 'Espèces'}
+                      </p>
+                    )}
+                  </div>
                   <div className="text-[10px] font-bold text-slate-500 uppercase space-y-1">
                     <p>Point de vente : {sale.orderLocation || 'Comptoir Pro'}</p>
                     <p className="text-emerald-600 font-black">Statut de paiement : ACQUITTÉ</p>

@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod } from '../types';
-import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, Layers, MapPin, Coffee, Package, Truck, History, RotateCcw, X, FileText, CreditCard, Smartphone, Wallet, LayoutGrid, PauseCircle, Users, Printer, QrCode, AlertCircle, ChevronDown, ChevronUp, Calculator } from 'lucide-react';
+import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod, SalePayment } from '../types';
+// Added ChevronRight to imports from lucide-react
+import { Search, Plus, Minus, Trash2, ShoppingBag, Utensils, Monitor, Banknote, ChevronLeft, ChevronRight, Layers, MapPin, Coffee, Package, Truck, History, RotateCcw, X, FileText, CreditCard, Smartphone, Wallet, LayoutGrid, PauseCircle, Users, Printer, QrCode, AlertCircle, ChevronDown, ChevronUp, Calculator, Delete, CheckCircle2, Split } from 'lucide-react';
 import { APP_USERS, POS_LOCATIONS, PAYMENT_METHODS_LIST } from '../constants';
 import * as XLSX from 'xlsx';
 import { AppLogoDoc } from './Invoicing';
@@ -26,7 +27,6 @@ const BillCounter: React.FC<BillCounterProps> = ({ counts, onChange, currency })
   };
 
   const total = useMemo(() => 
-    // Fix: ensure qty is treated as a number for arithmetic operation to prevent TS error on line 29
     Object.entries(counts).reduce((acc, [denom, qty]) => acc + (parseInt(denom) * (qty as number)), 0)
   , [counts]);
 
@@ -80,7 +80,12 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
   const [activeLocation, setActiveLocation] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('Tous');
-  const [locationPaymentMethods, setLocationPaymentMethods] = useState<Record<string, PaymentMethod>>({});
+
+  // Multi-paiement state
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [currentPayments, setCurrentPayments] = useState<SalePayment[]>([]);
+  const [activePaymentMethod, setActivePaymentMethod] = useState<PaymentMethod>('Especes');
+  const [numpadValue, setNumpadValue] = useState('');
 
   const [sessionStep, setSessionStep] = useState<'cashier' | 'balance'>('cashier');
   const [openingBillCounts, setOpeningBillCounts] = useState<Record<number, number>>({});
@@ -89,13 +94,15 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
   const [closingBillCounts, setClosingBillCounts] = useState<Record<number, number>>({});
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
+  // States pour animations visuelles
+  const [bumpedProductId, setBumpedProductId] = useState<string | null>(null);
+  const [isCartBouncing, setIsCartBouncing] = useState(false);
+
   const calculatedOpeningBalance = useMemo(() => 
-    // Fix: ensure qty is treated as a number for arithmetic operation to prevent TS error on line 92
     Object.entries(openingBillCounts).reduce((acc, [denom, qty]) => acc + (parseInt(denom) * (qty as number)), 0)
   , [openingBillCounts]);
 
   const calculatedClosingBalance = useMemo(() => 
-    // Fix: ensure qty is treated as a number for arithmetic operation to prevent TS error on line 96
     Object.entries(closingBillCounts).reduce((acc, [denom, qty]) => acc + (parseInt(denom) * (qty as number)), 0)
   , [closingBillCounts]);
 
@@ -144,11 +151,17 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
   }, [products, search, activeCategory, config.categories]);
 
   const currentCart = activeLocation ? (pendingCarts[activeLocation] || []) : [];
-  const currentPaymentMethod = activeLocation ? (locationPaymentMethods[activeLocation] || 'Especes') : 'Especes';
-
+  
   const total = useMemo(() => 
     currentCart.reduce((acc, item) => acc + (item.product.price * item.qty), 0)
   , [currentCart]);
+
+  const totalPaid = useMemo(() => 
+    currentPayments.reduce((acc, p) => acc + p.amount, 0)
+  , [currentPayments]);
+
+  const remainingToPay = Math.max(0, total - totalPaid);
+  const changeDue = Math.max(0, totalPaid - total);
 
   const updateCartForActiveLocation = (items: CartItem[]) => {
     if (!activeLocation) return;
@@ -161,6 +174,13 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
       ? currentCart.map(item => item.product.id === p.id ? {...item, qty: item.qty + 1} : item)
       : [...currentCart, {product: p, qty: 1}];
     updateCartForActiveLocation(newItems);
+
+    setBumpedProductId(p.id);
+    setIsCartBouncing(true);
+    setTimeout(() => {
+      setBumpedProductId(null);
+      setIsCartBouncing(false);
+    }, 300);
   };
 
   const adjustQty = (productId: string, delta: number) => {
@@ -182,19 +202,53 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
     notify("Annulation", `La vente #${sale.id.slice(-8)} a été annulée.`, 'warning');
   };
 
-  const handleCheckout = () => {
+  const startCheckout = () => {
     if (!activeLocation || currentCart.length === 0) return;
+    setCurrentPayments([]);
+    setNumpadValue(remainingToPay.toString());
+    setIsPaymentModalOpen(true);
+  };
+
+  const addPaymentLine = () => {
+    const amount = parseFloat(numpadValue) || 0;
+    if (amount <= 0) return;
+
+    setCurrentPayments(prev => [...prev, { method: activePaymentMethod, amount }]);
+    setNumpadValue('');
+  };
+
+  const removePaymentLine = (index: number) => {
+    setCurrentPayments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFinalValidation = () => {
+    if (totalPaid < total) {
+      notify("Montant insuffisant", `Il reste ${remainingToPay} ${config.currency} à encaisser.`, "warning");
+      return;
+    }
+
     onSaleComplete({
       total,
       items: currentCart.map(i => ({ productId: i.product.id, name: i.product.name, quantity: i.qty, price: i.product.price })),
-      paymentMethod: currentPaymentMethod,
+      payments: currentPayments,
+      paymentMethod: currentPayments[currentPayments.length - 1]?.method || 'Especes',
+      amountReceived: totalPaid,
+      change: changeDue,
       orderLocation: activeLocation,
       status: 'confirmed'
     });
+
     const updatedCarts = { ...pendingCarts };
-    delete updatedCarts[activeLocation];
+    delete updatedCarts[activeLocation!];
     setPendingCarts(updatedCarts);
     setActiveLocation(null);
+    setIsPaymentModalOpen(false);
+  };
+
+  const handleNumpad = (val: string) => {
+    if (val === 'C') setNumpadValue('');
+    else if (val === 'back') setNumpadValue(prev => prev.slice(0, -1));
+    else setNumpadValue(prev => prev + val);
   };
 
   if (!session) {
@@ -311,14 +365,18 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
                   <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">{group.name}</h3>
                   <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {group.items.map(p => (
-                      <button key={p.id} onClick={() => addToCart(p)} className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 text-left hover:border-accent hover:shadow-lg transition-all group flex flex-col justify-between h-40">
+                      <button 
+                        key={p.id} 
+                        onClick={() => addToCart(p)} 
+                        className={`bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border text-left hover:border-accent hover:shadow-lg transition-all group flex flex-col justify-between h-40 ${bumpedProductId === p.id ? 'scale-95 bg-accent/5 border-accent' : 'border-slate-100 dark:border-slate-800'}`}
+                      >
                         <div className="space-y-1">
                           <span className="text-[11px] font-black uppercase text-slate-800 dark:text-white leading-tight">{p.name}</span>
                           <p className="text-[8px] font-bold text-slate-400 tracking-wider uppercase opacity-60">REF-{p.sku.slice(-4)}</p>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-lg font-black text-accent">{p.price}</span>
-                          <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg group-hover:bg-accent group-hover:text-white transition-all shadow-sm"><Plus size={16}/></div>
+                          <div className={`p-2 rounded-lg transition-all shadow-sm ${bumpedProductId === p.id ? 'bg-accent text-white rotate-90 scale-110' : 'bg-slate-50 dark:bg-slate-800 group-hover:bg-accent group-hover:text-white'}`}><Plus size={16}/></div>
                         </div>
                       </button>
                     ))}
@@ -331,9 +389,13 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
           <div className="w-[380px] bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col overflow-hidden shrink-0">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/30">
               <div className="flex items-center">
-                <div className="relative">
+                <div className={`relative transition-transform duration-300 ${isCartBouncing ? 'scale-125' : ''}`}>
                    <ShoppingBag size={18} className="text-accent" />
-                   {currentCart.length > 0 && <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{currentCart.length}</span>}
+                   {currentCart.length > 0 && (
+                     <span className={`absolute -top-1 -right-1 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${isCartBouncing ? 'bg-rose-600 scale-110 shadow-lg' : 'bg-rose-500'}`}>
+                       {currentCart.length}
+                     </span>
+                   )}
                 </div>
                 <h3 className="ml-3 text-xs font-black uppercase tracking-tight">Panier Actif</h3>
               </div>
@@ -372,20 +434,154 @@ const POS: React.FC<Props> = ({ products, sales, onSaleComplete, config, session
             </div>
 
             <div className="p-6 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-100 dark:border-slate-800 space-y-6 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
-              <div className="grid grid-cols-2 gap-2">
-                 {PAYMENT_METHODS_LIST.filter(m => ['Especes', 'Bankily', 'Masrvi', 'Sedad'].includes(m.id)).map((method) => (
-                    <button key={method.id} onClick={() => setLocationPaymentMethods({...locationPaymentMethods, [activeLocation!]: method.id})} className={`py-3 rounded-xl flex items-center justify-center space-x-2 border-2 transition-all ${currentPaymentMethod === method.id ? 'bg-accent border-accent text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-500'}`}>
-                      <span className="text-[9px] font-black uppercase tracking-tighter">{method.label}</span>
-                    </button>
-                  ))}
-              </div>
-              <div className="flex justify-between items-baseline pt-4 border-t border-dashed border-slate-200">
-                <span className="text-slate-400 uppercase text-[9px] font-black tracking-widest">Net à Encaisser</span>
+              <div className="flex justify-between items-baseline pt-4">
+                <span className="text-slate-400 uppercase text-[9px] font-black tracking-widest">Total Commande</span>
                 <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter">{total.toLocaleString()} <span className="text-xs font-bold">{config.currency}</span></span>
               </div>
-              <button onClick={handleCheckout} disabled={currentCart.length === 0} className="w-full py-5 bg-accent text-white rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl shadow-accent/20 hover:brightness-110 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center text-[11px]">Encaisser & Libérer {activeLocation}</button>
+              <button onClick={startCheckout} disabled={currentCart.length === 0} className="w-full py-5 bg-accent text-white rounded-[1.5rem] font-black uppercase tracking-widest shadow-xl shadow-accent/20 hover:brightness-110 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center text-[11px]">
+                 <Split size={18} className="mr-2" /> Procéder au paiement
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* MODAL DE PAIEMENT MULTI-MODES */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
+           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[85vh] rounded-[3rem] shadow-2xl flex overflow-hidden animate-scaleIn border border-white/10">
+              {/* PANNEAU GAUCHE: MODES ET SAISIE */}
+              <div className="flex-1 flex flex-col border-r dark:border-slate-800">
+                 <div className="p-8 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex justify-between items-center">
+                    <div>
+                       <h3 className="text-xl font-black uppercase tracking-tighter">Réception Paiement</h3>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Répartition des encaissements</p>
+                    </div>
+                    <button onClick={() => setIsPaymentModalOpen(false)} className="p-2 hover:bg-rose-50 hover:text-rose-500 rounded-full transition-all"><X size={24} /></button>
+                 </div>
+
+                 <div className="flex-1 grid grid-cols-2 gap-0 overflow-hidden">
+                    {/* CLAVIER NUMÉRIQUE */}
+                    <div className="p-8 space-y-6 border-r dark:border-slate-800">
+                       <div className="relative">
+                          <input 
+                            readOnly 
+                            value={numpadValue} 
+                            className="w-full p-6 bg-slate-100 dark:bg-slate-800 rounded-2xl text-4xl font-black text-right outline-none tracking-tighter text-accent"
+                            placeholder="0"
+                          />
+                          <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xl">{config.currency}</span>
+                       </div>
+
+                       <div className="grid grid-cols-3 gap-3">
+                          {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'back'].map(key => (
+                             <button 
+                                key={key}
+                                onClick={() => handleNumpad(key)}
+                                className={`h-16 rounded-2xl text-xl font-black transition-all active:scale-95 ${
+                                   key === 'C' ? 'bg-rose-100 text-rose-600' : 
+                                   key === 'back' ? 'bg-slate-100 text-slate-400' : 
+                                   'bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-accent'
+                                }`}
+                             >
+                                {key === 'back' ? <Delete className="mx-auto" /> : key}
+                             </button>
+                          ))}
+                       </div>
+                       
+                       <button 
+                         onClick={addPaymentLine}
+                         disabled={!numpadValue || parseFloat(numpadValue) <= 0}
+                         className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-black transition-all disabled:opacity-50"
+                       >
+                          Valider ce montant
+                       </button>
+                    </div>
+
+                    {/* SELECTION MODES */}
+                    <div className="p-8 space-y-6 overflow-y-auto scrollbar-hide bg-slate-50/30">
+                       <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Choisir le mode de règlement</h4>
+                       <div className="grid grid-cols-1 gap-3">
+                          {PAYMENT_METHODS_LIST.filter(m => ['Especes', 'Bankily', 'Masrvi', 'Sedad', 'Bimbank'].includes(m.id)).map(method => (
+                             <button 
+                                key={method.id}
+                                onClick={() => setActivePaymentMethod(method.id)}
+                                className={`p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${
+                                   activePaymentMethod === method.id 
+                                   ? 'bg-accent border-accent text-white shadow-xl shadow-accent/20' 
+                                   : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-accent/30'
+                                }`}
+                             >
+                                <span className="font-black uppercase text-xs tracking-widest">{method.label}</span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${activePaymentMethod === method.id ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                                   <ChevronRight size={18} />
+                                </div>
+                             </button>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+              </div>
+
+              {/* PANNEAU DROIT: RÉSUMÉ ET VALIDATION */}
+              <div className="w-[400px] bg-slate-50 dark:bg-slate-950 p-10 flex flex-col justify-between">
+                 <div className="space-y-8">
+                    <div className="space-y-1">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">À percevoir</p>
+                       <h4 className="text-5xl font-black tracking-tighter text-slate-900 dark:text-white">{total.toLocaleString()} <span className="text-xl font-bold opacity-30">{config.currency}</span></h4>
+                    </div>
+
+                    <div className="space-y-4">
+                       <h5 className="text-[9px] font-black uppercase text-slate-400 tracking-widest border-b pb-2">Lignes de règlement</h5>
+                       <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 force-scrollbar">
+                          {currentPayments.map((p, idx) => (
+                             <div key={idx} className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center animate-slideInRight">
+                                <div>
+                                   <p className="text-[8px] font-black text-accent uppercase tracking-widest">{p.method}</p>
+                                   <p className="text-sm font-black">{p.amount.toLocaleString()} {config.currency}</p>
+                                </div>
+                                <button onClick={() => removePaymentLine(idx)} className="p-2 text-slate-300 hover:text-rose-500 transition-all"><Trash2 size={14}/></button>
+                             </div>
+                          ))}
+                          {currentPayments.length === 0 && (
+                             <div className="py-10 text-center opacity-30 space-y-2">
+                                <Split size={32} className="mx-auto" />
+                                <p className="text-[10px] font-black uppercase tracking-widest">Aucun paiement ajouté</p>
+                             </div>
+                          )}
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="space-y-6">
+                    <div className="space-y-3 bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
+                       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                          <span className="text-slate-400">Déjà réglé</span>
+                          <span className="text-emerald-500">{totalPaid.toLocaleString()} {config.currency}</span>
+                       </div>
+                       <div className="flex justify-between items-center border-t pt-3">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{changeDue > 0 ? 'Monnaie à rendre' : 'Reste à percevoir'}</span>
+                          <span className={`text-xl font-black ${changeDue > 0 ? 'text-amber-500' : remainingToPay === 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                             {changeDue > 0 ? changeDue.toLocaleString() : remainingToPay.toLocaleString()} {config.currency}
+                          </span>
+                       </div>
+                    </div>
+
+                    <button 
+                      onClick={handleFinalValidation}
+                      disabled={totalPaid < total}
+                      className={`w-full py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-xs shadow-2xl transition-all flex items-center justify-center space-x-3 ${
+                        totalPaid >= total 
+                        ? 'bg-emerald-600 text-white shadow-emerald-900/20 hover:brightness-110 active:scale-95' 
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                       <CheckCircle2 size={20} />
+                       <span>Valider l'encaissement</span>
+                    </button>
+                 </div>
+              </div>
+           </div>
         </div>
       )}
 

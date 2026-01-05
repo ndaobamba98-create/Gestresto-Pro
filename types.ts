@@ -87,6 +87,11 @@ export interface SaleItem {
 
 export type PaymentMethod = 'Bankily' | 'Masrvi' | 'Especes' | 'Sedad' | 'Bimbank' | 'Carte' | 'Mobile';
 
+export interface SalePayment {
+  method: PaymentMethod;
+  amount: number;
+}
+
 export interface SaleOrder {
   id: string;
   customer: string;
@@ -95,7 +100,8 @@ export interface SaleOrder {
   status: 'draft' | 'confirmed' | 'delivered' | 'refunded' | 'quotation';
   items?: SaleItem[];
   invoiceStatus?: 'draft' | 'posted' | 'paid' | 'cancelled' | 'refunded';
-  paymentMethod?: PaymentMethod;
+  paymentMethod?: PaymentMethod; // Main payment method for display
+  payments?: SalePayment[]; // Detailed split payments
   amountReceived?: number;
   change?: number;
   orderLocation?: string;
