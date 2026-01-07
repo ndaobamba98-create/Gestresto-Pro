@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown
 } from 'lucide-react';
 
 interface Props {
@@ -22,22 +22,67 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
   const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
   
+  // États pour la gestion des catégories
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategoryIdx, setEditingCategoryIdx] = useState<number | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+
   const [localPermissions, setLocalPermissions] = useState<RolePermission[]>(rolePermissions);
 
-  const handleSaveConfig = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveConfig = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onUpdateConfig(formConfig);
-    notify(t('save'), "Configuration mise à jour avec succès.", 'success');
+    notify("Configuration", "Modifications enregistrées avec succès.", 'success');
   };
 
-  const themes: { id: AppTheme, label: string, color: string }[] = [
-    { id: 'purple', label: 'Violet', color: 'bg-purple-600' },
-    { id: 'emerald', label: 'Émeraude', color: 'bg-emerald-600' },
-    { id: 'blue', label: 'Bleu Pro', color: 'bg-blue-600' },
-    { id: 'rose', label: 'Rose Rubis', color: 'bg-rose-600' },
-    { id: 'amber', label: 'Ambre Or', color: 'bg-amber-600' },
-    { id: 'slate', label: 'Ardoise', color: 'bg-slate-600' },
-  ];
+  // LOGIQUE CATÉGORIES
+  const handleAddCategory = () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) return;
+    if (formConfig.categories.includes(trimmed)) {
+      notify("Attention", "Cette catégorie existe déjà.", "warning");
+      return;
+    }
+    // On ajoute à la fin sans trier pour respecter l'ordre manuel
+    const updated = [...formConfig.categories, trimmed];
+    setFormConfig({ ...formConfig, categories: updated });
+    setNewCategoryName('');
+    notify("Menu", `Catégorie "${trimmed}" ajoutée.`, "success");
+  };
+
+  const handleDeleteCategory = (cat: string) => {
+    if (confirm(`Supprimer la catégorie "${cat}" ? Cela ne supprimera pas les produits associés.`)) {
+      const updated = formConfig.categories.filter(c => c !== cat);
+      setFormConfig({ ...formConfig, categories: updated });
+      notify("Menu", "Catégorie supprimée.", "info");
+    }
+  };
+
+  const startEditCategory = (index: number, currentName: string) => {
+    setEditingCategoryIdx(index);
+    setEditCategoryName(currentName);
+  };
+
+  const saveEditedCategory = () => {
+    if (!editCategoryName.trim() || editingCategoryIdx === null) return;
+    const updated = [...formConfig.categories];
+    updated[editingCategoryIdx] = editCategoryName.trim();
+    setFormConfig({ ...formConfig, categories: updated }); // Plus de tri auto ici
+    setEditingCategoryIdx(null);
+    notify("Menu", "Catégorie renommée.", "success");
+  };
+
+  const moveCategory = (index: number, direction: 'up' | 'down') => {
+    const newIdx = direction === 'up' ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= formConfig.categories.length) return;
+
+    const updated = [...formConfig.categories];
+    const temp = updated[index];
+    updated[index] = updated[newIdx];
+    updated[newIdx] = temp;
+
+    setFormConfig({ ...formConfig, categories: updated });
+  };
 
   const handleTogglePermission = (role: UserRole, view: ViewType) => {
     if (role === 'admin' && view === 'settings') return;
@@ -65,7 +110,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     const tabs = [
       { id: 'general', label: 'Entreprise', icon: Building2, permission: 'settings' as ViewType },
       { id: 'billing', label: 'Facturation', icon: FileText, permission: 'invoicing' as ViewType },
-      { id: 'categories', label: 'Menu', icon: Layers, permission: 'manage_categories' as ViewType },
+      { id: 'categories', label: 'Menu POS', icon: Layers, permission: 'manage_categories' as ViewType },
       { id: 'security', label: 'Accès', icon: ShieldCheck, permission: 'manage_security' as ViewType },
     ];
     return tabs.filter(tab => userPermissions.includes(tab.permission));
@@ -88,7 +133,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     { id: 'attendances', label: t('attendances') },
     { id: 'settings', label: t('settings') },
     { id: 'manage_security', label: 'Gérer Accès/Rôles' },
-    { id: 'manage_notifications', label: "Gérer Notifications (Bouton 'Tout lire' dans la cloche)" },
+    { id: 'manage_notifications', label: "Gérer Notifications" },
   ];
 
   const roles: UserRole[] = ['admin', 'manager', 'cashier'];
@@ -112,27 +157,28 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-20">
-      <div className="flex items-center justify-between">
+    <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-20 pr-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('settings')}</h1>
-          <p className="text-sm text-slate-500 font-medium">Configuration globale de SamaCaisse Pro</p>
+          <p className="text-sm text-slate-500 font-medium">Configuration globale Sama Pos +</p>
         </div>
-        <div className="flex space-x-2 bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 shadow-sm rtl:space-x-reverse">
+        <div className="flex space-x-2 bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto scrollbar-hide">
           {availableTabs.map((tab) => (
             <button 
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)} 
-              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center ${activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center whitespace-nowrap ${activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
             >
-              <tab.icon size={14} className={`${config.language === 'ar' ? 'ml-2' : 'mr-2'}`} />
+              <tab.icon size={14} className="mr-2" />
               {tab.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[650px]">
+      <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[600px] flex flex-col">
+        
         {activeTab === 'general' && (
           <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
             <div className="flex items-center space-x-4">
@@ -142,7 +188,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('language')} par défaut</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('language')}</label>
                 <div className="relative">
                   <Languages className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                   <select 
@@ -157,86 +203,16 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom de l'enseigne</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom de l'établissement</label>
                 <input value={formConfig.companyName} onChange={e => setFormConfig({...formConfig, companyName: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
               </div>
-
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Email Officiel</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                  <input type="email" value={formConfig.email} onChange={e => setFormConfig({...formConfig, email: e.target.value})} className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
-                </div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Email</label>
+                <input type="email" value={formConfig.email} onChange={e => setFormConfig({...formConfig, email: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Téléphone de Contact</label>
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                  <input value={formConfig.phone} onChange={e => setFormConfig({...formConfig, phone: e.target.value})} className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
-                </div>
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Adresse Physique</label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-[24px] text-slate-400" size={20} />
-                  <textarea value={formConfig.address} onChange={e => setFormConfig({...formConfig, address: e.target.value})} className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all h-24" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">NIF / Numéro RC</label>
-                <div className="relative">
-                  <BadgeCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                  <input value={formConfig.registrationNumber} onChange={e => setFormConfig({...formConfig, registrationNumber: e.target.value})} className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-12 border-t space-y-8">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-600 rounded-2xl"><Palette size={24} /></div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Apparence & Thème</h2>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Mode d'affichage</label>
-                  <div className="flex space-x-4">
-                    <button 
-                      type="button"
-                      onClick={() => document.documentElement.classList.remove('dark')}
-                      className={`flex-1 flex items-center justify-center p-6 rounded-2xl border-2 transition-all space-x-3 ${!document.documentElement.classList.contains('dark') ? 'border-purple-600 bg-purple-50 text-purple-600' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}
-                    >
-                      <Sun size={20} />
-                      <span className="font-black uppercase text-[10px] tracking-widest">Clair</span>
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => document.documentElement.classList.add('dark')}
-                      className={`flex-1 flex items-center justify-center p-6 rounded-2xl border-2 transition-all space-x-3 ${document.documentElement.classList.contains('dark') ? 'border-purple-600 bg-purple-900/10 text-purple-600' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}
-                    >
-                      <Moon size={20} />
-                      <span className="font-black uppercase text-[10px] tracking-widest">Sombre</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Couleur d'accentuation</label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {themes.map((t) => (
-                      <button 
-                        key={t.id}
-                        type="button"
-                        onClick={() => setFormConfig({...formConfig, theme: t.id})}
-                        className={`group relative p-3 rounded-xl border-2 transition-all flex flex-col items-center space-y-2 ${formConfig.theme === t.id ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
-                      >
-                        <div className={`w-8 h-8 rounded-lg shadow-inner ${t.color}`} />
-                        <span className="text-[9px] font-black uppercase tracking-tighter truncate w-full text-center">{t.label}</span>
-                        {formConfig.theme === t.id && <div className="absolute -top-1 -right-1 bg-purple-600 text-white rounded-full p-0.5 shadow-md"><Check size={10} /></div>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Téléphone</label>
+                <input value={formConfig.phone} onChange={e => setFormConfig({...formConfig, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
               </div>
             </div>
 
@@ -245,97 +221,149 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
             </div>
           </form>
         )}
-        
+
+        {activeTab === 'categories' && (
+          <div className="p-12 space-y-10 animate-fadeIn">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+               <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl"><Layers size={24} /></div>
+                  <div>
+                    <h2 className="text-xl font-black uppercase tracking-tight">Configuration du Menu</h2>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">L'ordre ici sera celui de vos onglets en caisse</p>
+                  </div>
+               </div>
+               <button onClick={() => handleSaveConfig()} className="bg-slate-900 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg flex items-center hover:bg-black transition-all">
+                 <Save size={16} className="mr-2" /> Appliquer l'ordre
+               </button>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
+               <div className="flex items-center space-x-4">
+                  <div className="relative flex-1">
+                    <UtensilsCrossed className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input 
+                      value={newCategoryName} 
+                      onChange={e => setNewCategoryName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
+                      placeholder="Nom de la nouvelle catégorie..." 
+                      className="w-full pl-12 pr-6 py-4 bg-white dark:bg-slate-900 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all shadow-sm" 
+                    />
+                  </div>
+                  <button onClick={handleAddCategory} className="bg-purple-600 text-white p-4 rounded-2xl shadow-lg hover:bg-purple-700 active:scale-95 transition-all">
+                    <Plus size={24} />
+                  </button>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+               {formConfig.categories.map((cat, idx) => (
+                 <div key={idx} className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-purple-200 transition-all">
+                    {editingCategoryIdx === idx ? (
+                      <div className="flex items-center space-x-2 w-full">
+                        <input 
+                          autoFocus
+                          value={editCategoryName}
+                          onChange={e => setEditCategoryName(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && saveEditedCategory()}
+                          className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs outline-none border border-purple-500"
+                        />
+                        <button onClick={saveEditedCategory} className="p-2 text-emerald-500"><Check size={18}/></button>
+                        <button onClick={() => setEditingCategoryIdx(null)} className="p-2 text-rose-500"><X size={18}/></button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                           <div className="flex flex-col space-y-1">
+                              <button 
+                                onClick={() => moveCategory(idx, 'up')} 
+                                disabled={idx === 0}
+                                className={`p-1 rounded-md transition-all ${idx === 0 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-300 hover:text-purple-600 hover:bg-purple-50'}`}
+                              >
+                                <ChevronUp size={14}/>
+                              </button>
+                              <button 
+                                onClick={() => moveCategory(idx, 'down')} 
+                                disabled={idx === formConfig.categories.length - 1}
+                                className={`p-1 rounded-md transition-all ${idx === formConfig.categories.length - 1 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-300 hover:text-purple-600 hover:bg-purple-50'}`}
+                              >
+                                <ChevronDown size={14}/>
+                              </button>
+                           </div>
+                           <div className="flex items-center space-x-2 min-w-0">
+                              <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center font-black text-[10px] shrink-0">{idx + 1}</div>
+                              <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-200 truncate">{cat}</span>
+                           </div>
+                        </div>
+                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                           <button onClick={() => startEditCategory(idx, cat)} className="p-2 text-slate-400 hover:text-blue-500 transition-all"><Edit3 size={16}/></button>
+                           <button onClick={() => handleDeleteCategory(cat)} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><Trash2 size={16}/></button>
+                        </div>
+                      </>
+                    )}
+                 </div>
+               ))}
+            </div>
+
+            {formConfig.categories.length === 0 && (
+              <div className="py-20 text-center opacity-30 flex flex-col items-center">
+                 <Layers size={48} className="mb-4" />
+                 <p className="font-black uppercase text-xs tracking-widest">Le menu est vide</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'billing' && (
           <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
             <div className="flex items-center justify-between">
                <div className="flex items-center space-x-4">
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl"><FileText size={24} /></div>
-                  <h2 className="text-xl font-black uppercase tracking-tight">Mise en page de la Facture</h2>
+                  <h2 className="text-xl font-black uppercase tracking-tight">Facturation</h2>
                </div>
-               <button type="submit" className="bg-purple-600 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:bg-purple-700 transition-all"><Save size={16} className="mr-2" /> Publier les changements</button>
+               <button type="submit" className="bg-purple-600 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:bg-purple-700 transition-all"><Save size={16} className="mr-2" /> Enregistrer</button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-               <div className="space-y-8">
-                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-4">Séquençage & Taxes</h3>
-                  <div className="grid grid-cols-2 gap-6">
-                     <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Préfixe de Facture</label>
-                        <div className="flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl px-4 border border-slate-100 dark:border-slate-700">
-                           <Type size={14} className="text-slate-400 mr-2" />
-                           <input value={formConfig.invoicePrefix} onChange={e => setFormConfig({...formConfig, invoicePrefix: e.target.value})} className="w-full py-3 bg-transparent font-bold outline-none text-xs" />
-                        </div>
-                     </div>
-                     <div className="space-y-2">
-                        <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Prochain Numéro</label>
-                        <div className="flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl px-4 border border-slate-100 dark:border-slate-700">
-                           <Hash size={14} className="text-slate-400 mr-2" />
-                           <input type="number" value={formConfig.nextInvoiceNumber} onChange={e => setFormConfig({...formConfig, nextInvoiceNumber: parseInt(e.target.value) || 1})} className="w-full py-3 bg-transparent font-bold outline-none text-xs" />
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                     <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Slogan de l'entreprise (Facture)</label>
-                     <textarea value={formConfig.companySlogan} onChange={e => setFormConfig({...formConfig, companySlogan: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 font-bold text-xs outline-none focus:border-blue-500 h-24" placeholder="Votre slogan ici..." />
-                  </div>
-
-                  <div className="space-y-2">
-                     <label className="text-[9px] font-black uppercase text-slate-500 ml-1">Pied de page (Reçu POS)</label>
-                     <input value={formConfig.receiptFooter} onChange={e => setFormConfig({...formConfig, receiptFooter: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 font-bold text-xs outline-none focus:border-blue-500" />
-                  </div>
-               </div>
-
                <div className="space-y-6">
-                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-4">Éléments à Afficher</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                     <ConfigToggle label="Afficher le Logo" icon={ImageIcon} value={formConfig.showLogoOnInvoice} onChange={v => setFormConfig({...formConfig, showLogoOnInvoice: v})} />
-                     <ConfigToggle label="Afficher Slogan" icon={AlignLeft} value={formConfig.showSloganOnInvoice} onChange={v => setFormConfig({...formConfig, showSloganOnInvoice: v})} />
-                     <ConfigToggle label="Afficher l'Adresse" icon={MapPin} value={formConfig.showAddressOnInvoice} onChange={v => setFormConfig({...formConfig, showAddressOnInvoice: v})} />
-                     <ConfigToggle label="Afficher Téléphone" icon={Phone} value={formConfig.showPhoneOnInvoice} onChange={v => setFormConfig({...formConfig, showPhoneOnInvoice: v})} />
-                     <ConfigToggle label="Afficher Email" icon={Mail} value={formConfig.showEmailOnInvoice} onChange={v => setFormConfig({...formConfig, showEmailOnInvoice: v})} />
-                     <ConfigToggle label="Afficher RC/NIF" icon={BadgeCheck} value={formConfig.showRegNumberOnInvoice} onChange={v => setFormConfig({...formConfig, showRegNumberOnInvoice: v})} />
-                     <ConfigToggle label="Afficher QR Code" icon={QrCode} value={formConfig.showQrCodeOnInvoice} onChange={v => setFormConfig({...formConfig, showQrCodeOnInvoice: v})} />
-                     <ConfigToggle label="Impression Auto" icon={Printer} value={formConfig.autoPrintReceipt} onChange={v => setFormConfig({...formConfig, autoPrintReceipt: v})} />
-                  </div>
+                  <ConfigToggle label="Afficher le Logo" icon={ImageIcon} value={formConfig.showLogoOnInvoice} onChange={v => setFormConfig({...formConfig, showLogoOnInvoice: v})} />
+                  <ConfigToggle label="Afficher QR Code" icon={QrCode} value={formConfig.showQrCodeOnInvoice} onChange={v => setFormConfig({...formConfig, showQrCodeOnInvoice: v})} />
+                  <ConfigToggle label="Impression Auto" icon={Printer} value={formConfig.autoPrintReceipt} onChange={v => setFormConfig({...formConfig, autoPrintReceipt: v})} />
+               </div>
+               <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Slogan (Pied de facture)</label>
+                  <textarea value={formConfig.companySlogan} onChange={e => setFormConfig({...formConfig, companySlogan: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold text-xs h-32" />
                </div>
             </div>
           </form>
         )}
-        
+
         {activeTab === 'security' && (
            <div className="p-12 space-y-12 animate-fadeIn">
-            <div className="flex items-center justify-between rtl:flex-row-reverse">
-              <div className="flex items-center space-x-4 rtl:space-x-reverse">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
                 <div className="p-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl"><ShieldCheck size={24} /></div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Gestion des Droits & Rôles</h2>
+                <h2 className="text-xl font-black uppercase tracking-tight">Droits d'Accès</h2>
               </div>
-              <button onClick={handleSavePermissions} className="bg-purple-600 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:bg-purple-700 transition-all"><Save size={16} className="mr-2" /> Appliquer les Droits</button>
+              <button onClick={handleSavePermissions} className="bg-purple-600 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:bg-purple-700 transition-all"><Save size={16} className="mr-2" /> Appliquer</button>
             </div>
             <div className="overflow-x-auto rounded-[2rem] border border-slate-100 dark:border-slate-800">
               <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-900 text-white">
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Fonctionnalité / Permission</th>
-                    {roles.map(role => <th key={role} className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-center">{role}</th>)}
-                  </tr>
+                <thead className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+                  <tr><th className="px-8 py-5">Fonctionnalité</th>{roles.map(role => <th key={role} className="px-8 py-5 text-center">{role}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {availableViews.map(view => (
-                    <tr key={view.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="px-8 py-5"><span className="text-xs font-black uppercase text-slate-700 dark:text-slate-200">{view.label}</span></td>
+                    <tr key={view.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                      <td className="px-8 py-5"><span className="text-xs font-black uppercase">{view.label}</span></td>
                       {roles.map(role => {
                         const isAllowed = localPermissions.find(p => p.role === role)?.allowedViews.includes(view.id);
-                        const isLocked = role === 'admin' && (view.id === 'settings' || view.id === 'manage_security');
                         return (
                           <td key={role} className="px-8 py-5 text-center">
                             <button 
-                              disabled={isLocked}
                               onClick={() => handleTogglePermission(role, view.id)}
-                              className={`w-12 h-6 rounded-full relative transition-all ${isAllowed ? 'bg-purple-600' : 'bg-slate-200 dark:bg-slate-700'} ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                              className={`w-10 h-5 rounded-full relative transition-all ${isAllowed ? 'bg-purple-600' : 'bg-slate-200 dark:bg-slate-700'}`}
                             >
-                              <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${isAllowed ? 'translate-x-6' : 'translate-x-0'}`} />
+                              <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${isAllowed ? 'translate-x-5' : 'translate-x-0'}`} />
                             </button>
                           </td>
                         );
@@ -345,18 +373,6 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'categories' && (
-          <div className="p-12 space-y-8 animate-fadeIn">
-             <div className="flex items-center space-x-4 mb-8">
-                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl"><Layers size={24} /></div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Organisation du Menu POS</h2>
-             </div>
-             <div className="bg-slate-50 dark:bg-slate-800/50 p-10 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-700">
-                <p className="text-center text-slate-400 font-black uppercase text-[10px] tracking-widest">Configuration des catégories de vente</p>
-             </div>
           </div>
         )}
       </div>

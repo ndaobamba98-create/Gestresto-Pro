@@ -94,6 +94,35 @@ const App: React.FC = () => {
     { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] }
   ]));
 
+  const userPermissions = useMemo(() => {
+    return rolePermissions.find(p => p.role === currentUser.role)?.allowedViews || [];
+  }, [currentUser, rolePermissions]);
+
+  const unreadNotificationsCount = useMemo(() => 
+    notificationHistory.filter(n => !n.isRead).length
+  , [notificationHistory]);
+
+  const canManageNotifications = useMemo(() => 
+    userPermissions.includes('manage_notifications') || currentUser.role === 'admin'
+  , [userPermissions, currentUser.role]);
+
+  const markNotificationAsRead = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setNotificationHistory(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  };
+
+  const markAllNotificationsAsRead = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setNotificationHistory(prev => prev.map(n => ({ ...n, isRead: true })));
+  };
+
+  const deleteAllNotifications = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (confirm("Supprimer tout l'historique ?")) {
+      setNotificationHistory([]);
+    }
+  };
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -105,7 +134,6 @@ const App: React.FC = () => {
     else document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
-  // Synchronisation Persistence
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   useEffect(() => { localStorage.setItem('config', JSON.stringify(config)); }, [config]);
   useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
@@ -134,50 +162,27 @@ const App: React.FC = () => {
       return updated;
     });
     
-    // Durée de 5 secondes avant de disparaître
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
   }, []);
 
-  const unreadNotificationsCount = useMemo(() => notificationHistory.filter(n => !n.isRead).length, [notificationHistory]);
+  const handleRefundSale = useCallback((saleId: string) => {
+    const saleToRefund = sales.find(s => s.id === saleId);
+    if (!saleToRefund || saleToRefund.status === 'refunded') return;
 
-  const userPermissions = useMemo(() => rolePermissions.find(p => p.role === currentUser.role)?.allowedViews || [], [rolePermissions, currentUser.role]);
-  const canManageNotifications = useMemo(() => userPermissions.includes('manage_notifications'), [userPermissions]);
+    setProducts(prevProds => prevProds.map(p => {
+      const item = saleToRefund.items?.find(i => i.productId === p.id);
+      if (item) return { ...p, stock: p.stock + item.quantity };
+      return p;
+    }));
 
-  const markAllNotificationsAsRead = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    
-    if (!canManageNotifications) {
-      notifyUser("Accès Refusé", "Vous n'avez pas la permission de tout lire.", "warning");
-      return;
-    }
-    
-    setNotificationHistory(prev => prev.map(n => ({ ...n, isRead: true })));
-    setToasts([]);
-    notifyUser("Workspace", "Toutes les activités sont marquées comme lues.", "success");
-  };
+    setSales(prevSales => prevSales.map(s => 
+      s.id === saleId ? { ...s, status: 'refunded', invoiceStatus: 'refunded' } : s
+    ));
 
-  const markNotificationAsRead = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setNotificationHistory(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-  };
-
-  const deleteNotification = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (!canManageNotifications) {
-      notifyUser("Accès Refusé", "Suppression interdite.", "warning");
-      return;
-    }
-    setNotificationHistory(prev => prev.filter(n => n.id !== id));
-  };
-
-  const deleteAllNotifications = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (!canManageNotifications) return;
-    setNotificationHistory([]);
-    notifyUser("Notifications", "Historique vidé.", "info");
-  };
+    notifyUser("Vente Annulée", `La commande #${saleId.slice(-6)} a été annulée.`, "warning");
+  }, [sales, notifyUser]);
 
   const handleAddSale = (newSaleData: Partial<SaleOrder>) => {
     const saleItems = newSaleData.items || [];
@@ -220,8 +225,8 @@ const App: React.FC = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
     switch (activeView) {
       case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
-      case 'pos': return <POS products={products} sales={sales} onSaleComplete={handleAddSale} config={config} session={currentSession} onOpenSession={(bal, id) => setCurrentSession({id: `S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, status: 'open', cashierName: APP_USERS.find(u=>u.id===id)?.name||'', cashierId: id})} onCloseSession={() => setCurrentSession(null)} {...commonProps} />;
-      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
+      case 'pos': return <POS products={products} sales={sales} onSaleComplete={handleAddSale} onRefundSale={handleRefundSale} config={config} session={currentSession} onOpenSession={(bal, id) => setCurrentSession({id: `S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, status: 'open', cashierName: APP_USERS.find(u=>u.id===id)?.name||'', cashierId: id})} onCloseSession={() => setCurrentSession(null)} {...commonProps} />;
+      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={handleRefundSale} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} />;
       case 'expenses': return <Expenses expenses={expenses} setExpenses={setExpenses} purchases={purchases} onAddPurchase={p => setPurchases(v => [p, ...v])} onDeletePurchase={() => {}} suppliers={suppliers} setSuppliers={setSuppliers} products={products} config={config} userRole={currentUser.role} notify={notifyUser} t={t} />;
       case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
@@ -255,9 +260,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${config.theme} ${darkMode ? 'dark text-slate-100' : 'text-slate-900'} ${config.language === 'ar' ? 'font-ar' : ''}`}>
-      
       {isNotificationOpen && <div className="fixed inset-0 z-[110]" onClick={() => setIsNotificationOpen(false)} />}
-
       <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-slate-900 transition-all duration-500 flex flex-col z-20 shadow-2xl`}>
         <div className="p-6 h-28 flex items-center justify-between border-b border-slate-800">
           <AppLogo className={isSidebarOpen ? "w-full" : "w-12 h-12"} iconOnly={!isSidebarOpen} />
@@ -315,14 +318,13 @@ const App: React.FC = () => {
                           <button 
                             onClick={(e) => markAllNotificationsAsRead(e)} 
                             disabled={!canManageNotifications}
-                            title={canManageNotifications ? "Tout marquer comme lu" : "Permission requise pour cette action"} 
                             className={`p-2 transition-all flex items-center space-x-1 ${canManageNotifications ? 'text-slate-400 hover:text-emerald-500' : 'text-slate-200 cursor-not-allowed opacity-50'}`}
                           >
                             <CheckCheck size={18} />
                             <span className="text-[8px] font-black uppercase">Tout lire</span>
                           </button>
                           {canManageNotifications && (
-                            <button onClick={(e) => deleteAllNotifications(e)} title="Tout effacer" className="p-2 text-slate-400 hover:text-rose-500 transition-all">
+                            <button onClick={(e) => deleteAllNotifications(e)} className="p-2 text-slate-400 hover:text-rose-500 transition-all">
                               <Trash2 size={16} />
                             </button>
                           )}
@@ -331,43 +333,18 @@ const App: React.FC = () => {
                     <div className="flex-1 max-h-[450px] overflow-y-auto scrollbar-hide px-4 py-2">
                        {notificationHistory.length > 0 ? notificationHistory.map((notif) => (
                          <div key={notif.id} className="relative group mb-2">
-                            <div 
-                               className={`w-full text-left p-4 rounded-2xl flex items-start space-x-4 transition-all relative overflow-hidden ${notif.isRead ? 'opacity-50 bg-transparent border-transparent' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-700'}`}
-                            >
+                            <div className={`w-full text-left p-4 rounded-2xl flex items-start space-x-4 transition-all relative overflow-hidden ${notif.isRead ? 'opacity-50 bg-transparent border-transparent' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-700'}`}>
                                {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent"></div>}
-                               
                                <div className={`mt-1 p-2 rounded-xl shrink-0 ${notif.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : notif.type === 'warning' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
                                   {notif.type === 'success' ? <CheckCircle size={14}/> : notif.type === 'warning' ? <AlertCircle size={14}/> : <Info size={14}/>}
                                </div>
-                               
                                <div className="flex-1 min-w-0" onClick={(e) => { if(!notif.isRead) markNotificationAsRead(notif.id, e); }}>
                                   <div className="flex justify-between items-start">
-                                     <div className="flex items-center">
-                                       <h5 className={`text-[10px] font-black uppercase truncate pr-2 ${notif.isRead ? 'text-slate-400' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h5>
-                                       {!notif.isRead && <div className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse mr-2"></div>}
-                                     </div>
+                                     <h5 className={`text-[10px] font-black uppercase truncate pr-2 ${notif.isRead ? 'text-slate-400' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h5>
                                      <span className="text-[8px] font-bold text-slate-400 whitespace-nowrap">{notif.timestamp}</span>
                                   </div>
                                   <p className="text-[10px] font-medium leading-tight mt-1 line-clamp-2 text-slate-500">{notif.message}</p>
                                </div>
-
-                               {!notif.isRead && (
-                                 <button 
-                                   onClick={(e) => markNotificationAsRead(notif.id, e)}
-                                   className="mt-1 p-2 bg-slate-50 dark:bg-slate-700 rounded-lg text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all opacity-0 group-hover:opacity-100"
-                                   title="Marquer comme lu"
-                                 >
-                                   <Check size={14} />
-                                 </button>
-                               )}
-                               {canManageNotifications && (
-                                 <button 
-                                   onClick={(e) => deleteNotification(notif.id, e)}
-                                   className="mt-1 p-2 text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
-                                 >
-                                   <X size={14} />
-                                 </button>
-                               )}
                             </div>
                          </div>
                        )) : (
@@ -379,7 +356,6 @@ const App: React.FC = () => {
             </div>
 
             <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all">{darkMode ? <Sun size={22}/> : <Moon size={22}/>}</button>
-            
             <div className="flex items-center ml-2 pr-4 space-x-3 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-700">
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white font-black shadow-lg text-sm`}>{currentUser.initials}</div>
               <div className="flex flex-col">
@@ -392,13 +368,9 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-auto p-8">{renderContent()}</div>
       </main>
 
-      {/* ZONE NOTIFICATIONS TOAST - AFFICHÉE EN HAUT À DROITE */}
-      <div className="fixed top-28 right-8 z-[300] flex flex-col items-end space-y-4 pointer-events-none w-full max-w-sm">
+      <div className="fixed top-28 right-8 z-[300] flex flex-col items-end space-y-4 pointer-events-none w-full max-sm px-4 sm:max-w-sm">
         {toasts.map((toast) => (
-          <div 
-            key={toast.id} 
-            className={`w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border p-5 rounded-[2rem] shadow-2xl flex items-start space-x-4 pointer-events-auto animate-slideInRight overflow-hidden relative group`}
-          >
+          <div key={toast.id} className={`w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border p-5 rounded-[2rem] shadow-2xl flex items-start space-x-4 pointer-events-auto animate-slideInRight overflow-hidden relative group`}>
             <div className={`mt-1 p-2.5 rounded-2xl shrink-0 ${toast.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : toast.type === 'warning' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
                {toast.type === 'success' ? <CheckCircle size={20}/> : toast.type === 'warning' ? <AlertTriangle size={20}/> : <Info size={20}/>}
             </div>
@@ -406,12 +378,6 @@ const App: React.FC = () => {
                <h5 className="text-[11px] font-black uppercase tracking-widest text-slate-900 dark:text-white mb-1">{toast.title}</h5>
                <p className="text-[11px] font-medium text-slate-500 leading-tight">{toast.message}</p>
             </div>
-            <button 
-              onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-              className="p-1 text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all"
-            >
-              <X size={16}/>
-            </button>
             <div className={`absolute bottom-0 left-0 h-1 ${toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'warning' ? 'bg-orange-500' : 'bg-blue-500'} animate-progressDecrease`}></div>
           </div>
         ))}

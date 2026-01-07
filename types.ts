@@ -36,15 +36,12 @@ export interface LeaveRequest {
   reason?: string;
 }
 
+// Added missing Payslip interface for HR module
 export interface Payslip {
   id: string;
   employeeId: string;
-  employeeName: string;
   month: string;
   year: number;
-  baseSalary: number;
-  bonus: number;
-  deductions: number;
   netSalary: number;
   date: string;
 }

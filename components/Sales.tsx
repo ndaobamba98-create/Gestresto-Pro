@@ -16,6 +16,7 @@ interface Props {
   sales: SaleOrder[];
   expenses?: Expense[];
   onUpdate: (sales: SaleOrder[]) => void;
+  onRefundSale: (saleId: string) => void;
   config: ERPConfig;
   products: Product[];
   userRole: string;
@@ -43,7 +44,7 @@ const PaymentIcons = ({ sale }: { sale: SaleOrder }) => {
   );
 };
 
-const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, products, userRole, onAddSale, notify, t, userPermissions }) => {
+const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, config, products, userRole, onAddSale, notify, t, userPermissions }) => {
   const [viewMode, setViewMode] = useState<'sales_only' | 'journal_complet'>('journal_complet');
   const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
   const [editingSale, setEditingSale] = useState<SaleOrder | null>(null);
@@ -232,23 +233,27 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, produc
               {filteredEntries.map((entry) => {
                 const isSale = entry.type === 'sale' && entry.status !== 'refunded';
                 const isOutcome = entry.type === 'expense' || entry.status === 'refunded';
+                const isRefunded = entry.status === 'refunded';
                 
                 return (
-                  <tr key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
+                  <tr key={entry.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group ${isRefunded ? 'opacity-60 grayscale-[0.5]' : ''}`}>
                     <td className="px-8 py-6">
                       <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-slate-400 uppercase">{entry.date.split(' ')[0]}</span>
+                        <span className={`text-[10px] font-black uppercase ${isRefunded ? 'text-slate-400' : 'text-slate-400'}`}>{entry.date.split(' ')[0]}</span>
                         <span className="text-[9px] font-bold text-slate-300">{entry.date.split(' ')[1] || '--:--'}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-6 text-xs font-mono font-black text-purple-600">#{entry.id.slice(-8)}</td>
+                    <td className="px-8 py-6 text-xs font-mono font-black text-purple-600">
+                      <span className={isRefunded ? 'line-through opacity-50' : ''}>#{entry.id.slice(-8)}</span>
+                      {isRefunded && <span className="ml-2 bg-rose-50 text-rose-500 px-2 py-0.5 rounded-[4px] text-[8px] uppercase font-black">ANNULÉ</span>}
+                    </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center space-x-3">
                          <div className={`p-2 rounded-lg ${isSale ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
                            {isSale ? <ArrowUpRight size={14}/> : <ArrowDownLeft size={14}/>}
                          </div>
                          <div className="flex flex-col">
-                            <span className="text-sm font-black uppercase text-slate-800 dark:text-slate-200 truncate max-w-[200px]">{entry.label}</span>
+                            <span className={`text-sm font-black uppercase truncate max-w-[200px] ${isRefunded ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200'}`}>{entry.label}</span>
                             <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">{entry.category || (entry.status === 'refunded' ? 'Avoir client' : 'Vente comptoir')}</span>
                          </div>
                       </div>
@@ -266,10 +271,19 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, config, produc
                     </td>
                     <td className="px-8 py-6 text-right no-print">
                        <div className="flex items-center justify-end space-x-2">
-                          {canEdit && entry.type === 'sale' && (
-                            <button onClick={() => setEditingSale(entry.original)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm opacity-0 group-hover:opacity-100">
-                               <Edit3 size={16} />
-                            </button>
+                          {canEdit && entry.type === 'sale' && !isRefunded && (
+                            <>
+                              <button 
+                                onClick={() => { if(confirm("Annuler définitivement cette vente et réintégrer le stock ?")) onRefundSale(entry.id); }}
+                                className="p-2.5 bg-white dark:bg-slate-700 text-slate-400 hover:text-rose-600 rounded-xl transition-all shadow-sm opacity-0 group-hover:opacity-100"
+                                title="Annuler la vente (Rembourser)"
+                              >
+                                <RotateCcw size={16} />
+                              </button>
+                              <button onClick={() => setEditingSale(entry.original)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm opacity-0 group-hover:opacity-100">
+                                 <Edit3 size={16} />
+                              </button>
+                            </>
                           )}
                           <button onClick={() => entry.type === 'sale' ? setSelectedSale(entry.original) : notify("Info", "Détails de dépense non modifiables ici.", "info")} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm">
                              <Eye size={16} />

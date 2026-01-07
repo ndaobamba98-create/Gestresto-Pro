@@ -21,7 +21,9 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole, user
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
 
   const canManage = userPermissions.includes('manage_inventory');
-  const categories = config.categories;
+  
+  // Tri alphabétique des catégories pour le sélecteur
+  const categories = useMemo(() => [...config.categories].sort((a, b) => a.localeCompare(b)), [config.categories]);
 
   const filteredProducts = useMemo(() => {
     return products
@@ -42,6 +44,7 @@ const Inventory: React.FC<Props> = ({ products, onUpdate, config, userRole, user
           if (aAlert && !bAlert) return -1;
           if (!aAlert && bAlert) return 1;
         }
+        // Tri par nom A-Z
         return a.name.localeCompare(b.name);
       });
   }, [products, searchTerm, showOnlyAlerts]);

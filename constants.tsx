@@ -19,7 +19,7 @@ export const PAYMENT_METHODS_LIST: { id: PaymentMethod, label: string, color: st
 
 export const POS_LOCATIONS = {
   tables: ['Table 1', 'Table 2', 'Table 3', 'Table 4'],
-  bar: ['Bar 1', 'Bar 2', 'Bar 3', 'Bar 4'],
+  bar: ['Tabouret 1', 'Tabouret 2', 'Tabouret 3', 'Tabouret 4'],
   takeaway: ['Emporter 1', 'Emporter 2'],
   delivery: ['Livraison 1', 'Livraison 2'],
   default: 'Comptoir'
@@ -49,7 +49,7 @@ export const INITIAL_CONFIG: ERPConfig = {
     'Desserts',
     'Suppléments',
     'Formules'
-  ],
+  ].sort((a, b) => a.localeCompare(b)),
   language: 'fr',
   showLogoOnInvoice: true,
   showSloganOnInvoice: true,
@@ -143,9 +143,9 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'DS02', name: 'SALADE DE FRUITS', sku: 'DS-02', price: 30, stock: 999, category: 'Desserts' },
   { id: 'DS03', name: 'BISCUIT / CAKE', sku: 'DS-03', price: 30, stock: 999, category: 'Desserts' },
   { id: 'DS04', name: 'JUS BOUYE', sku: 'DS-04', price: 30, stock: 999, category: 'Desserts' },
-  { id: 'DS05', name: 'JUS BISAP', sku: 'DS-04', price: 30, stock: 999, category: 'Desserts' },
-  { id: 'DS06', name: 'JUS GENGEMBRE', sku: 'DS-04', price: 30, stock: 999, category: 'Desserts' },
-  { id: 'DS07', name: 'THIAKRY / NGALAKH', sku: 'DS-04', price: 30, stock: 999, category: 'Desserts' },
+  { id: 'DS05', name: 'JUS BISAP', sku: 'DS-05', price: 30, stock: 999, category: 'Desserts' },
+  { id: 'DS06', name: 'JUS GENGEMBRE', sku: 'DS-06', price: 30, stock: 999, category: 'Desserts' },
+  { id: 'DS07', name: 'THIAKRY / NGALAKH', sku: 'DS-07', price: 30, stock: 999, category: 'Desserts' },
   { id: 'SP01', name: 'BANANE (SUPP)', sku: 'SP-01', price: 20, stock: 999, category: 'Suppléments' },
   { id: 'SP02', name: 'MIEL (SUPP)', sku: 'SP-02', price: 30, stock: 999, category: 'Suppléments' },
   { id: 'SP03', name: 'FROMAGE (SUPP)', sku: 'SP-03', price: 30, stock: 999, category: 'Suppléments' },
@@ -163,7 +163,7 @@ const RAW_PRODUCTS: Product[] = [
   { id: 'FO05', name: 'FORMULE GONAL', sku: 'FO-05', price: 250, stock: 999, category: 'Formules' },
   { id: 'FO06', name: 'FORMULE COUCHANT', sku: 'FO-06', price: 320, stock: 999, category: 'Formules' },
   { id: 'FO07', name: 'FORMULE BONJOUR', sku: 'FO-07', price: 200, stock: 999, category: 'Formules' },
-];
+].sort((a, b) => a.name.localeCompare(b.name));
 
 export const INITIAL_PRODUCTS: Product[] = [...RAW_PRODUCTS];
 
