@@ -18,6 +18,15 @@ interface Props {
   t: (key: any) => string;
 }
 
+const THEMES: { id: AppTheme, label: string, color: string }[] = [
+  { id: 'purple', label: 'Améthyste', color: 'bg-purple-600' },
+  { id: 'emerald', label: 'Émeraude', color: 'bg-emerald-600' },
+  { id: 'blue', label: 'Océan', color: 'bg-blue-600' },
+  { id: 'rose', label: 'Rubis', color: 'bg-rose-600' },
+  { id: 'amber', label: 'Ambre', color: 'bg-amber-500' },
+  { id: 'slate', label: 'Ardoise', color: 'bg-slate-600' },
+];
+
 const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify, t, userPermissions }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
@@ -43,7 +52,6 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
       notify("Attention", "Cette catégorie existe déjà.", "warning");
       return;
     }
-    // On ajoute à la fin sans trier pour respecter l'ordre manuel
     const updated = [...formConfig.categories, trimmed];
     setFormConfig({ ...formConfig, categories: updated });
     setNewCategoryName('');
@@ -67,7 +75,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     if (!editCategoryName.trim() || editingCategoryIdx === null) return;
     const updated = [...formConfig.categories];
     updated[editingCategoryIdx] = editCategoryName.trim();
-    setFormConfig({ ...formConfig, categories: updated }); // Plus de tri auto ici
+    setFormConfig({ ...formConfig, categories: updated });
     setEditingCategoryIdx(null);
     notify("Menu", "Catégorie renommée.", "success");
   };
@@ -183,36 +191,63 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
           <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
             <div className="flex items-center space-x-4">
               <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl"><Building2 size={24} /></div>
-              <h2 className="text-xl font-black uppercase tracking-tight">Identité de l'établissement</h2>
+              <h2 className="text-xl font-black uppercase tracking-tight">Identité & Apparence</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('language')}</label>
-                <div className="relative">
-                  <Languages className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                  <select 
-                    value={formConfig.language} 
-                    onChange={e => setFormConfig({...formConfig, language: e.target.value as Language})}
-                    className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none appearance-none"
-                  >
-                    <option value="fr">Français (FR)</option>
-                    <option value="en">English (EN)</option>
-                    <option value="ar">العربية (AR)</option>
-                  </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+              <div className="space-y-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('language')}</label>
+                  <div className="relative">
+                    <Languages className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                    <select 
+                      value={formConfig.language} 
+                      onChange={e => setFormConfig({...formConfig, language: e.target.value as Language})}
+                      className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none appearance-none"
+                    >
+                      <option value="fr">Français (FR)</option>
+                      <option value="en">English (EN)</option>
+                      <option value="ar">العربية (AR)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* SÉLECTEUR DE THÈME */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center">
+                    <Palette size={14} className="mr-2" /> Thème Visuel du Système
+                  </label>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                    {THEMES.map((theme) => (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        onClick={() => setFormConfig({...formConfig, theme: theme.id})}
+                        className={`group relative flex flex-col items-center space-y-2 p-3 rounded-2xl border-2 transition-all ${formConfig.theme === theme.id ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                      >
+                        <div className={`w-8 h-8 rounded-full ${theme.color} shadow-lg group-hover:scale-110 transition-transform flex items-center justify-center`}>
+                          {formConfig.theme === theme.id && <Check size={16} className="text-white" />}
+                        </div>
+                        <span className="text-[8px] font-black uppercase tracking-tighter text-slate-500">{theme.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom de l'établissement</label>
-                <input value={formConfig.companyName} onChange={e => setFormConfig({...formConfig, companyName: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Email</label>
-                <input type="email" value={formConfig.email} onChange={e => setFormConfig({...formConfig, email: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Téléphone</label>
-                <input value={formConfig.phone} onChange={e => setFormConfig({...formConfig, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom de l'établissement</label>
+                  <input value={formConfig.companyName} onChange={e => setFormConfig({...formConfig, companyName: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Email</label>
+                  <input type="email" value={formConfig.email} onChange={e => setFormConfig({...formConfig, email: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Téléphone</label>
+                  <input value={formConfig.phone} onChange={e => setFormConfig({...formConfig, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
+                </div>
               </div>
             </div>
 

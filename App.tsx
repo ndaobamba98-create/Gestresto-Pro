@@ -1,11 +1,14 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play
 } from 'lucide-react';
+// Fix: Remove Modality from local types as it should be imported from @google/genai
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS } from './constants';
 import { translations, TranslationKey } from './translations';
+// Fix: Import Modality from @google/genai
+import { GoogleGenAI, Modality } from "@google/genai";
 import Dashboard from './components/Dashboard';
 import Invoicing from './components/Invoicing';
 import Sales from './components/Sales';
@@ -17,7 +20,29 @@ import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
 
-// Logo Premium
+// Helper pour décoder l'audio Gemini TTS
+const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+};
+
+const decodeBase64 = (base64: string) => {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+};
+
 export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = false }) => (
   <div className={`flex items-center ${iconOnly ? 'justify-center' : 'space-x-4'} ${className}`}>
     <div className="relative group shrink-0">
@@ -76,6 +101,7 @@ const App: React.FC = () => {
   const [isLocked, setIsLocked] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [darkMode, setDarkMode] = useState(() => loadStored('darkMode', false));
+  const [isSpeaking, setIsSpeaking] = useState<string | null>(null);
 
   const [currentUser, setCurrentUser] = useState<User>(() => loadStored('currentUser', APP_USERS[0]));
   const [config, setConfig] = useState<ERPConfig>(() => loadStored('config', { ...INITIAL_CONFIG, language: 'fr' }));
@@ -105,6 +131,43 @@ const App: React.FC = () => {
   const canManageNotifications = useMemo(() => 
     userPermissions.includes('manage_notifications') || currentUser.role === 'admin'
   , [userPermissions, currentUser.role]);
+
+  // Fonction de lecture vocale via Gemini
+  const speakNotification = async (notification: Toast) => {
+    if (isSpeaking) return;
+    setIsSpeaking(notification.id);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `Lis ce message de notification ERP de manière professionnelle et concise : ${notification.title}. ${notification.message}`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        const audioBuffer = await decodeAudioData(decodeBase64(base64Audio), audioCtx, 24000, 1);
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioCtx.destination);
+        source.onended = () => setIsSpeaking(null);
+        source.start();
+      }
+    } catch (error) {
+      console.error("Erreur TTS:", error);
+      setIsSpeaking(null);
+    }
+  };
 
   const markNotificationAsRead = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -161,6 +224,12 @@ const App: React.FC = () => {
       localStorage.setItem('notificationHistory', JSON.stringify(updated));
       return updated;
     });
+
+    // Auto-lecture pour les ventes validées si l'option est active (simulée ici)
+    if (type === 'success' && title.toLowerCase().includes('vente')) {
+      // On pourrait ajouter une option config.autoReadSales
+      // speakNotification(newToast); 
+    }
     
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
@@ -194,7 +263,7 @@ const App: React.FC = () => {
       if (item) {
         const newStock = Math.max(0, p.stock + (isRefund ? item.quantity : -item.quantity));
         if (!isRefund && newStock <= (p.lowStockThreshold || 10)) {
-          notifyUser("Alerte Stock", `${p.name} est épuisé !`, "warning");
+          notifyUser("Alerte Stock", `${p.name} est presque épuisé !`, "warning");
         }
         return { ...p, stock: newStock };
       }
@@ -218,7 +287,12 @@ const App: React.FC = () => {
     
     setSales(prev => [sale, ...prev]);
     if (!isRefund) setConfig(prev => ({ ...prev, nextInvoiceNumber: prev.nextInvoiceNumber + 1 }));
-    notifyUser(isRefund ? "Avoir" : "Vente", `${generatedReference} validée.`, isRefund ? 'warning' : 'success');
+    
+    const notifMsg = isRefund 
+      ? `Avoir de ${sale.total} ${config.currency} généré.` 
+      : `Vente de ${sale.total} ${config.currency} encaissée pour ${sale.customer}.`;
+      
+    notifyUser(isRefund ? "Avoir Validé" : "Vente Validée", notifMsg, isRefund ? 'warning' : 'success');
   };
 
   const renderContent = () => {
@@ -311,10 +385,10 @@ const App: React.FC = () => {
                </button>
 
                {isNotificationOpen && (
-                 <div className="absolute right-0 mt-3 w-[400px] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[130] flex flex-col overflow-hidden animate-slideUp">
+                 <div className="absolute right-0 mt-3 w-[420px] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[130] flex flex-col overflow-hidden animate-slideUp">
                     <div className="p-6 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-                       <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">Activités Récentes</h4>
-                       <div className="flex space-x-2">
+                       <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">Centre de Notifications</h4>
+                       <div className="flex space-x-1">
                           <button 
                             onClick={(e) => markAllNotificationsAsRead(e)} 
                             disabled={!canManageNotifications}
@@ -330,10 +404,10 @@ const App: React.FC = () => {
                           )}
                        </div>
                     </div>
-                    <div className="flex-1 max-h-[450px] overflow-y-auto scrollbar-hide px-4 py-2">
+                    <div className="flex-1 max-h-[500px] overflow-y-auto scrollbar-hide px-4 py-2">
                        {notificationHistory.length > 0 ? notificationHistory.map((notif) => (
                          <div key={notif.id} className="relative group mb-2">
-                            <div className={`w-full text-left p-4 rounded-2xl flex items-start space-x-4 transition-all relative overflow-hidden ${notif.isRead ? 'opacity-50 bg-transparent border-transparent' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-700'}`}>
+                            <div className={`w-full text-left p-4 rounded-2xl flex items-start space-x-4 transition-all relative overflow-hidden ${notif.isRead ? 'opacity-60 bg-transparent border-transparent' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-700'}`}>
                                {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent"></div>}
                                <div className={`mt-1 p-2 rounded-xl shrink-0 ${notif.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : notif.type === 'warning' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
                                   {notif.type === 'success' ? <CheckCircle size={14}/> : notif.type === 'warning' ? <AlertCircle size={14}/> : <Info size={14}/>}
@@ -344,6 +418,18 @@ const App: React.FC = () => {
                                      <span className="text-[8px] font-bold text-slate-400 whitespace-nowrap">{notif.timestamp}</span>
                                   </div>
                                   <p className="text-[10px] font-medium leading-tight mt-1 line-clamp-2 text-slate-500">{notif.message}</p>
+                                  <div className="mt-3 flex items-center space-x-3">
+                                     {!notif.isRead && (
+                                       <button onClick={(e) => markNotificationAsRead(notif.id, e)} className="text-[8px] font-black uppercase text-accent hover:underline">Marquer lu</button>
+                                     )}
+                                     <button 
+                                       onClick={(e) => { e.stopPropagation(); speakNotification(notif); }} 
+                                       className={`flex items-center space-x-1 p-1 rounded-md transition-all ${isSpeaking === notif.id ? 'bg-accent text-white scale-110' : 'text-slate-400 hover:text-accent hover:bg-accent/10'}`}
+                                     >
+                                        {isSpeaking === notif.id ? <Loader2 size={12} className="animate-spin" /> : <Volume2 size={12} />}
+                                        <span className="text-[8px] font-black uppercase">{isSpeaking === notif.id ? 'Lecture...' : 'Écouter'}</span>
+                                     </button>
+                                  </div>
                                </div>
                             </div>
                          </div>
