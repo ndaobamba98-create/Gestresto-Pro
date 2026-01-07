@@ -1,5 +1,5 @@
 
-import { Product, SaleOrder, Employee, ERPConfig, User, Expense, Supplier, PaymentMethod } from './types';
+import { Product, SaleOrder, Employee, ERPConfig, User, Expense, Supplier, PaymentMethod, Customer } from './types';
 import { Banknote, Smartphone, Wallet, CreditCard } from 'lucide-react';
 import React from 'react';
 
@@ -15,6 +15,13 @@ export const PAYMENT_METHODS_LIST: { id: PaymentMethod, label: string, color: st
   { id: 'Masrvi', label: 'Masrvi', color: 'bg-blue-600' },
   { id: 'Sedad', label: 'Sedad', color: 'bg-purple-600' },
   { id: 'Bimbank', label: 'Bimbank', color: 'bg-red-600' },
+  { id: 'Compte', label: 'Compte Client', color: 'bg-indigo-600' },
+];
+
+export const INITIAL_CUSTOMERS: Customer[] = [
+  { id: 'C001', name: 'Ahmed Mahmoud', phone: '44112233', balance: 0 },
+  { id: 'C002', name: 'Sidi El Moctar', phone: '33221144', balance: 1500 },
+  { id: 'C003', name: 'Fatimetou Zahra', phone: '22334455', balance: -500 },
 ];
 
 export const POS_LOCATIONS = {

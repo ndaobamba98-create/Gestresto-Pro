@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator
 } from 'lucide-react';
 
 interface Props {
@@ -31,7 +31,6 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
   const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
   
-  // États pour la gestion des catégories
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryIdx, setEditingCategoryIdx] = useState<number | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
@@ -44,7 +43,6 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     notify("Configuration", "Modifications enregistrées avec succès.", 'success');
   };
 
-  // LOGIQUE CATÉGORIES
   const handleAddCategory = () => {
     const trimmed = newCategoryName.trim();
     if (!trimmed) return;
@@ -134,6 +132,8 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     { id: 'inventory', label: t('inventory') },
     { id: 'manage_inventory', label: 'Modif. Produits' },
     { id: 'manage_categories', label: 'Modif. Menu/Catégories' },
+    { id: 'customers', label: 'Comptes Clients (Consultation)' },
+    { id: 'manage_customers', label: 'Gestion Clients (Ajout/Suppression)' },
     { id: 'expenses', label: t('expenses') },
     { id: 'reports', label: t('reports') },
     { id: 'hr', label: t('hr') },
@@ -147,9 +147,9 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
   const roles: UserRole[] = ['admin', 'manager', 'cashier'];
 
   const ConfigToggle = ({ label, icon: Icon, value, onChange }: { label: string, icon: any, value: boolean, onChange: (v: boolean) => void }) => (
-    <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+    <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-accent/30 transition-all">
       <div className="flex items-center space-x-3">
-        <div className={`p-2 rounded-lg ${value ? 'bg-purple-100 text-purple-600' : 'bg-slate-200 text-slate-400'}`}>
+        <div className={`p-2 rounded-lg ${value ? 'bg-accent/10 text-accent' : 'bg-slate-200 text-slate-400'}`}>
           <Icon size={16} />
         </div>
         <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-widest">{label}</span>
@@ -157,7 +157,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
       <button 
         type="button"
         onClick={() => onChange(!value)}
-        className={`w-10 h-5 rounded-full relative transition-all ${value ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+        className={`w-10 h-5 rounded-full relative transition-all ${value ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-700'}`}
       >
         <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : 'translate-x-0'}`} />
       </button>
@@ -176,7 +176,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
             <button 
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)} 
-              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center whitespace-nowrap ${activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center whitespace-nowrap ${activeTab === tab.id ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
             >
               <tab.icon size={14} className="mr-2" />
               {tab.label}
@@ -190,7 +190,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
         {activeTab === 'general' && (
           <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
             <div className="flex items-center space-x-4">
-              <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl"><Building2 size={24} /></div>
+              <div className="p-3 bg-accent/10 text-accent rounded-2xl"><Building2 size={24} /></div>
               <h2 className="text-xl font-black uppercase tracking-tight">Identité & Apparence</h2>
             </div>
             
@@ -203,7 +203,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                     <select 
                       value={formConfig.language} 
                       onChange={e => setFormConfig({...formConfig, language: e.target.value as Language})}
-                      className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none appearance-none"
+                      className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none appearance-none"
                     >
                       <option value="fr">Français (FR)</option>
                       <option value="en">English (EN)</option>
@@ -212,7 +212,6 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                   </div>
                 </div>
 
-                {/* SÉLECTEUR DE THÈME */}
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center">
                     <Palette size={14} className="mr-2" /> Thème Visuel du Système
@@ -223,7 +222,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                         key={theme.id}
                         type="button"
                         onClick={() => setFormConfig({...formConfig, theme: theme.id})}
-                        className={`group relative flex flex-col items-center space-y-2 p-3 rounded-2xl border-2 transition-all ${formConfig.theme === theme.id ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
+                        className={`group relative flex flex-col items-center space-y-2 p-3 rounded-2xl border-2 transition-all ${formConfig.theme === theme.id ? 'border-accent bg-accent/5 dark:bg-accent/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
                       >
                         <div className={`w-8 h-8 rounded-full ${theme.color} shadow-lg group-hover:scale-110 transition-transform flex items-center justify-center`}>
                           {formConfig.theme === theme.id && <Check size={16} className="text-white" />}
@@ -238,21 +237,90 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
               <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom de l'établissement</label>
-                  <input value={formConfig.companyName} onChange={e => setFormConfig({...formConfig, companyName: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
+                  <input value={formConfig.companyName} onChange={e => setFormConfig({...formConfig, companyName: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none transition-all" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Email</label>
-                  <input type="email" value={formConfig.email} onChange={e => setFormConfig({...formConfig, email: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Immatriculation (NIF/RC)</label>
+                  <input value={formConfig.registrationNumber} onChange={e => setFormConfig({...formConfig, registrationNumber: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none transition-all" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Téléphone</label>
-                  <input value={formConfig.phone} onChange={e => setFormConfig({...formConfig, phone: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all" />
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Adresse Siège</label>
+                  <input value={formConfig.address} onChange={e => setFormConfig({...formConfig, address: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none transition-all" />
                 </div>
               </div>
             </div>
 
             <div className="pt-8 border-t flex justify-end">
-              <button type="submit" className="bg-purple-600 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center hover:bg-purple-700 transition-all"><Save size={18} className="mr-3" /> {t('save')}</button>
+              <button type="submit" className="bg-accent text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"><Save size={18} className="mr-3" /> {t('save')}</button>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 'billing' && (
+          <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
+            <div className="flex items-center justify-between">
+               <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl"><Receipt size={24} /></div>
+                  <h2 className="text-xl font-black uppercase tracking-tight">Facturation</h2>
+               </div>
+               <button type="submit" className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"><Save size={16} className="mr-2" /> Enregistrer</button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+               <div className="space-y-10">
+                  <div className="space-y-4">
+                    <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-2">Numérotation</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><ListOrdered size={12} className="mr-2" /> Préfixe</label>
+                        <input value={formConfig.invoicePrefix} onChange={e => setFormConfig({...formConfig, invoicePrefix: e.target.value})} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-xl font-black text-xs" placeholder="ex: FAC/2025/" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><Hash size={12} className="mr-2" /> Prochain Numéro</label>
+                        <input type="number" value={formConfig.nextInvoiceNumber} onChange={e => setFormConfig({...formConfig, nextInvoiceNumber: parseInt(e.target.value) || 1})} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-xl font-black text-xs" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-2">Fiscalité</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><Calculator size={12} className="mr-2" /> Taux TVA (%)</label>
+                        <input type="number" value={formConfig.taxRate} onChange={e => setFormConfig({...formConfig, taxRate: parseFloat(e.target.value) || 0})} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-xl font-black text-xs" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><DollarSign size={12} className="mr-2" /> Devise</label>
+                        <input value={formConfig.currency} onChange={e => setFormConfig({...formConfig, currency: e.target.value})} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-xl font-black text-xs" />
+                      </div>
+                    </div>
+                  </div>
+               </div>
+
+               <div className="space-y-4">
+                  <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-2">Options Document</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <ConfigToggle label="Logo" icon={ImageIcon} value={formConfig.showLogoOnInvoice} onChange={v => setFormConfig({...formConfig, showLogoOnInvoice: v})} />
+                    <ConfigToggle label="QR Code" icon={QrCode} value={formConfig.showQrCodeOnInvoice} onChange={v => setFormConfig({...formConfig, showQrCodeOnInvoice: v})} />
+                    <ConfigToggle label="Slogan" icon={AlignLeft} value={formConfig.showSloganOnInvoice} onChange={v => setFormConfig({...formConfig, showSloganOnInvoice: v})} />
+                    <ConfigToggle label="Adresse" icon={MapPin} value={formConfig.showAddressOnInvoice} onChange={v => setFormConfig({...formConfig, showAddressOnInvoice: v})} />
+                    <ConfigToggle label="Téléphone" icon={Phone} value={formConfig.showPhoneOnInvoice} onChange={v => setFormConfig({...formConfig, showPhoneOnInvoice: v})} />
+                    <ConfigToggle label="Email" icon={Mail} value={formConfig.showEmailOnInvoice} onChange={v => setFormConfig({...formConfig, showEmailOnInvoice: v})} />
+                    <ConfigToggle label="NIF/RC" icon={BadgeCheck} value={formConfig.showRegNumberOnInvoice} onChange={v => setFormConfig({...formConfig, showRegNumberOnInvoice: v})} />
+                    <ConfigToggle label="Impression Auto" icon={Printer} value={formConfig.autoPrintReceipt} onChange={v => setFormConfig({...formConfig, autoPrintReceipt: v})} />
+                  </div>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+               <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><Sparkles size={12} className="mr-2" /> Slogan</label>
+                  <input value={formConfig.companySlogan} onChange={e => setFormConfig({...formConfig, companySlogan: e.target.value})} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl font-bold text-xs" />
+               </div>
+               <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><AlignLeft size={12} className="mr-2" /> Pied de page</label>
+                  <textarea value={formConfig.receiptFooter} onChange={e => setFormConfig({...formConfig, receiptFooter: e.target.value})} className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none focus:ring-2 focus:ring-accent font-bold text-xs h-24" />
+               </div>
             </div>
           </form>
         )}
@@ -261,14 +329,14 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
           <div className="p-12 space-y-10 animate-fadeIn">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl"><Layers size={24} /></div>
+                  <div className="p-3 bg-accent/10 text-accent rounded-2xl"><Layers size={24} /></div>
                   <div>
                     <h2 className="text-xl font-black uppercase tracking-tight">Configuration du Menu</h2>
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">L'ordre ici sera celui de vos onglets en caisse</p>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">Gérez vos catégories de produits</p>
                   </div>
                </div>
                <button onClick={() => handleSaveConfig()} className="bg-slate-900 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg flex items-center hover:bg-black transition-all">
-                 <Save size={16} className="mr-2" /> Appliquer l'ordre
+                 <Save size={16} className="mr-2" /> Appliquer
                </button>
             </div>
 
@@ -280,11 +348,11 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                       value={newCategoryName} 
                       onChange={e => setNewCategoryName(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-                      placeholder="Nom de la nouvelle catégorie..." 
-                      className="w-full pl-12 pr-6 py-4 bg-white dark:bg-slate-900 border-2 border-transparent focus:border-purple-500 rounded-2xl font-bold outline-none transition-all shadow-sm" 
+                      placeholder="Nouvelle catégorie..." 
+                      className="w-full pl-12 pr-6 py-4 bg-white dark:bg-slate-900 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none transition-all shadow-sm" 
                     />
                   </div>
-                  <button onClick={handleAddCategory} className="bg-purple-600 text-white p-4 rounded-2xl shadow-lg hover:bg-purple-700 active:scale-95 transition-all">
+                  <button onClick={handleAddCategory} className="bg-accent text-white p-4 rounded-2xl shadow-lg hover:opacity-90 transition-all">
                     <Plus size={24} />
                   </button>
                </div>
@@ -292,7 +360,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                {formConfig.categories.map((cat, idx) => (
-                 <div key={idx} className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-purple-200 transition-all">
+                 <div key={idx} className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-accent/30 transition-all">
                     {editingCategoryIdx === idx ? (
                       <div className="flex items-center space-x-2 w-full">
                         <input 
@@ -300,7 +368,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                           value={editCategoryName}
                           onChange={e => setEditCategoryName(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && saveEditedCategory()}
-                          className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs outline-none border border-purple-500"
+                          className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs outline-none border border-accent"
                         />
                         <button onClick={saveEditedCategory} className="p-2 text-emerald-500"><Check size={18}/></button>
                         <button onClick={() => setEditingCategoryIdx(null)} className="p-2 text-rose-500"><X size={18}/></button>
@@ -312,20 +380,20 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                               <button 
                                 onClick={() => moveCategory(idx, 'up')} 
                                 disabled={idx === 0}
-                                className={`p-1 rounded-md transition-all ${idx === 0 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-300 hover:text-purple-600 hover:bg-purple-50'}`}
+                                className={`p-1 rounded-md transition-all ${idx === 0 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-300 hover:text-accent hover:bg-accent/5'}`}
                               >
                                 <ChevronUp size={14}/>
                               </button>
                               <button 
                                 onClick={() => moveCategory(idx, 'down')} 
                                 disabled={idx === formConfig.categories.length - 1}
-                                className={`p-1 rounded-md transition-all ${idx === formConfig.categories.length - 1 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-300 hover:text-purple-600 hover:bg-purple-50'}`}
+                                className={`p-1 rounded-md transition-all ${idx === formConfig.categories.length - 1 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-300 hover:text-accent hover:bg-accent/5'}`}
                               >
                                 <ChevronDown size={14}/>
                               </button>
                            </div>
                            <div className="flex items-center space-x-2 min-w-0">
-                              <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center font-black text-[10px] shrink-0">{idx + 1}</div>
+                              <div className="w-8 h-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center font-black text-[10px] shrink-0">{idx + 1}</div>
                               <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-200 truncate">{cat}</span>
                            </div>
                         </div>
@@ -338,38 +406,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                  </div>
                ))}
             </div>
-
-            {formConfig.categories.length === 0 && (
-              <div className="py-20 text-center opacity-30 flex flex-col items-center">
-                 <Layers size={48} className="mb-4" />
-                 <p className="font-black uppercase text-xs tracking-widest">Le menu est vide</p>
-              </div>
-            )}
           </div>
-        )}
-
-        {activeTab === 'billing' && (
-          <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
-            <div className="flex items-center justify-between">
-               <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl"><FileText size={24} /></div>
-                  <h2 className="text-xl font-black uppercase tracking-tight">Facturation</h2>
-               </div>
-               <button type="submit" className="bg-purple-600 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:bg-purple-700 transition-all"><Save size={16} className="mr-2" /> Enregistrer</button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-               <div className="space-y-6">
-                  <ConfigToggle label="Afficher le Logo" icon={ImageIcon} value={formConfig.showLogoOnInvoice} onChange={v => setFormConfig({...formConfig, showLogoOnInvoice: v})} />
-                  <ConfigToggle label="Afficher QR Code" icon={QrCode} value={formConfig.showQrCodeOnInvoice} onChange={v => setFormConfig({...formConfig, showQrCodeOnInvoice: v})} />
-                  <ConfigToggle label="Impression Auto" icon={Printer} value={formConfig.autoPrintReceipt} onChange={v => setFormConfig({...formConfig, autoPrintReceipt: v})} />
-               </div>
-               <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Slogan (Pied de facture)</label>
-                  <textarea value={formConfig.companySlogan} onChange={e => setFormConfig({...formConfig, companySlogan: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none focus:ring-2 focus:ring-blue-500 font-bold text-xs h-32" />
-               </div>
-            </div>
-          </form>
         )}
 
         {activeTab === 'security' && (
@@ -377,9 +414,9 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="p-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl"><ShieldCheck size={24} /></div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Droits d'Accès</h2>
+                <h2 className="text-xl font-black uppercase tracking-tight">Contrôle des Accès</h2>
               </div>
-              <button onClick={handleSavePermissions} className="bg-purple-600 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:bg-purple-700 transition-all"><Save size={16} className="mr-2" /> Appliquer</button>
+              <button onClick={handleSavePermissions} className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"><Save size={16} className="mr-2" /> Appliquer</button>
             </div>
             <div className="overflow-x-auto rounded-[2rem] border border-slate-100 dark:border-slate-800">
               <table className="w-full text-left">
@@ -396,7 +433,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                           <td key={role} className="px-8 py-5 text-center">
                             <button 
                               onClick={() => handleTogglePermission(role, view.id)}
-                              className={`w-10 h-5 rounded-full relative transition-all ${isAllowed ? 'bg-purple-600' : 'bg-slate-200 dark:bg-slate-700'}`}
+                              className={`w-10 h-5 rounded-full relative transition-all ${isAllowed ? 'bg-accent' : 'bg-slate-200 dark:bg-slate-700'}`}
                             >
                               <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${isAllowed ? 'translate-x-5' : 'translate-x-0'}`} />
                             </button>

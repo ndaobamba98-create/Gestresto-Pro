@@ -6,7 +6,7 @@ import {
   DownloadCloud, RotateCcw, Calendar, ChefHat, Trash2, AlertTriangle, MapPin, Phone, 
   Banknote, FileText, Search, User, Package, PlusCircle, MinusCircle, QrCode, 
   CreditCard, Smartphone, Wallet, FileSpreadsheet, Globe, FileDown, CheckSquare, 
-  Square, Eye, ArrowUpRight, ArrowDownLeft, Scale, Wallet2, Edit3, Save, History
+  Square, Eye, ArrowUpRight, ArrowDownLeft, Scale, Wallet2, Edit3, Save, History, UserCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AppLogoDoc } from './Invoicing';
@@ -26,22 +26,42 @@ interface Props {
   t: (key: any) => string;
 }
 
-const PaymentIcons = ({ sale }: { sale: SaleOrder }) => {
+const PaymentIcons = ({ sale, compact = false }: { sale: SaleOrder, compact?: boolean }) => {
   const methods = sale.payments ? sale.payments.map(p => p.method) : [sale.paymentMethod || 'Especes'];
   
   return (
-    <div className="flex -space-x-1">
+    <div className="flex -space-x-1 justify-center">
       {Array.from(new Set(methods)).map((m, i) => {
+        const size = compact ? 12 : 20;
+        const className = "p-1 rounded-lg border shadow-sm transition-transform hover:scale-110";
         switch(m) {
-          case 'Bankily': return <Smartphone key={i} size={12} className="text-orange-500 bg-orange-50 dark:bg-orange-950/30 p-0.5 rounded-sm border border-orange-100" />;
-          case 'Masrvi': return <Wallet key={i} size={12} className="text-blue-500 bg-blue-50 dark:bg-blue-950/30 p-0.5 rounded-sm border border-blue-100" />;
-          case 'Especes': return <Banknote key={i} size={12} className="text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 p-0.5 rounded-sm border border-emerald-100" />;
-          case 'Sedad': return <CreditCard key={i} size={12} className="text-purple-500 bg-purple-50 dark:bg-purple-950/30 p-0.5 rounded-sm border border-purple-100" />;
-          default: return <Wallet2 key={i} size={12} className="text-slate-400 p-0.5 rounded-sm border" />;
+          case 'Bankily': return <Smartphone key={i} size={size} className={`${className} text-orange-600 bg-orange-50 border-orange-200`} />;
+          case 'Masrvi': return <Wallet key={i} size={size} className={`${className} text-blue-600 bg-blue-50 border-blue-200`} />;
+          case 'Especes': return <Banknote key={i} size={size} className={`${className} text-emerald-600 bg-emerald-50 border-emerald-200`} />;
+          case 'Sedad': return <CreditCard key={i} size={size} className={`${className} text-purple-600 bg-purple-50 border-purple-200`} />;
+          case 'Compte': return <UserCheck key={i} size={size} className={`${className} text-indigo-600 bg-indigo-50 border-indigo-200`} />;
+          default: return <Wallet2 key={i} size={size} className={`${className} text-slate-500 bg-slate-50 border-slate-200`} />;
         }
       })}
     </div>
   );
+};
+
+const StatusBadge = ({ status }: { status: SaleOrder['status'] }) => {
+  const baseClass = "flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border shadow-sm";
+  switch (status) {
+    case 'draft': 
+      return <span className={`${baseClass} bg-slate-100 text-slate-500 border-slate-200`}><Clock size={12}/> <span>Brouillon</span></span>;
+    case 'confirmed': 
+      return <span className={`${baseClass} bg-emerald-100 text-emerald-600 border-emerald-200`}><CheckCircle2 size={12}/> <span>Confirmé</span></span>;
+    case 'delivered': 
+      return <span className={`${baseClass} bg-blue-100 text-blue-600 border-blue-200`}><Truck size={12}/> <span>Livré</span></span>;
+    case 'refunded': 
+      return <span className={`${baseClass} bg-rose-100 text-rose-600 border-rose-200`}><RotateCcw size={12}/> <span>Annulé</span></span>;
+    case 'quotation': 
+      return <span className={`${baseClass} bg-amber-100 text-amber-600 border-amber-200`}><FileText size={12}/> <span>Devis</span></span>;
+    default: return <span className={baseClass}>{status}</span>;
+  }
 };
 
 const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, config, products, userRole, onAddSale, notify, t, userPermissions }) => {
@@ -222,10 +242,10 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                <tr className="bg-slate-900 text-white">
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Date / Heure</th>
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Référence</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Libellé Transaction</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-center">Règlement</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Entrée (+)</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Sortie (-)</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Client / Motif</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-center">Statut</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-center">Paiement</th>
+                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Montant</th>
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right no-print">Action</th>
                </tr>
             </thead>
@@ -236,7 +256,7 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                 const isRefunded = entry.status === 'refunded';
                 
                 return (
-                  <tr key={entry.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group ${isRefunded ? 'opacity-60 grayscale-[0.5]' : ''}`}>
+                  <tr key={entry.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group ${isRefunded ? 'bg-rose-50/10 grayscale-[0.3]' : ''}`}>
                     <td className="px-8 py-6">
                       <div className="flex flex-col">
                         <span className={`text-[10px] font-black uppercase ${isRefunded ? 'text-slate-400' : 'text-slate-400'}`}>{entry.date.split(' ')[0]}</span>
@@ -245,7 +265,6 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                     </td>
                     <td className="px-8 py-6 text-xs font-mono font-black text-purple-600">
                       <span className={isRefunded ? 'line-through opacity-50' : ''}>#{entry.id.slice(-8)}</span>
-                      {isRefunded && <span className="ml-2 bg-rose-50 text-rose-500 px-2 py-0.5 rounded-[4px] text-[8px] uppercase font-black">ANNULÉ</span>}
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center space-x-3">
@@ -258,25 +277,29 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                          </div>
                       </div>
                     </td>
-                    <td className="px-8 py-6 text-center">
+                    <td className="px-8 py-6">
                        <div className="flex justify-center">
-                          {entry.type === 'sale' ? <PaymentIcons sale={entry.original} /> : <span className="text-[9px] font-black text-slate-400 uppercase">{entry.method}</span>}
+                          {entry.type === 'sale' ? <StatusBadge status={entry.status} /> : <span className="px-3 py-1 bg-slate-100 text-slate-400 rounded-lg text-[8px] font-black uppercase">DÉPENSE</span>}
                        </div>
                     </td>
-                    <td className="px-8 py-6 text-right font-black text-sm text-emerald-600">
-                       {isSale ? `+${entry.amount.toLocaleString()}` : '--'}
+                    <td className="px-8 py-6 text-center">
+                       <div className="flex justify-center">
+                          {entry.type === 'sale' ? <PaymentIcons sale={entry.original} /> : <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{entry.method}</span>}
+                       </div>
                     </td>
-                    <td className="px-8 py-6 text-right font-black text-sm text-rose-600">
-                       {isOutcome ? `-${entry.amount.toLocaleString()}` : '--'}
+                    <td className="px-8 py-6 text-right font-black text-sm">
+                       <span className={isSale ? 'text-emerald-600' : 'text-rose-600'}>
+                         {isSale ? '+' : '-'}{entry.amount.toLocaleString()} <span className="text-[10px] opacity-40">{config.currency}</span>
+                       </span>
                     </td>
                     <td className="px-8 py-6 text-right no-print">
                        <div className="flex items-center justify-end space-x-2">
                           {canEdit && entry.type === 'sale' && !isRefunded && (
                             <>
                               <button 
-                                onClick={() => { if(confirm("Annuler définitivement cette vente et réintégrer le stock ?")) onRefundSale(entry.id); }}
+                                onClick={() => { if(confirm("Annuler définitivement cette vente ?")) onRefundSale(entry.id); }}
                                 className="p-2.5 bg-white dark:bg-slate-700 text-slate-400 hover:text-rose-600 rounded-xl transition-all shadow-sm opacity-0 group-hover:opacity-100"
-                                title="Annuler la vente (Rembourser)"
+                                title="Annuler la vente"
                               >
                                 <RotateCcw size={16} />
                               </button>
@@ -285,7 +308,7 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                               </button>
                             </>
                           )}
-                          <button onClick={() => entry.type === 'sale' ? setSelectedSale(entry.original) : notify("Info", "Détails de dépense non modifiables ici.", "info")} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm">
+                          <button onClick={() => entry.type === 'sale' ? setSelectedSale(entry.original) : notify("Info", "Détails indisponibles pour les dépenses.", "info")} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-purple-600 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm">
                              <Eye size={16} />
                           </button>
                        </div>
@@ -352,6 +375,7 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                       <option value="Masrvi">Masrvi</option>
                       <option value="Sedad">Sedad</option>
                       <option value="Bimbank">Bimbank</option>
+                      <option value="Compte">Compte Client</option>
                     </select>
                  </div>
                </div>

@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users
 } from 'lucide-react';
-// Fix: Remove Modality from local types as it should be imported from @google/genai
-import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier } from './types';
-import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS } from './constants';
+// Import Modality from @google/genai
+import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier, Customer } from './types';
+import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS, INITIAL_CUSTOMERS } from './constants';
 import { translations, TranslationKey } from './translations';
-// Fix: Import Modality from @google/genai
 import { GoogleGenAI, Modality } from "@google/genai";
 import Dashboard from './components/Dashboard';
 import Invoicing from './components/Invoicing';
@@ -19,6 +18,7 @@ import Settings from './components/Settings';
 import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
+import Customers from './components/Customers';
 
 // Helper pour décoder l'audio Gemini TTS
 const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
@@ -49,7 +49,7 @@ export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = fal
       <div className="absolute -inset-2 bg-accent rounded-2xl blur-lg opacity-20 group-hover:opacity-50 transition duration-1000"></div>
       <div className={`relative w-12 h-12 ${light ? 'bg-white' : 'bg-slate-900'} rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden transform group-hover:rotate-6 transition-transform duration-500`}>
         <svg viewBox="0 0 100 100" className="w-8/12 h-8/12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7614 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill={light ? "#0f172a" : "white"} />
+          <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7157 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill={light ? "#0f172a" : "white"} />
           <circle cx="20" cy="20" r="12" className="fill-accent" />
         </svg>
       </div>
@@ -98,6 +98,7 @@ const App: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [notificationHistory, setNotificationHistory] = useState<Toast[]>(() => loadStored('notificationHistory', []));
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('unread');
   const [isLocked, setIsLocked] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [darkMode, setDarkMode] = useState(() => loadStored('darkMode', false));
@@ -106,6 +107,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User>(() => loadStored('currentUser', APP_USERS[0]));
   const [config, setConfig] = useState<ERPConfig>(() => loadStored('config', { ...INITIAL_CONFIG, language: 'fr' }));
   const [products, setProducts] = useState<Product[]>(() => loadStored('products', INITIAL_PRODUCTS));
+  const [customers, setCustomers] = useState<Customer[]>(() => loadStored('customers', INITIAL_CUSTOMERS));
   const [sales, setSales] = useState<SaleOrder[]>(() => loadStored('sales', []));
   const [expenses, setExpenses] = useState<Expense[]>(() => loadStored('expenses', INITIAL_EXPENSES));
   const [purchases, setPurchases] = useState<Purchase[]>(() => loadStored('purchases', []));
@@ -115,9 +117,9 @@ const App: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
-    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] },
-    { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout'] },
-    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales'] }
+    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers'] },
+    { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout', 'customers'] },
+    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers'] }
   ]));
 
   const userPermissions = useMemo(() => {
@@ -128,11 +130,30 @@ const App: React.FC = () => {
     notificationHistory.filter(n => !n.isRead).length
   , [notificationHistory]);
 
+  const displayedNotifications = useMemo(() => {
+    if (notifFilter === 'unread') return notificationHistory.filter(n => !n.isRead);
+    return notificationHistory;
+  }, [notificationHistory, notifFilter]);
+
   const canManageNotifications = useMemo(() => 
     userPermissions.includes('manage_notifications') || currentUser.role === 'admin'
   , [userPermissions, currentUser.role]);
 
-  // Fonction de lecture vocale via Gemini
+  // Persistance
+  useEffect(() => { localStorage.setItem('notificationHistory', JSON.stringify(notificationHistory)); }, [notificationHistory]);
+  useEffect(() => { localStorage.setItem('customers', JSON.stringify(customers)); }, [customers]);
+  useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
+  useEffect(() => { localStorage.setItem('config', JSON.stringify(config)); }, [config]);
+  useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
+  useEffect(() => { localStorage.setItem('sales', JSON.stringify(sales)); }, [sales]);
+  useEffect(() => { localStorage.setItem('expenses', JSON.stringify(expenses)); }, [expenses]);
+  useEffect(() => { localStorage.setItem('purchases', JSON.stringify(purchases)); }, [purchases]);
+  useEffect(() => { localStorage.setItem('suppliers', JSON.stringify(suppliers)); }, [suppliers]);
+  useEffect(() => { localStorage.setItem('employees', JSON.stringify(employees)); }, [employees]);
+  useEffect(() => { localStorage.setItem('attendance', JSON.stringify(attendance)); }, [attendance]);
+  useEffect(() => { localStorage.setItem('currentSession', JSON.stringify(currentSession)); }, [currentSession]);
+  useEffect(() => { localStorage.setItem('rolePermissions', JSON.stringify(rolePermissions)); }, [rolePermissions]);
+
   const speakNotification = async (notification: Toast) => {
     if (isSpeaking) return;
     setIsSpeaking(notification.id);
@@ -140,9 +161,10 @@ const App: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Lis ce message de notification ERP de manière professionnelle et concise : ${notification.title}. ${notification.message}`;
       
+      // Fix: Use 'gemini-2.5-flash-preview-tts' model for text-to-speech tasks
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: prompt,
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -170,18 +192,19 @@ const App: React.FC = () => {
   };
 
   const markNotificationAsRead = (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
+    if (e) e.stopPropagation();
     setNotificationHistory(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
   const markAllNotificationsAsRead = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
+    if (e) e.stopPropagation();
     setNotificationHistory(prev => prev.map(n => ({ ...n, isRead: true })));
+    notifyUser("Notifications", "Tout a été marqué comme lu.", "info");
   };
 
   const deleteAllNotifications = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (confirm("Supprimer tout l'historique ?")) {
+    if (e) e.stopPropagation();
+    if (confirm("Vider l'historique complet ?")) {
       setNotificationHistory([]);
     }
   };
@@ -193,21 +216,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
-    if (darkMode) document.documentElement.classList.add('dark');
+    if (darkMode) document.documentElement.classList.add('class', 'dark');
     else document.documentElement.classList.remove('dark');
   }, [darkMode]);
-
-  useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
-  useEffect(() => { localStorage.setItem('config', JSON.stringify(config)); }, [config]);
-  useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
-  useEffect(() => { localStorage.setItem('sales', JSON.stringify(sales)); }, [sales]);
-  useEffect(() => { localStorage.setItem('expenses', JSON.stringify(expenses)); }, [expenses]);
-  useEffect(() => { localStorage.setItem('purchases', JSON.stringify(purchases)); }, [purchases]);
-  useEffect(() => { localStorage.setItem('suppliers', JSON.stringify(suppliers)); }, [suppliers]);
-  useEffect(() => { localStorage.setItem('employees', JSON.stringify(employees)); }, [employees]);
-  useEffect(() => { localStorage.setItem('attendance', JSON.stringify(attendance)); }, [attendance]);
-  useEffect(() => { localStorage.setItem('currentSession', JSON.stringify(currentSession)); }, [currentSession]);
-  useEffect(() => { localStorage.setItem('rolePermissions', JSON.stringify(rolePermissions)); }, [rolePermissions]);
 
   const t = useCallback((key: TranslationKey): string => {
     return (translations[config.language || 'fr'] as any)[key] || key;
@@ -221,16 +232,9 @@ const App: React.FC = () => {
     setToasts(prev => [...prev, newToast]);
     setNotificationHistory(prev => {
       const updated = [newToast, ...prev].slice(0, 50);
-      localStorage.setItem('notificationHistory', JSON.stringify(updated));
       return updated;
     });
 
-    // Auto-lecture pour les ventes validées si l'option est active (simulée ici)
-    if (type === 'success' && title.toLowerCase().includes('vente')) {
-      // On pourrait ajouter une option config.autoReadSales
-      // speakNotification(newToast); 
-    }
-    
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
@@ -240,11 +244,19 @@ const App: React.FC = () => {
     const saleToRefund = sales.find(s => s.id === saleId);
     if (!saleToRefund || saleToRefund.status === 'refunded') return;
 
+    // Remise en stock
     setProducts(prevProds => prevProds.map(p => {
       const item = saleToRefund.items?.find(i => i.productId === p.id);
       if (item) return { ...p, stock: p.stock + item.quantity };
       return p;
     }));
+
+    // Si payé via compte client, on recrédite le compte
+    if (saleToRefund.paymentMethod === 'Compte' && saleToRefund.customerId) {
+      setCustomers(prev => prev.map(c => 
+        c.id === saleToRefund.customerId ? { ...c, balance: c.balance + saleToRefund.total } : c
+      ));
+    }
 
     setSales(prevSales => prevSales.map(s => 
       s.id === saleId ? { ...s, status: 'refunded', invoiceStatus: 'refunded' } : s
@@ -256,8 +268,10 @@ const App: React.FC = () => {
   const handleAddSale = (newSaleData: Partial<SaleOrder>) => {
     const saleItems = newSaleData.items || [];
     const isRefund = newSaleData.status === 'refunded';
+    const isAccountOrder = newSaleData.paymentMethod === 'Compte';
     const generatedReference = `${config.invoicePrefix || 'FAC/'}${config.nextInvoiceNumber.toString().padStart(4, '0')}`;
 
+    // Update Stocks
     setProducts(prev => prev.map(p => {
       const item = saleItems.find(i => i.productId === p.id);
       if (item) {
@@ -270,9 +284,17 @@ const App: React.FC = () => {
       return p;
     }));
 
+    // Update Customer Balance if account order
+    if (isAccountOrder && newSaleData.customerId) {
+      setCustomers(prev => prev.map(c => 
+        c.id === newSaleData.customerId ? { ...c, balance: c.balance - (newSaleData.total || 0) } : c
+      ));
+    }
+
     const sale: SaleOrder = {
       id: generatedReference,
       customer: newSaleData.customer || 'Client Comptoir',
+      customerId: newSaleData.customerId,
       date: new Date().toISOString(),
       total: newSaleData.total || 0,
       status: newSaleData.status || 'confirmed',
@@ -290,7 +312,9 @@ const App: React.FC = () => {
     
     const notifMsg = isRefund 
       ? `Avoir de ${sale.total} ${config.currency} généré.` 
-      : `Vente de ${sale.total} ${config.currency} encaissée pour ${sale.customer}.`;
+      : isAccountOrder 
+        ? `Vente de ${sale.total} ${config.currency} mise sur le compte de ${sale.customer}.`
+        : `Vente de ${sale.total} ${config.currency} encaissée pour ${sale.customer}.`;
       
     notifyUser(isRefund ? "Avoir Validé" : "Vente Validée", notifMsg, isRefund ? 'warning' : 'success');
   };
@@ -299,13 +323,14 @@ const App: React.FC = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
     switch (activeView) {
       case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
-      case 'pos': return <POS products={products} sales={sales} onSaleComplete={handleAddSale} onRefundSale={handleRefundSale} config={config} session={currentSession} onOpenSession={(bal, id) => setCurrentSession({id: `S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, status: 'open', cashierName: APP_USERS.find(u=>u.id===id)?.name||'', cashierId: id})} onCloseSession={() => setCurrentSession(null)} {...commonProps} />;
+      case 'pos': return <POS products={products} customers={customers} onUpdateCustomers={setCustomers} sales={sales} onSaleComplete={handleAddSale} onRefundSale={handleRefundSale} config={config} session={currentSession} onOpenSession={(bal, id) => setCurrentSession({id: `S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, status: 'open', cashierName: APP_USERS.find(u=>u.id===id)?.name||'', cashierId: id})} onCloseSession={() => setCurrentSession(null)} {...commonProps} />;
       case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={handleRefundSale} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} />;
+      case 'customers': return <Customers customers={customers} onUpdate={setCustomers} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} notify={notifyUser} />;
       case 'expenses': return <Expenses expenses={expenses} setExpenses={setExpenses} purchases={purchases} onAddPurchase={p => setPurchases(v => [p, ...v])} onDeletePurchase={() => {}} suppliers={suppliers} setSuppliers={setSuppliers} products={products} config={config} userRole={currentUser.role} notify={notifyUser} t={t} />;
       case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
       case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
-      case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
+      case 'settings': return <Settings products={products} onUpdate={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
       case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} />;
       default: return null;
@@ -347,6 +372,7 @@ const App: React.FC = () => {
             { id: 'sales', icon: ShoppingCart, label: t('sales') },
             { id: 'invoicing', icon: FileText, label: t('invoicing') },
             { id: 'inventory', icon: Package, label: t('inventory') },
+            { id: 'customers', icon: Users, label: 'Comptes Clients' },
             { id: 'expenses', icon: Wallet, label: t('expenses') },
             { id: 'reports', icon: BarChart3, label: t('reports') },
             { id: 'attendances', icon: ClockIcon, label: t('attendances') },
@@ -378,7 +404,7 @@ const App: React.FC = () => {
             <div className="relative">
                <button 
                  onClick={(e) => { e.stopPropagation(); setIsNotificationOpen(!isNotificationOpen); }}
-                 className={`p-3 rounded-2xl transition-all relative z-[120] ${unreadNotificationsCount > 0 ? 'bg-accent/10 text-accent' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:bg-slate-200'}`}
+                 className={`p-3 rounded-2xl transition-all relative z-[120] ${unreadNotificationsCount > 0 ? 'bg-accent/10 text-accent' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}
                >
                  {unreadNotificationsCount > 0 ? <BellRing size={22} className="animate-bounce" /> : <Bell size={22} />}
                  {unreadNotificationsCount > 0 && <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[9px] font-black w-5 h-5 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-lg">{unreadNotificationsCount}</span>}
@@ -386,62 +412,111 @@ const App: React.FC = () => {
 
                {isNotificationOpen && (
                  <div className="absolute right-0 mt-3 w-[420px] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[130] flex flex-col overflow-hidden animate-slideUp">
-                    <div className="p-6 border-b dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-                       <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">Centre de Notifications</h4>
-                       <div className="flex space-x-1">
+                    <div className="p-6 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                       <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">Centre de Notifications</h4>
+                          <div className="flex items-center space-x-1">
+                             <button 
+                                onClick={(e) => markAllNotificationsAsRead(e)} 
+                                disabled={unreadNotificationsCount === 0}
+                                className={`px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 ${unreadNotificationsCount > 0 ? 'bg-accent text-white shadow-lg cursor-pointer' : 'bg-slate-100 text-slate-300 opacity-50 cursor-not-allowed'}`}
+                                title="Tout marquer comme lu"
+                             >
+                                <CheckCheck size={14} />
+                                <span className="text-[8px] font-black uppercase">Tout lire</span>
+                             </button>
+                             {canManageNotifications && (
+                               <button onClick={(e) => deleteAllNotifications(e)} className="p-2 text-slate-400 hover:text-rose-500 transition-all cursor-pointer" title="Vider l'historique">
+                                 <Trash2 size={16} />
+                               </button>
+                             )}
+                          </div>
+                       </div>
+                       
+                       <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                           <button 
-                            onClick={(e) => markAllNotificationsAsRead(e)} 
-                            disabled={!canManageNotifications}
-                            className={`p-2 transition-all flex items-center space-x-1 ${canManageNotifications ? 'text-slate-400 hover:text-emerald-500' : 'text-slate-200 cursor-not-allowed opacity-50'}`}
+                             onClick={() => setNotifFilter('all')} 
+                             className={`flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all cursor-pointer ${notifFilter === 'all' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-400'}`}
                           >
-                            <CheckCheck size={18} />
-                            <span className="text-[8px] font-black uppercase">Tout lire</span>
+                             Toutes
                           </button>
-                          {canManageNotifications && (
-                            <button onClick={(e) => deleteAllNotifications(e)} className="p-2 text-slate-400 hover:text-rose-500 transition-all">
-                              <Trash2 size={16} />
-                            </button>
-                          )}
+                          <button 
+                             onClick={() => setNotifFilter('unread')} 
+                             className={`flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all cursor-pointer ${notifFilter === 'unread' ? 'bg-white dark:bg-slate-700 shadow-sm text-accent' : 'text-slate-400'}`}
+                          >
+                             Non lues ({unreadNotificationsCount})
+                          </button>
                        </div>
                     </div>
-                    <div className="flex-1 max-h-[500px] overflow-y-auto scrollbar-hide px-4 py-2">
-                       {notificationHistory.length > 0 ? notificationHistory.map((notif) => (
+
+                    <div className="flex-1 max-h-[400px] overflow-y-auto scrollbar-hide px-4 py-2">
+                       {displayedNotifications.length > 0 ? displayedNotifications.map((notif) => (
                          <div key={notif.id} className="relative group mb-2">
-                            <div className={`w-full text-left p-4 rounded-2xl flex items-start space-x-4 transition-all relative overflow-hidden ${notif.isRead ? 'opacity-60 bg-transparent border-transparent' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-700'}`}>
+                            <div 
+                              onClick={(e) => { if(!notif.isRead) markNotificationAsRead(notif.id, e); }}
+                              className={`w-full text-left p-4 rounded-2xl flex items-start space-x-4 transition-all relative overflow-hidden cursor-pointer ${notif.isRead ? 'opacity-50 bg-transparent border-transparent grayscale-[0.5]' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm ring-1 ring-slate-100 dark:ring-slate-700 hover:border-accent/30'}`}
+                            >
                                {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent"></div>}
                                <div className={`mt-1 p-2 rounded-xl shrink-0 ${notif.type === 'success' ? 'bg-emerald-500/10 text-emerald-500' : notif.type === 'warning' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'}`}>
                                   {notif.type === 'success' ? <CheckCircle size={14}/> : notif.type === 'warning' ? <AlertCircle size={14}/> : <Info size={14}/>}
                                </div>
-                               <div className="flex-1 min-w-0" onClick={(e) => { if(!notif.isRead) markNotificationAsRead(notif.id, e); }}>
+                               <div className="flex-1 min-w-0">
                                   <div className="flex justify-between items-start">
-                                     <h5 className={`text-[10px] font-black uppercase truncate pr-2 ${notif.isRead ? 'text-slate-400' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h5>
+                                     <div className="flex items-center space-x-2 truncate">
+                                        {!notif.isRead && <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse shrink-0"></div>}
+                                        <h5 className={`text-[10px] font-black uppercase truncate pr-2 ${notif.isRead ? 'text-slate-400' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h5>
+                                     </div>
                                      <span className="text-[8px] font-bold text-slate-400 whitespace-nowrap">{notif.timestamp}</span>
                                   </div>
                                   <p className="text-[10px] font-medium leading-tight mt-1 line-clamp-2 text-slate-500">{notif.message}</p>
-                                  <div className="mt-3 flex items-center space-x-3">
-                                     {!notif.isRead && (
-                                       <button onClick={(e) => markNotificationAsRead(notif.id, e)} className="text-[8px] font-black uppercase text-accent hover:underline">Marquer lu</button>
+                                  <div className="mt-3 flex items-center justify-between">
+                                     <div className="flex items-center space-x-2">
+                                       {!notif.isRead && (
+                                         <button 
+                                           onClick={(e) => markNotificationAsRead(notif.id, e)} 
+                                           className="flex items-center space-x-1.5 text-[8px] font-black uppercase text-accent hover:bg-accent hover:text-white px-3 py-1.5 rounded-lg transition-all border border-accent/20 bg-accent/5 shadow-sm cursor-pointer"
+                                         >
+                                           <Check size={12} />
+                                           <span>Lu</span>
+                                         </button>
+                                       )}
+                                       {notif.isRead && (
+                                         <span className="text-[7px] font-black uppercase text-slate-300 flex items-center px-2 py-1 bg-slate-100 dark:bg-slate-700/50 rounded-lg">
+                                           <CheckCheck size={10} className="mr-1.5 text-emerald-500" /> Consultée
+                                         </span>
+                                       )}
+                                       <button 
+                                         onClick={(e) => { e.stopPropagation(); speakNotification(notif); }} 
+                                         className={`flex items-center space-x-1.5 p-1.5 rounded-lg transition-all cursor-pointer ${isSpeaking === notif.id ? 'bg-accent text-white scale-110' : 'text-slate-400 hover:text-accent hover:bg-accent/10'}`}
+                                       >
+                                          {isSpeaking === notif.id ? <Loader2 size={12} className="animate-spin" /> : <Volume2 size={12} />}
+                                          <span className="text-[8px] font-black uppercase">{isSpeaking === notif.id ? 'Lecture...' : 'Écouter'}</span>
+                                       </button>
+                                     </div>
+                                     {notif.isRead && canManageNotifications && (
+                                       <button 
+                                         onClick={(e) => { e.stopPropagation(); setNotificationHistory(prev => prev.filter(n => n.id !== notif.id)); }} 
+                                         className="p-1.5 text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                       >
+                                         <Trash2 size={12} />
+                                       </button>
                                      )}
-                                     <button 
-                                       onClick={(e) => { e.stopPropagation(); speakNotification(notif); }} 
-                                       className={`flex items-center space-x-1 p-1 rounded-md transition-all ${isSpeaking === notif.id ? 'bg-accent text-white scale-110' : 'text-slate-400 hover:text-accent hover:bg-accent/10'}`}
-                                     >
-                                        {isSpeaking === notif.id ? <Loader2 size={12} className="animate-spin" /> : <Volume2 size={12} />}
-                                        <span className="text-[8px] font-black uppercase">{isSpeaking === notif.id ? 'Lecture...' : 'Écouter'}</span>
-                                     </button>
                                   </div>
                                </div>
                             </div>
                          </div>
                        )) : (
-                         <div className="py-20 flex flex-col items-center justify-center opacity-20 text-center"><BellOff size={40} className="mb-4"/><p className="text-[10px] font-black uppercase tracking-[0.2em]">Rien à signaler</p></div>
+                         <div className="py-20 flex flex-col items-center justify-center opacity-20 text-center">
+                            <BellOff size={40} className="mb-4 text-slate-300"/>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em]">{notifFilter === 'unread' ? 'Aucune notification non lue' : 'Centre de notifications vide'}</p>
+                         </div>
                        )}
                     </div>
                  </div>
                )}
             </div>
 
-            <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all">{darkMode ? <Sun size={22}/> : <Moon size={22}/>}</button>
+            <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all cursor-pointer">{darkMode ? <Sun size={22}/> : <Moon size={22}/>}</button>
             <div className="flex items-center ml-2 pr-4 space-x-3 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-700">
               <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white font-black shadow-lg text-sm`}>{currentUser.initials}</div>
               <div className="flex flex-col">

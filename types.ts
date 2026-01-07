@@ -36,7 +36,6 @@ export interface LeaveRequest {
   reason?: string;
 }
 
-// Added missing Payslip interface for HR module
 export interface Payslip {
   id: string;
   employeeId: string;
@@ -69,7 +68,7 @@ export type ViewType =
   | 'dashboard' | 'pos' | 'sales' | 'inventory' | 'expenses' | 'hr' | 'manage_hr' 
   | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' 
   | 'manage_categories' | 'manage_security' | 'manage_inventory' | 'manage_invoicing'
-  | 'manage_notifications' | 'manage_sales';
+  | 'manage_notifications' | 'manage_sales' | 'customers' | 'manage_customers';
 
 export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate';
 
@@ -105,16 +104,25 @@ export interface SaleItem {
   price: number;
 }
 
-export type PaymentMethod = 'Bankily' | 'Masrvi' | 'Especes' | 'Sedad' | 'Bimbank' | 'Carte' | 'Mobile';
+export type PaymentMethod = 'Bankily' | 'Masrvi' | 'Especes' | 'Sedad' | 'Bimbank' | 'Carte' | 'Mobile' | 'Compte';
 
 export interface SalePayment {
   method: PaymentMethod;
   amount: number;
 }
 
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  balance: number; // Solde du compte (positif = crédit, négatif = dette)
+  email?: string;
+}
+
 export interface SaleOrder {
   id: string;
   customer: string;
+  customerId?: string;
   date: string;
   total: number;
   status: 'draft' | 'confirmed' | 'delivered' | 'refunded' | 'quotation';
