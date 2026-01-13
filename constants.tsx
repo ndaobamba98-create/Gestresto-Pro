@@ -4,9 +4,9 @@ import { Banknote, Smartphone, Wallet, CreditCard } from 'lucide-react';
 import React from 'react';
 
 export const APP_USERS: User[] = [
-  { id: 'U001', name: 'Bamba Ndao', role: 'admin', initials: 'BN', color: 'from-slate-700 to-slate-900' },
-  { id: 'U002', name: 'Amy Ndaw', role: 'cashier', initials: 'AN', color: 'from-emerald-600 to-emerald-800' },
-  { id: 'U003', name: 'Maman Ndaw', role: 'cashier', initials: 'MN', color: 'from-purple-600 to-purple-800' },
+  { id: 'U001', name: 'Bamba Ndao', role: 'admin', initials: 'BN', color: 'from-slate-700 to-slate-900', password: '1234' },
+  { id: 'U002', name: 'Amy Ndaw', role: 'cashier', initials: 'AN', color: 'from-emerald-600 to-emerald-800', password: '0000' },
+  { id: 'U003', name: 'Maman Ndaw', role: 'cashier', initials: 'MN', color: 'from-purple-600 to-purple-800', password: '1111' },
 ];
 
 export const PAYMENT_METHODS_LIST: { id: PaymentMethod, label: string, color: string }[] = [

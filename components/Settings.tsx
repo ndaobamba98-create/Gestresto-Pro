@@ -1,9 +1,8 @@
-
 import React, { useState, useMemo } from 'react';
-import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme } from '../types';
+import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme, User } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key
 } from 'lucide-react';
 
 interface Props {
@@ -16,6 +15,9 @@ interface Props {
   notify: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
   userPermissions: ViewType[];
   t: (key: any) => string;
+  currentUser: User;
+  allUsers: User[];
+  onUpdateUsers: (users: User[]) => void;
 }
 
 const THEMES: { id: AppTheme, label: string, color: string }[] = [
@@ -27,8 +29,8 @@ const THEMES: { id: AppTheme, label: string, color: string }[] = [
   { id: 'slate', label: 'Ardoise', color: 'bg-slate-600' },
 ];
 
-const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify, t, userPermissions }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security'>('general');
+const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify, t, userPermissions, currentUser, allUsers, onUpdateUsers }) => {
+  const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security' | 'account'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
   
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -37,10 +39,41 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
 
   const [localPermissions, setLocalPermissions] = useState<RolePermission[]>(rolePermissions);
 
+  // Password Change State
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPass, setShowPass] = useState(false);
+
   const handleSaveConfig = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     onUpdateConfig(formConfig);
     notify("Configuration", "Modifications enregistrées avec succès.", 'success');
+  };
+
+  const handleUpdatePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.oldPassword !== currentUser.password) {
+      notify("Sécurité", "L'ancien mot de passe est incorrect.", "warning");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      notify("Sécurité", "Les nouveaux mots de passe ne correspondent pas.", "warning");
+      return;
+    }
+    if (passwordForm.newPassword.length < 4) {
+      notify("Sécurité", "Le mot de passe doit faire au moins 4 caractères.", "warning");
+      return;
+    }
+
+    const updatedUsers = allUsers.map(u => 
+      u.id === currentUser.id ? { ...u, password: passwordForm.newPassword } : u
+    );
+    onUpdateUsers(updatedUsers);
+    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    notify("Sécurité", "Votre mot de passe a été mis à jour avec succès.", "success");
   };
 
   const handleAddCategory = () => {
@@ -118,6 +151,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
       { id: 'billing', label: 'Facturation', icon: FileText, permission: 'invoicing' as ViewType },
       { id: 'categories', label: 'Menu POS', icon: Layers, permission: 'manage_categories' as ViewType },
       { id: 'security', label: 'Accès', icon: ShieldCheck, permission: 'manage_security' as ViewType },
+      { id: 'account', label: 'Sécurité Compte', icon: Lock, permission: 'dashboard' as ViewType },
     ];
     return tabs.filter(tab => userPermissions.includes(tab.permission));
   }, [userPermissions]);
@@ -446,6 +480,87 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
               </table>
             </div>
           </div>
+        )}
+
+        {activeTab === 'account' && (
+           <div className="p-12 space-y-12 animate-fadeIn max-w-2xl mx-auto w-full">
+              <div className="text-center space-y-4">
+                 <div className={`w-24 h-24 rounded-3xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white text-3xl font-black shadow-2xl mx-auto`}>
+                    {currentUser.initials}
+                 </div>
+                 <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tight">{currentUser.name}</h2>
+                    <p className="text-accent font-black text-[10px] uppercase tracking-widest mt-1">{currentUser.role}</p>
+                 </div>
+              </div>
+
+              <form onSubmit={handleUpdatePassword} className="bg-slate-50 dark:bg-slate-800/50 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 space-y-6 shadow-sm">
+                 <div className="flex items-center space-x-3 mb-4">
+                    <Shield size={20} className="text-accent" />
+                    <h3 className="text-sm font-black uppercase tracking-widest">Modifier le Mot de Passe</h3>
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Ancien Mot de Passe</label>
+                    <div className="relative">
+                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                       <input 
+                          type={showPass ? "text" : "password"}
+                          required
+                          value={passwordForm.oldPassword}
+                          onChange={e => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
+                          className="w-full bg-white dark:bg-slate-900 border-2 border-transparent focus:border-accent rounded-2xl py-4 pl-12 pr-12 font-bold outline-none transition-all"
+                       />
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nouveau Mot de Passe</label>
+                    <div className="relative">
+                       <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                       <input 
+                          type={showPass ? "text" : "password"}
+                          required
+                          value={passwordForm.newPassword}
+                          onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                          className="w-full bg-white dark:bg-slate-900 border-2 border-transparent focus:border-accent rounded-2xl py-4 pl-12 pr-12 font-bold outline-none transition-all"
+                       />
+                       <button 
+                          type="button" 
+                          onClick={() => setShowPass(!showPass)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-accent"
+                       >
+                          {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                       </button>
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Confirmer le Nouveau Mot de Passe</label>
+                    <div className="relative">
+                       <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                       <input 
+                          type={showPass ? "text" : "password"}
+                          required
+                          value={passwordForm.confirmPassword}
+                          onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                          className="w-full bg-white dark:bg-slate-900 border-2 border-transparent focus:border-accent rounded-2xl py-4 pl-12 pr-12 font-bold outline-none transition-all"
+                       />
+                    </div>
+                 </div>
+
+                 <button type="submit" className="w-full py-4 bg-accent text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center">
+                    <Save size={18} className="mr-3" /> Mettre à jour les accès
+                 </button>
+              </form>
+
+              <div className="bg-slate-900 text-white p-6 rounded-[2rem] border border-white/10 flex items-center space-x-4">
+                 <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl"><Info size={24}/></div>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">
+                   Conseil : Utilisez un code unique que vous ne partagez pas. La sécurité de la caisse dépend de la confidentialité de vos accès.
+                 </p>
+              </div>
+           </div>
         )}
       </div>
     </div>

@@ -1,10 +1,10 @@
 
 import React, { useState, useMemo, useRef } from 'react';
-import { SaleOrder, ERPConfig, Product, Expense, ViewType, PaymentMethod } from '../types';
+import { SaleOrder, ERPConfig, Product, Expense, ViewType, PaymentMethod, User } from '../types';
 import { 
   ShoppingCart, Filter, Download, Plus, CheckCircle2, Clock, Truck, X, Printer, Mail, 
   DownloadCloud, RotateCcw, Calendar, ChefHat, Trash2, AlertTriangle, MapPin, Phone, 
-  Banknote, FileText, Search, User, Package, PlusCircle, MinusCircle, QrCode, 
+  Banknote, FileText, Search, User as UserIcon, Package, PlusCircle, MinusCircle, QrCode, 
   CreditCard, Smartphone, Wallet, FileSpreadsheet, Globe, FileDown, CheckSquare, 
   Square, Eye, ArrowUpRight, ArrowDownLeft, Scale, Wallet2, Edit3, Save, History, UserCheck
 } from 'lucide-react';
@@ -20,6 +20,7 @@ interface Props {
   config: ERPConfig;
   products: Product[];
   userRole: string;
+  currentUser: User;
   onAddSale: (sale: Partial<SaleOrder>) => void;
   notify: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
   userPermissions: any;
@@ -64,7 +65,7 @@ const StatusBadge = ({ status }: { status: SaleOrder['status'] }) => {
   }
 };
 
-const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, config, products, userRole, onAddSale, notify, t, userPermissions }) => {
+const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, config, products, userRole, currentUser, onAddSale, notify, t, userPermissions }) => {
   const [viewMode, setViewMode] = useState<'sales_only' | 'journal_complet'>('journal_complet');
   const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
   const [editingSale, setEditingSale] = useState<SaleOrder | null>(null);
@@ -78,6 +79,9 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
 
   const canExport = userPermissions.includes('manage_sales') || userRole === 'admin';
   const canEdit = userPermissions.includes('manage_sales') || userRole === 'admin';
+  
+  // Restriction spécifique : Seul Bamba Ndao (ID U001) peut annuler des ventes
+  const canCancel = currentUser.id === 'U001';
 
   const normalizeDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -256,7 +260,7 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                 const isRefunded = entry.status === 'refunded';
                 
                 return (
-                  <tr key={entry.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group ${isRefunded ? 'bg-rose-50/10 grayscale-[0.3]' : ''}`}>
+                  <tr key={entry.id} className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all group ${isRefunded ? 'bg-rose-50/10 grayscale-[0.3]' : ''}`}>
                     <td className="px-8 py-6">
                       <div className="flex flex-col">
                         <span className={`text-[10px] font-black uppercase ${isRefunded ? 'text-slate-400' : 'text-slate-400'}`}>{entry.date.split(' ')[0]}</span>
@@ -296,13 +300,15 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                        <div className="flex items-center justify-end space-x-2">
                           {canEdit && entry.type === 'sale' && !isRefunded && (
                             <>
-                              <button 
-                                onClick={() => { if(confirm("Annuler définitivement cette vente ?")) onRefundSale(entry.id); }}
-                                className="p-2.5 bg-white dark:bg-slate-700 text-slate-400 hover:text-rose-600 rounded-xl transition-all shadow-sm opacity-0 group-hover:opacity-100"
-                                title="Annuler la vente"
-                              >
-                                <RotateCcw size={16} />
-                              </button>
+                              {canCancel && (
+                                <button 
+                                  onClick={() => { if(confirm("Annuler définitivement cette vente ?")) onRefundSale(entry.id); }}
+                                  className="p-2.5 bg-white dark:bg-slate-700 text-slate-400 hover:text-rose-600 rounded-xl transition-all shadow-sm opacity-0 group-hover:opacity-100"
+                                  title="Annuler la vente"
+                                >
+                                  <RotateCcw size={16} />
+                                </button>
+                              )}
                               <button onClick={() => setEditingSale(entry.original)} className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-500 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all shadow-sm opacity-0 group-hover:opacity-100">
                                  <Edit3 size={16} />
                               </button>
@@ -340,7 +346,7 @@ const Sales: React.FC<Props> = ({ sales, expenses = [], onUpdate, onRefundSale, 
                <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom du Client</label>
                   <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input 
                       value={editingSale.customer} 
                       onChange={e => setEditingSale({...editingSale, customer: e.target.value})} 

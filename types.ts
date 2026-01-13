@@ -62,6 +62,7 @@ export interface User {
   role: UserRole;
   initials: string;
   color: string;
+  password?: string; // Ajouté pour la sécurité
 }
 
 export type ViewType = 

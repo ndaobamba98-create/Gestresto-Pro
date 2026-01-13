@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier, Customer } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS, INITIAL_CUSTOMERS } from './constants';
@@ -97,12 +97,21 @@ const App: React.FC = () => {
   const [notificationHistory, setNotificationHistory] = useState<Toast[]>(() => loadStored('notificationHistory', []));
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('unread');
+  
+  // Login State
   const [isLocked, setIsLocked] = useState(true);
+  const [loginStep, setLoginStep] = useState<'select' | 'password'>('select');
+  const [selectedLoginUser, setSelectedLoginUser] = useState<User | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState(false);
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [darkMode, setDarkMode] = useState(() => loadStored('darkMode', false));
   const [isSpeaking, setIsSpeaking] = useState<string | null>(null);
 
-  const [currentUser, setCurrentUser] = useState<User>(() => loadStored('currentUser', APP_USERS[0]));
+  const [allUsers, setAllUsers] = useState<User[]>(() => loadStored('allUsers', APP_USERS));
+  const [currentUser, setCurrentUser] = useState<User>(() => loadStored('currentUser', allUsers[0]));
   const [config, setConfig] = useState<ERPConfig>(() => loadStored('config', { ...INITIAL_CONFIG, language: 'fr' }));
   const [products, setProducts] = useState<Product[]>(() => loadStored('products', INITIAL_PRODUCTS));
   const [customers, setCustomers] = useState<Customer[]>(() => loadStored('customers', INITIAL_CUSTOMERS));
@@ -142,6 +151,7 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('notificationHistory', JSON.stringify(notificationHistory)); }, [notificationHistory]);
   useEffect(() => { localStorage.setItem('customers', JSON.stringify(customers)); }, [customers]);
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
+  useEffect(() => { localStorage.setItem('allUsers', JSON.stringify(allUsers)); }, [allUsers]);
   useEffect(() => { localStorage.setItem('config', JSON.stringify(config)); }, [config]);
   useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem('sales', JSON.stringify(sales)); }, [sales]);
@@ -315,7 +325,7 @@ const App: React.FC = () => {
   };
 
   const handleOpenSession = useCallback((openingBalance: number, cashierId: string) => {
-    const user = APP_USERS.find(u => u.id === cashierId);
+    const user = allUsers.find(u => u.id === cashierId);
     if (!user) return;
     
     const newSession: CashSession = {
@@ -330,7 +340,7 @@ const App: React.FC = () => {
     };
     setCurrentSession(newSession);
     notifyUser("Session Ouverte", `Caisse initialisée avec ${openingBalance} ${config.currency}.`, "success");
-  }, [config.currency, notifyUser]);
+  }, [config.currency, notifyUser, allUsers]);
 
   const handleCloseSession = useCallback((closingBalance: number) => {
     if (!currentSession) return;
@@ -364,6 +374,24 @@ const App: React.FC = () => {
     notifyUser("Session Clôturée", msg, statusType);
   }, [currentSession, sales, config.currency, notifyUser]);
 
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLoginUser) return;
+
+    if (passwordInput === selectedLoginUser.password) {
+      setCurrentUser(selectedLoginUser);
+      setIsLocked(false);
+      setPasswordInput('');
+      setSelectedLoginUser(null);
+      setLoginStep('select');
+      setLoginError(false);
+      notifyUser("Bienvenue", `Bonjour ${selectedLoginUser.name}, session ouverte.`, "success");
+    } else {
+      setLoginError(true);
+      setTimeout(() => setLoginError(false), 500);
+    }
+  };
+
   const renderContent = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
     switch (activeView) {
@@ -383,13 +411,26 @@ const App: React.FC = () => {
           {...commonProps} 
         />
       );
-      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={handleRefundSale} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
+      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={handleRefundSale} config={config} products={products} userRole={currentUser.role} currentUser={currentUser} onAddSale={handleAddSale} {...commonProps} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} />;
       case 'customers': return <Customers customers={customers} onUpdate={setCustomers} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} notify={notifyUser} />;
       case 'expenses': return <Expenses expenses={expenses} setExpenses={setExpenses} purchases={purchases} onAddPurchase={p => setPurchases(v => [p, ...v])} onDeletePurchase={() => {}} suppliers={suppliers} setSuppliers={setSuppliers} products={products} config={config} userRole={currentUser.role} notify={notifyUser} t={t} />;
       case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
       case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
-      case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
+      case 'settings': return (
+        <Settings 
+          products={products} 
+          onUpdateProducts={setProducts} 
+          config={config} 
+          onUpdateConfig={setConfig} 
+          rolePermissions={rolePermissions} 
+          onUpdatePermissions={setRolePermissions} 
+          currentUser={currentUser}
+          allUsers={allUsers}
+          onUpdateUsers={setAllUsers}
+          {...commonProps} 
+        />
+      );
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
       case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} sessions={sessionHistory} />;
       default: return null;
@@ -404,14 +445,62 @@ const App: React.FC = () => {
           <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
           <div className="mt-8 text-white/40 font-mono text-xl">{currentTime.toLocaleTimeString()}</div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6 animate-slideUp">
-          {APP_USERS.map((user) => (
-            <button key={user.id} onClick={() => { setCurrentUser(user); setIsLocked(false); }} className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-800 hover:border-accent transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105 group">
-              <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg group-hover:scale-110 transition-transform`}>{user.initials}</div>
-              <p className="text-white font-black uppercase text-[10px] tracking-widest">{user.name}</p>
-            </button>
-          ))}
-        </div>
+
+        {loginStep === 'select' ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 animate-slideUp">
+            {allUsers.map((user) => (
+              <button 
+                key={user.id} 
+                onClick={() => { setSelectedLoginUser(user); setLoginStep('password'); }} 
+                className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-800 hover:border-accent transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105 group"
+              >
+                <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg group-hover:scale-110 transition-transform`}>{user.initials}</div>
+                <p className="text-white font-black uppercase text-[10px] tracking-widest">{user.name}</p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className={`bg-slate-900/80 backdrop-blur-xl p-10 rounded-[3rem] border-2 border-white/10 w-full max-w-sm animate-scaleIn ${loginError ? 'animate-shake' : ''}`}>
+             <button onClick={() => { setLoginStep('select'); setPasswordInput(''); setLoginError(false); }} className="mb-6 flex items-center text-slate-400 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest">
+               <ArrowLeft size={16} className="mr-2" /> Retour
+             </button>
+             
+             <div className="flex flex-col items-center mb-8">
+               <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${selectedLoginUser?.color} flex items-center justify-center text-white text-2xl font-black shadow-2xl mb-4`}>
+                 {selectedLoginUser?.initials}
+               </div>
+               <h2 className="text-white font-black uppercase tracking-tight text-xl">{selectedLoginUser?.name}</h2>
+               <p className="text-accent font-black text-[10px] uppercase tracking-widest mt-1">{selectedLoginUser?.role}</p>
+             </div>
+
+             <form onSubmit={handleLoginSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mot de Passe</label>
+                  <div className="relative">
+                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                    <input 
+                      autoFocus
+                      type={showPassword ? "text" : "password"}
+                      value={passwordInput}
+                      onChange={e => { setPasswordInput(e.target.value); setLoginError(false); }}
+                      placeholder="••••••••"
+                      className={`w-full bg-slate-800/50 border-2 ${loginError ? 'border-rose-500' : 'border-transparent focus:border-accent'} rounded-2xl py-4 pl-12 pr-12 text-white font-black outline-none transition-all`}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" className="w-full py-4 bg-accent text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                  Se Connecter
+                </button>
+             </form>
+          </div>
+        )}
       </div>
     );
   }
@@ -445,7 +534,7 @@ const App: React.FC = () => {
           ))}
         </nav>
         <div className="p-4 border-t border-slate-800">
-           <button onClick={() => setIsLocked(true)} className="w-full flex items-center p-3.5 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm">
+           <button onClick={() => { setIsLocked(true); setLoginStep('select'); setPasswordInput(''); }} className="w-full flex items-center p-3.5 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm">
              <LogOut size={22} />
              {isSidebarOpen && <span className="ml-4">{t('logout')}</span>}
            </button>
