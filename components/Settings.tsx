@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme, User } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key, Users
 } from 'lucide-react';
 
 interface Props {
@@ -29,8 +30,17 @@ const THEMES: { id: AppTheme, label: string, color: string }[] = [
   { id: 'slate', label: 'Ardoise', color: 'bg-slate-600' },
 ];
 
+const PROFILE_COLORS = [
+  'from-slate-700 to-slate-900',
+  'from-emerald-600 to-emerald-800',
+  'from-purple-600 to-purple-800',
+  'from-blue-600 to-blue-800',
+  'from-rose-600 to-rose-800',
+  'from-amber-600 to-amber-800'
+];
+
 const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify, t, userPermissions, currentUser, allUsers, onUpdateUsers }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security' | 'account'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security' | 'account' | 'users'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
   
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -38,6 +48,15 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
   const [editCategoryName, setEditCategoryName] = useState('');
 
   const [localPermissions, setLocalPermissions] = useState<RolePermission[]>(rolePermissions);
+
+  // New User Form State
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [newUserForm, setNewUserForm] = useState<Partial<User>>({
+    name: '',
+    role: 'cashier',
+    password: '',
+    color: PROFILE_COLORS[1]
+  });
 
   // Password Change State
   const [passwordForm, setPasswordForm] = useState({
@@ -74,6 +93,37 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     onUpdateUsers(updatedUsers);
     setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
     notify("Sécurité", "Votre mot de passe a été mis à jour avec succès.", "success");
+  };
+
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserForm.name || !newUserForm.password) return;
+
+    const initials = newUserForm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+    const user: User = {
+      id: `U-${Date.now()}`,
+      name: newUserForm.name,
+      role: newUserForm.role as UserRole,
+      password: newUserForm.password,
+      color: newUserForm.color || PROFILE_COLORS[1],
+      initials
+    };
+
+    onUpdateUsers([...allUsers, user]);
+    setIsAddUserModalOpen(false);
+    setNewUserForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
+    notify("Utilisateurs", `Compte pour ${user.name} créé.`, "success");
+  };
+
+  const handleDeleteUser = (id: string, name: string) => {
+    if (id === currentUser.id) {
+      notify("Action interdite", "Vous ne pouvez pas supprimer votre propre compte.", "warning");
+      return;
+    }
+    if (confirm(`Voulez-vous vraiment supprimer le compte de ${name} ?`)) {
+      onUpdateUsers(allUsers.filter(u => u.id !== id));
+      notify("Utilisateurs", "Compte supprimé.", "info");
+    }
   };
 
   const handleAddCategory = () => {
@@ -151,10 +201,11 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
       { id: 'billing', label: 'Facturation', icon: FileText, permission: 'invoicing' as ViewType },
       { id: 'categories', label: 'Menu POS', icon: Layers, permission: 'manage_categories' as ViewType },
       { id: 'security', label: 'Accès', icon: ShieldCheck, permission: 'manage_security' as ViewType },
-      { id: 'account', label: 'Sécurité Compte', icon: Lock, permission: 'dashboard' as ViewType },
+      { id: 'users', label: 'Utilisateurs', icon: Users, permission: 'manage_users' as ViewType },
+      { id: 'account', label: 'Mon Compte', icon: Lock, permission: 'dashboard' as ViewType },
     ];
-    return tabs.filter(tab => userPermissions.includes(tab.permission));
-  }, [userPermissions]);
+    return tabs.filter(tab => userPermissions.includes(tab.permission) || (tab.id === 'users' && currentUser.role === 'admin'));
+  }, [userPermissions, currentUser.role]);
 
   const availableViews: { id: ViewType, label: string }[] = [
     { id: 'dashboard', label: t('dashboard') },
@@ -176,6 +227,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     { id: 'settings', label: t('settings') },
     { id: 'manage_security', label: 'Gérer Accès/Rôles' },
     { id: 'manage_notifications', label: "Gérer Notifications" },
+    { id: 'manage_users', label: "Gérer Utilisateurs" },
   ];
 
   const roles: UserRole[] = ['admin', 'manager', 'cashier'];
@@ -482,6 +534,124 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
           </div>
         )}
 
+        {activeTab === 'users' && currentUser.role === 'admin' && (
+          <div className="p-12 space-y-12 animate-fadeIn flex flex-col h-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl"><Users size={24} /></div>
+                <h2 className="text-xl font-black uppercase tracking-tight">Utilisateurs Système</h2>
+              </div>
+              <button 
+                onClick={() => setIsAddUserModalOpen(true)}
+                className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"
+              >
+                <Plus size={16} className="mr-2" /> Créer Utilisateur
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               {allUsers.map((user) => (
+                 <div key={user.id} className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border-2 border-slate-50 dark:border-slate-700 flex flex-col items-center text-center group hover:border-accent transition-all relative">
+                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg mb-4`}>
+                      {user.initials}
+                    </div>
+                    <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.name}</h3>
+                    <p className="text-[10px] font-black text-accent uppercase tracking-widest mt-1">{user.role}</p>
+                    
+                    <div className="mt-6 w-full flex items-center justify-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                       {user.id !== currentUser.id && (
+                         <button 
+                           onClick={() => handleDeleteUser(user.id, user.name)}
+                           className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                           title="Supprimer"
+                         >
+                           <Trash2 size={18} />
+                         </button>
+                       )}
+                       <button 
+                         className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-accent hover:text-white transition-all shadow-sm"
+                         title="Modifier (bientôt disponible)"
+                       >
+                         <Edit3 size={18} />
+                       </button>
+                    </div>
+                 </div>
+               ))}
+            </div>
+
+            {/* MODAL AJOUT UTILISATEUR */}
+            {isAddUserModalOpen && (
+              <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
+                <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
+                  <div className="p-8 border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
+                    <div className="flex items-center space-x-4">
+                      <div className="p-3 bg-accent text-white rounded-2xl"><UserPlus size={24}/></div>
+                      <h3 className="text-xl font-black uppercase tracking-tighter">Nouvel Utilisateur</h3>
+                    </div>
+                    <button onClick={() => setIsAddUserModalOpen(false)}><X size={28} className="text-slate-400"/></button>
+                  </div>
+                  
+                  <form onSubmit={handleCreateUser} className="p-10 space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nom Complet</label>
+                      <input 
+                        required 
+                        autoFocus
+                        value={newUserForm.name}
+                        onChange={e => setNewUserForm({...newUserForm, name: e.target.value})}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-6 font-bold outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Rôle</label>
+                        <select 
+                          value={newUserForm.role}
+                          onChange={e => setNewUserForm({...newUserForm, role: e.target.value as any})}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-4 font-bold outline-none text-[10px] uppercase tracking-widest"
+                        >
+                          <option value="admin">Administrateur</option>
+                          <option value="manager">Gestionnaire</option>
+                          <option value="cashier">Caissier</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Mot de Passe</label>
+                        <input 
+                          type="password"
+                          required
+                          value={newUserForm.password}
+                          onChange={e => setNewUserForm({...newUserForm, password: e.target.value})}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-6 font-bold outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Couleur du profil</label>
+                      <div className="flex space-x-3">
+                        {PROFILE_COLORS.map((c) => (
+                          <button 
+                            key={c}
+                            type="button"
+                            onClick={() => setNewUserForm({...newUserForm, color: c})}
+                            className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c} border-4 transition-all ${newUserForm.color === c ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-50'}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <button type="submit" className="w-full py-5 bg-accent text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all">
+                      Finaliser la création
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'account' && (
            <div className="p-12 space-y-12 animate-fadeIn max-w-2xl mx-auto w-full">
               <div className="text-center space-y-4">
@@ -528,7 +698,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                        <button 
                           type="button" 
                           onClick={() => setShowPass(!showPass)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-accent"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-accent"
                        >
                           {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
                        </button>
@@ -566,5 +736,15 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     </div>
   );
 };
+
+// Internal Sub-component for Icon
+const UserPlus = ({ size, className }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <line x1="19" y1="8" x2="19" y2="14" />
+    <line x1="22" y1="11" x2="16" y2="11" />
+  </svg>
+);
 
 export default Settings;
