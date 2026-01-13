@@ -49,16 +49,17 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
 
   const [localPermissions, setLocalPermissions] = useState<RolePermission[]>(rolePermissions);
 
-  // New User Form State
-  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
-  const [newUserForm, setNewUserForm] = useState<Partial<User>>({
+  // User Form State (Creation or Editing)
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isEditingMode, setIsEditingMode] = useState(false);
+  const [userForm, setUserForm] = useState<Partial<User>>({
     name: '',
     role: 'cashier',
     password: '',
     color: PROFILE_COLORS[1]
   });
 
-  // Password Change State
+  // Password Change State (Own account)
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: '',
     newPassword: '',
@@ -95,24 +96,57 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     notify("Sécurité", "Votre mot de passe a été mis à jour avec succès.", "success");
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleOpenCreateUser = () => {
+    setIsEditingMode(false);
+    setUserForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
+    setIsUserModalOpen(true);
+  };
+
+  const handleOpenEditUser = (user: User) => {
+    setIsEditingMode(true);
+    setUserForm({ ...user });
+    setIsUserModalOpen(true);
+  };
+
+  const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUserForm.name || !newUserForm.password) return;
+    if (!userForm.name) return;
 
-    const initials = newUserForm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-    const user: User = {
-      id: `U-${Date.now()}`,
-      name: newUserForm.name,
-      role: newUserForm.role as UserRole,
-      password: newUserForm.password,
-      color: newUserForm.color || PROFILE_COLORS[1],
-      initials
-    };
+    const initials = userForm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
 
-    onUpdateUsers([...allUsers, user]);
-    setIsAddUserModalOpen(false);
-    setNewUserForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
-    notify("Utilisateurs", `Compte pour ${user.name} créé.`, "success");
+    if (isEditingMode && userForm.id) {
+      // Update existing user
+      const updatedUsers = allUsers.map(u => u.id === userForm.id ? { 
+        ...u, 
+        name: userForm.name!, 
+        role: userForm.role as UserRole, 
+        color: userForm.color!,
+        initials,
+        // Update password only if provided
+        ...(userForm.password ? { password: userForm.password } : {})
+      } : u);
+      onUpdateUsers(updatedUsers);
+      notify("Utilisateurs", `Compte de ${userForm.name} mis à jour.`, "success");
+    } else {
+      // Create new user
+      if (!userForm.password) {
+        notify("Erreur", "Un mot de passe est requis pour la création.", "warning");
+        return;
+      }
+      const newUser: User = {
+        id: `U-${Date.now()}`,
+        name: userForm.name,
+        role: userForm.role as UserRole,
+        password: userForm.password,
+        color: userForm.color || PROFILE_COLORS[1],
+        initials
+      };
+      onUpdateUsers([...allUsers, newUser]);
+      notify("Utilisateurs", `Compte pour ${newUser.name} créé.`, "success");
+    }
+
+    setIsUserModalOpen(false);
+    setUserForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
   };
 
   const handleDeleteUser = (id: string, name: string) => {
@@ -542,7 +576,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                 <h2 className="text-xl font-black uppercase tracking-tight">Utilisateurs Système</h2>
               </div>
               <button 
-                onClick={() => setIsAddUserModalOpen(true)}
+                onClick={handleOpenCreateUser}
                 className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"
               >
                 <Plus size={16} className="mr-2" /> Créer Utilisateur
@@ -569,8 +603,9 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                          </button>
                        )}
                        <button 
+                         onClick={() => handleOpenEditUser(user)}
                          className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-accent hover:text-white transition-all shadow-sm"
-                         title="Modifier (bientôt disponible)"
+                         title="Modifier"
                        >
                          <Edit3 size={18} />
                        </button>
@@ -579,37 +614,42 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                ))}
             </div>
 
-            {/* MODAL AJOUT UTILISATEUR */}
-            {isAddUserModalOpen && (
+            {/* MODAL UTILISATEUR (CREATION/EDITION) */}
+            {isUserModalOpen && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
                 <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
-                  <div className="p-8 border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
+                  <div className={`p-8 border-b dark:border-slate-800 ${isEditingMode ? 'bg-purple-600' : 'bg-accent'} text-white flex justify-between items-center transition-colors`}>
                     <div className="flex items-center space-x-4">
-                      <div className="p-3 bg-accent text-white rounded-2xl"><UserPlus size={24}/></div>
-                      <h3 className="text-xl font-black uppercase tracking-tighter">Nouvel Utilisateur</h3>
+                      <div className="p-3 bg-white/20 rounded-2xl">
+                        {isEditingMode ? <Edit3 size={24}/> : <UserPlus size={24}/>}
+                      </div>
+                      <h3 className="text-xl font-black uppercase tracking-tighter">
+                        {isEditingMode ? 'Modifier Utilisateur' : 'Nouvel Utilisateur'}
+                      </h3>
                     </div>
-                    <button onClick={() => setIsAddUserModalOpen(false)}><X size={28} className="text-slate-400"/></button>
+                    <button onClick={() => setIsUserModalOpen(false)}><X size={28} className="text-white/70 hover:text-white transition-colors"/></button>
                   </div>
                   
-                  <form onSubmit={handleCreateUser} className="p-10 space-y-6">
+                  <form onSubmit={handleSaveUser} className="p-10 space-y-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nom Complet</label>
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom Complet</label>
                       <input 
                         required 
                         autoFocus
-                        value={newUserForm.name}
-                        onChange={e => setNewUserForm({...newUserForm, name: e.target.value})}
+                        value={userForm.name}
+                        onChange={e => setUserForm({...userForm, name: e.target.value})}
                         className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-6 font-bold outline-none"
+                        placeholder="Ex: Moussa Diop"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Rôle</label>
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Rôle</label>
                         <select 
-                          value={newUserForm.role}
-                          onChange={e => setNewUserForm({...newUserForm, role: e.target.value as any})}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-4 font-bold outline-none text-[10px] uppercase tracking-widest"
+                          value={userForm.role}
+                          onChange={e => setUserForm({...userForm, role: e.target.value as any})}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-4 font-bold outline-none text-[10px] uppercase tracking-widest appearance-none"
                         >
                           <option value="admin">Administrateur</option>
                           <option value="manager">Gestionnaire</option>
@@ -617,34 +657,39 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Mot de Passe</label>
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
+                          {isEditingMode ? 'Mot de Passe (laisser vide pour ne pas changer)' : 'Mot de Passe'}
+                        </label>
                         <input 
                           type="password"
-                          required
-                          value={newUserForm.password}
-                          onChange={e => setNewUserForm({...newUserForm, password: e.target.value})}
+                          required={!isEditingMode}
+                          value={userForm.password}
+                          onChange={e => setUserForm({...userForm, password: e.target.value})}
                           className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-6 font-bold outline-none"
+                          placeholder="••••••••"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Couleur du profil</label>
-                      <div className="flex space-x-3">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Couleur du profil</label>
+                      <div className="flex flex-wrap gap-3">
                         {PROFILE_COLORS.map((c) => (
                           <button 
                             key={c}
                             type="button"
-                            onClick={() => setNewUserForm({...newUserForm, color: c})}
-                            className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c} border-4 transition-all ${newUserForm.color === c ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-50'}`}
+                            onClick={() => setUserForm({...userForm, color: c})}
+                            className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c} border-4 transition-all ${userForm.color === c ? 'border-white dark:border-slate-400 scale-110 shadow-lg' : 'border-transparent opacity-50'}`}
                           />
                         ))}
                       </div>
                     </div>
 
-                    <button type="submit" className="w-full py-5 bg-accent text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all">
-                      Finaliser la création
-                    </button>
+                    <div className="pt-4">
+                      <button type="submit" className={`w-full py-5 ${isEditingMode ? 'bg-purple-600' : 'bg-accent'} text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all`}>
+                        {isEditingMode ? 'Enregistrer les modifications' : 'Finaliser la création'}
+                      </button>
+                    </div>
                   </form>
                 </div>
               </div>
