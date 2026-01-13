@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users
 } from 'lucide-react';
-// Import Modality from @google/genai
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier, Customer } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS, INITIAL_CUSTOMERS } from './constants';
 import { translations, TranslationKey } from './translations';
@@ -20,7 +19,6 @@ import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
 import Customers from './components/Customers';
 
-// Helper pour décoder l'audio Gemini TTS
 const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
@@ -115,6 +113,7 @@ const App: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>(() => loadStored('employees', INITIAL_EMPLOYEES));
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => loadStored('attendance', []));
   const [currentSession, setCurrentSession] = useState<CashSession | null>(() => loadStored('currentSession', null));
+  const [sessionHistory, setSessionHistory] = useState<CashSession[]>(() => loadStored('sessionHistory', []));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
     { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers'] },
@@ -152,6 +151,7 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('employees', JSON.stringify(employees)); }, [employees]);
   useEffect(() => { localStorage.setItem('attendance', JSON.stringify(attendance)); }, [attendance]);
   useEffect(() => { localStorage.setItem('currentSession', JSON.stringify(currentSession)); }, [currentSession]);
+  useEffect(() => { localStorage.setItem('sessionHistory', JSON.stringify(sessionHistory)); }, [sessionHistory]);
   useEffect(() => { localStorage.setItem('rolePermissions', JSON.stringify(rolePermissions)); }, [rolePermissions]);
 
   const speakNotification = async (notification: Toast) => {
@@ -161,7 +161,6 @@ const App: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Lis ce message de notification ERP de manière professionnelle et concise : ${notification.title}. ${notification.message}`;
       
-      // Fix: Use 'gemini-2.5-flash-preview-tts' model for text-to-speech tasks
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
         contents: prompt,
@@ -216,7 +215,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
-    if (darkMode) document.documentElement.classList.add('class', 'dark');
+    if (darkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
@@ -244,14 +243,12 @@ const App: React.FC = () => {
     const saleToRefund = sales.find(s => s.id === saleId);
     if (!saleToRefund || saleToRefund.status === 'refunded') return;
 
-    // Remise en stock
     setProducts(prevProds => prevProds.map(p => {
       const item = saleToRefund.items?.find(i => i.productId === p.id);
       if (item) return { ...p, stock: p.stock + item.quantity };
       return p;
     }));
 
-    // Si payé via compte client, on recrédite le compte
     if (saleToRefund.paymentMethod === 'Compte' && saleToRefund.customerId) {
       setCustomers(prev => prev.map(c => 
         c.id === saleToRefund.customerId ? { ...c, balance: c.balance + saleToRefund.total } : c
@@ -271,7 +268,6 @@ const App: React.FC = () => {
     const isAccountOrder = newSaleData.paymentMethod === 'Compte';
     const generatedReference = `${config.invoicePrefix || 'FAC/'}${config.nextInvoiceNumber.toString().padStart(4, '0')}`;
 
-    // Update Stocks
     setProducts(prev => prev.map(p => {
       const item = saleItems.find(i => i.productId === p.id);
       if (item) {
@@ -284,7 +280,6 @@ const App: React.FC = () => {
       return p;
     }));
 
-    // Update Customer Balance if account order
     if (isAccountOrder && newSaleData.customerId) {
       setCustomers(prev => prev.map(c => 
         c.id === newSaleData.customerId ? { ...c, balance: c.balance - (newSaleData.total || 0) } : c
@@ -319,20 +314,84 @@ const App: React.FC = () => {
     notifyUser(isRefund ? "Avoir Validé" : "Vente Validée", notifMsg, isRefund ? 'warning' : 'success');
   };
 
+  const handleOpenSession = useCallback((openingBalance: number, cashierId: string) => {
+    const user = APP_USERS.find(u => u.id === cashierId);
+    if (!user) return;
+    
+    const newSession: CashSession = {
+      id: `S-${Date.now()}`,
+      openedAt: new Date().toISOString(),
+      openingBalance: openingBalance,
+      expectedBalance: openingBalance,
+      totalCashSales: 0,
+      status: 'open',
+      cashierName: user.name,
+      cashierId: user.id
+    };
+    setCurrentSession(newSession);
+    notifyUser("Session Ouverte", `Caisse initialisée avec ${openingBalance} ${config.currency}.`, "success");
+  }, [config.currency, notifyUser]);
+
+  const handleCloseSession = useCallback((closingBalance: number) => {
+    if (!currentSession) return;
+    
+    // Calcul précis du montant attendu réel au moment du clic sur 'Valider'
+    const cashSalesInSession = sales
+      .filter(s => s.date >= currentSession.openedAt && s.paymentMethod === 'Especes' && s.status !== 'refunded')
+      .reduce((sum, s) => sum + s.total, 0);
+
+    const actualExpectedBalance = currentSession.openingBalance + cashSalesInSession;
+    const difference = closingBalance - actualExpectedBalance;
+    
+    const closedSession: CashSession = {
+      ...currentSession,
+      closedAt: new Date().toISOString(),
+      expectedBalance: actualExpectedBalance,
+      closingBalance,
+      difference,
+      totalCashSales: cashSalesInSession,
+      status: 'closed'
+    };
+
+    setSessionHistory(prev => [closedSession, ...prev]);
+    setCurrentSession(null);
+    
+    const statusType = difference === 0 ? 'success' : 'warning';
+    const msg = difference === 0 
+      ? `La caisse a été fermée avec succès.` 
+      : `Caisse fermée. Écart de ${difference} ${config.currency} constaté.`;
+    
+    notifyUser("Session Clôturée", msg, statusType);
+  }, [currentSession, sales, config.currency, notifyUser]);
+
   const renderContent = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
     switch (activeView) {
       case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
-      case 'pos': return <POS products={products} customers={customers} onUpdateCustomers={setCustomers} sales={sales} onSaleComplete={handleAddSale} onRefundSale={handleRefundSale} config={config} session={currentSession} onOpenSession={(bal, id) => setCurrentSession({id: `S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, status: 'open', cashierName: APP_USERS.find(u=>u.id===id)?.name||'', cashierId: id})} onCloseSession={() => setCurrentSession(null)} {...commonProps} />;
+      case 'pos': return (
+        <POS 
+          products={products} 
+          customers={customers} 
+          onUpdateCustomers={setCustomers} 
+          sales={sales} 
+          onSaleComplete={handleAddSale} 
+          onRefundSale={handleRefundSale} 
+          config={config} 
+          session={currentSession} 
+          onOpenSession={handleOpenSession} 
+          onCloseSession={handleCloseSession} 
+          {...commonProps} 
+        />
+      );
       case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={handleRefundSale} config={config} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} />;
       case 'customers': return <Customers customers={customers} onUpdate={setCustomers} config={config} userRole={currentUser.role} t={t} userPermissions={userPermissions} notify={notifyUser} />;
       case 'expenses': return <Expenses expenses={expenses} setExpenses={setExpenses} purchases={purchases} onAddPurchase={p => setPurchases(v => [p, ...v])} onDeletePurchase={() => {}} suppliers={suppliers} setSuppliers={setSuppliers} products={products} config={config} userRole={currentUser.role} notify={notifyUser} t={t} />;
       case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
       case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
-      case 'settings': return <Settings products={products} onUpdate={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
+      case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} {...commonProps} />;
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
-      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} />;
+      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} sessions={sessionHistory} />;
       default: return null;
     }
   };

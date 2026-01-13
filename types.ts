@@ -143,9 +143,11 @@ export interface CashSession {
   openingBalance: number;
   expectedBalance: number;
   closingBalance?: number;
+  difference?: number;
   status: 'open' | 'closed';
   cashierName: string;
   cashierId: string;
+  totalCashSales: number;
 }
 
 export interface Expense {

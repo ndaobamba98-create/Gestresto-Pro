@@ -4,7 +4,7 @@ import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod, Customer } f
 import { 
   Search, Plus, Minus, Trash2, ShoppingBag, Monitor, Banknote, ChevronLeft, 
   Package, History, X, Smartphone, Wallet, 
-  CheckCircle2, Zap, LayoutGrid, ChevronRight, Coins, Utensils, Coffee, Truck, User, Calculator, ArrowRight, AlertTriangle, RotateCcw, ArrowRightLeft, MoveHorizontal, UserCheck, Search as SearchIcon, UserPlus, Phone
+  CheckCircle2, Zap, LayoutGrid, ChevronRight, Coins, Utensils, Coffee, Truck, User, Calculator, ArrowRight, AlertTriangle, RotateCcw, ArrowRightLeft, MoveHorizontal, UserCheck, Search as SearchIcon, UserPlus, Phone, Lock
 } from 'lucide-react';
 import { APP_USERS, POS_LOCATIONS } from '../constants';
 
@@ -13,7 +13,6 @@ interface CartItem {
   qty: number;
 }
 
-// Classé du plus grand au plus petit pour une meilleure ergonomie de comptage
 const DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10];
 
 interface Props {
@@ -60,18 +59,24 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
     DENOMINATIONS.reduce((sum, d) => sum + (d * (counts[d] || 0)), 0)
   , [counts]);
 
+  // Ventes de la session actuelle
   const sessionSales = useMemo(() => {
     if (!session) return [];
-    return sales.filter(s => s.date >= session.openedAt && s.status !== 'refunded');
+    return sales.filter(s => s.date >= session.openedAt);
   }, [sales, session]);
 
-  const sessionCashSales = useMemo(() => {
+  // Ventes espèces de la session actuelle pour le calcul en temps réel de l'écart
+  const sessionCashSalesTotal = useMemo(() => {
+    if (!session) return 0;
     return sessionSales
-      .filter(s => s.paymentMethod === 'Especes')
+      .filter(s => s.paymentMethod === 'Especes' && s.status !== 'refunded')
       .reduce((sum, s) => sum + s.total, 0);
   }, [sessionSales]);
 
-  const expectedClosingBalance = (session?.openingBalance || 0) + sessionCashSales;
+  const expectedClosingBalance = useMemo(() => 
+    (session?.openingBalance || 0) + sessionCashSalesTotal
+  , [session, sessionCashSalesTotal]);
+
   const cashDifference = totalCounted - expectedClosingBalance;
 
   useEffect(() => {
@@ -226,7 +231,6 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
     }
   };
 
-  // COMPOSANT COMPTEUR
   const CashCounter = () => (
     <div className="space-y-2">
       {DENOMINATIONS.map(val => (
@@ -245,8 +249,12 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
               </button>
               <input 
                 type="number" 
-                value={counts[val] || ''} 
-                onChange={e => setCounts(v => ({...v, [val]: parseInt(e.target.value) || 0}))} 
+                value={counts[val] === 0 ? '' : counts[val]} 
+                onChange={e => {
+                  const rawValue = e.target.value;
+                  const parsedValue = parseInt(rawValue);
+                  setCounts(v => ({...v, [val]: isNaN(parsedValue) ? 0 : parsedValue}));
+                }} 
                 className="w-14 text-center bg-transparent font-black text-sm outline-none border-b-2 border-slate-200 dark:border-slate-700 focus:border-purple-500" 
                 placeholder="0"
               />
@@ -539,7 +547,6 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
          </div>
        )}
 
-       {/* MODAL CLIENTS */}
        {showCustomerModal && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-fadeIn">
              <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn flex flex-col max-h-[80vh]">
@@ -610,7 +617,6 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
           </div>
        )}
 
-       {/* MODAL AJOUT CLIENT RAPIDE */}
        {showAddCustomerModal && (
          <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-fadeIn">
            <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
@@ -639,7 +645,163 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
          </div>
        )}
 
-       {/* (Le reste des modals existants reste inchangé...) */}
+       {showTransferModal && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-fadeIn">
+             <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn flex flex-col max-h-[90vh]">
+                <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                   <div className="flex items-center space-x-4">
+                      <div className="p-3 bg-purple-600 text-white rounded-2xl shadow-lg"><MoveHorizontal size={24}/></div>
+                      <div>
+                        <h3 className="text-lg font-black uppercase tracking-tighter text-slate-900 dark:text-white">Transférer la commande</h3>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">De : {activeLocation} → Vers destination</p>
+                      </div>
+                   </div>
+                   <button onClick={() => setShowTransferModal(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all text-slate-400"><X size={24}/></button>
+                </div>
+                
+                <div className="p-8 overflow-y-auto space-y-8 scrollbar-hide">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                      <div className="space-y-4">
+                         <div className="flex items-center space-x-2 px-2">
+                            <Utensils size={14} className="text-slate-400" />
+                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Salles</h4>
+                         </div>
+                         <div className="grid grid-cols-2 gap-3">
+                            {POS_LOCATIONS.tables.map(loc => <LocationBtn key={loc} loc={loc} compact onClick={() => handleTransferOrder(loc)} />)}
+                         </div>
+                      </div>
+                      <div className="space-y-4">
+                         <div className="flex items-center space-x-2 px-2">
+                            <Coffee size={14} className="text-slate-400" />
+                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Tabourets</h4>
+                         </div>
+                         <div className="grid grid-cols-2 gap-3">
+                            {POS_LOCATIONS.bar.map(loc => <LocationBtn key={loc} loc={loc} compact onClick={() => handleTransferOrder(loc)} />)}
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                      <div className="space-y-4">
+                         <div className="flex items-center space-x-2 px-2">
+                            <Package size={14} className="text-slate-400" />
+                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">À Emporter</h4>
+                         </div>
+                         <div className="grid grid-cols-2 gap-3">
+                            {POS_LOCATIONS.takeaway.map(loc => <LocationBtn key={loc} loc={loc} compact icon={Package} onClick={() => handleTransferOrder(loc)} />)}
+                         </div>
+                      </div>
+                      <div className="space-y-4">
+                         <div className="flex items-center space-x-2 px-2">
+                            <Truck size={14} className="text-slate-400" />
+                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Livraisons</h4>
+                         </div>
+                         <div className="grid grid-cols-2 gap-3">
+                            {POS_LOCATIONS.delivery.map(loc => <LocationBtn key={loc} loc={loc} compact icon={Truck} onClick={() => handleTransferOrder(loc)} />)}
+                         </div>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </div>
+       )}
+
+       {showSalesHistory && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-fadeIn">
+             <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn flex flex-col">
+                <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                   <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-purple-600 text-white rounded-xl shadow-lg"><History size={18}/></div>
+                      <h3 className="text-sm font-black uppercase tracking-tighter text-slate-900 dark:text-white">Ventes de la Session</h3>
+                   </div>
+                   <button onClick={() => setShowSalesHistory(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all text-slate-400"><X size={24}/></button>
+                </div>
+                <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3 scrollbar-hide">
+                   {sessionSales.length > 0 ? (
+                      sessionSales.map(sale => (
+                        <div key={sale.id} className="p-4 bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-purple-300 transition-all">
+                           <div className="flex flex-col">
+                              <span className="text-[10px] font-black uppercase text-purple-600">#{sale.id.slice(-8)}</span>
+                              <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase mt-0.5">{sale.customer}</span>
+                              <span className="text-[9px] font-bold text-slate-400 mt-0.5">{new Date(sale.date).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})} • {sale.paymentMethod}</span>
+                           </div>
+                           <div className="text-right">
+                              <span className="text-sm font-black text-slate-900 dark:text-white block">{sale.total.toLocaleString()} {config.currency}</span>
+                           </div>
+                        </div>
+                      ))
+                   ) : (
+                      <div className="py-20 text-center flex flex-col items-center opacity-30">
+                         <History size={48} className="mb-4" />
+                         <p className="font-black uppercase text-xs tracking-widest">Aucune vente enregistrée dans cette session</p>
+                      </div>
+                   )}
+                </div>
+                <div className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-800 text-center">
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Consultation uniquement pour la session en cours</p>
+                </div>
+             </div>
+          </div>
+       )}
+
+       {showClosingModal && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4 animate-fadeIn">
+             <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
+                <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-rose-600 text-white">
+                   <div className="flex items-center space-x-3">
+                      <Calculator size={24} />
+                      <div>
+                         <h3 className="text-sm font-black uppercase tracking-tighter">Clôture Session</h3>
+                         <p className="text-[9px] font-black uppercase opacity-60">{session.cashierName}</p>
+                      </div>
+                   </div>
+                   <button onClick={() => setShowClosingModal(false)}><X size={24}/></button>
+                </div>
+
+                <div className="p-6 space-y-6 max-h-[85vh] overflow-y-auto scrollbar-hide">
+                   <div className="space-y-4">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Décompte Physique Final</h4>
+                      <CashCounter />
+                   </div>
+
+                   <div className="space-y-6 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="space-y-2">
+                         <div className="flex justify-between items-center text-[10px] font-bold">
+                            <span className="text-slate-500 uppercase">Fond initial</span>
+                            <span className="text-slate-900 dark:text-white">{session.openingBalance.toLocaleString()}</span>
+                         </div>
+                         <div className="flex justify-between items-center text-[10px] font-bold">
+                            <span className="text-slate-500 uppercase">Ventes Espèces (+)</span>
+                            <span className="text-emerald-500">+{sessionCashSalesTotal.toLocaleString()}</span>
+                         </div>
+                         <div className="h-px bg-slate-200 dark:bg-slate-700 my-2"></div>
+                         <div className="flex justify-between items-center">
+                            <span className="text-[9px] font-black uppercase text-slate-400">Attendu en Caisse</span>
+                            <span className="text-md font-black text-slate-900 dark:text-white">{expectedClosingBalance.toLocaleString()} {config.currency}</span>
+                         </div>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border-2 flex flex-col items-center text-center space-y-1 ${cashDifference === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
+                         <span className="text-[9px] font-black uppercase tracking-widest">Écart de Caisse</span>
+                         <span className="text-2xl font-black">{cashDifference > 0 ? '+' : ''}{cashDifference.toLocaleString()}</span>
+                         <div className="flex items-center text-[8px] font-black uppercase mt-1">
+                            {cashDifference === 0 ? <CheckCircle2 size={12} className="mr-1.5"/> : <AlertTriangle size={12} className="mr-1.5"/>}
+                            {cashDifference === 0 ? 'Caisse à l\'équilibre' : cashDifference > 0 ? 'Excédent constaté' : 'Manquant constaté'}
+                         </div>
+                      </div>
+
+                      <button 
+                        onClick={() => onCloseSession(totalCounted)} 
+                        className="w-full py-4 bg-rose-600 text-white rounded-xl font-black uppercase text-[10px] tracking-[0.15em] shadow-xl hover:bg-rose-700 active:scale-95 transition-all flex items-center justify-center space-x-2"
+                      >
+                        <Lock size={16} />
+                        <span>Valider la Clôture Définitive</span>
+                      </button>
+                   </div>
+                </div>
+             </div>
+          </div>
+       )}
     </div>
   );
 };

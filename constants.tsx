@@ -73,7 +73,7 @@ export const INITIAL_SUPPLIERS: Supplier[] = [
 ];
 
 export const INITIAL_EXPENSES: Expense[] = [
-  { id: 'EXP-001', description: 'Achat Provisions Hebdo', amount: 5000, date: '2025-05-15', category: 'Achats Marchandises', paymentMethod: 'Especes', supplierId: 'S001', status: 'paid' },
+  { id: 'EXP-001', description: 'Achat Provisions Hebdo', amount: 0, date: '2025-05-15', category: 'Achats Marchandises', paymentMethod: 'Especes', supplierId: 'S001', status: 'paid' },
 ];
 
 const RAW_PRODUCTS: Product[] = [
