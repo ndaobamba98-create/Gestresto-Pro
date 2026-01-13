@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier, Customer } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS, INITIAL_CUSTOMERS } from './constants';
@@ -18,6 +18,7 @@ import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
 import Customers from './components/Customers';
+import CalendarView from './components/CalendarView';
 
 const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
   const dataInt16 = new Int16Array(data.buffer);
@@ -96,6 +97,7 @@ const App: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [notificationHistory, setNotificationHistory] = useState<Toast[]>(() => loadStored('notificationHistory', []));
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('unread');
   
   // Login State
@@ -125,9 +127,9 @@ const App: React.FC = () => {
   const [sessionHistory, setSessionHistory] = useState<CashSession[]>(() => loadStored('sessionHistory', []));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
-    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'manage_users'] },
-    { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout', 'customers'] },
-    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers'] }
+    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'manage_users', 'calendar'] },
+    { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout', 'customers', 'calendar'] },
+    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'calendar'] }
   ]));
 
   const userPermissions = useMemo(() => {
@@ -172,7 +174,7 @@ const App: React.FC = () => {
       const prompt = `Lis ce message de notification ERP de manière professionnelle et concise : ${notification.title}. ${notification.message}`;
       
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
           responseModalities: [Modality.AUDIO],
@@ -184,7 +186,7 @@ const App: React.FC = () => {
         },
       });
 
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      const base64Audio = response.candidates?.[0]?.content?.parts[0]?.inlineData?.data;
       if (base64Audio) {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         const audioBuffer = await decodeAudioData(decodeBase64(base64Audio), audioCtx, 24000, 1);
@@ -417,6 +419,7 @@ const App: React.FC = () => {
       case 'expenses': return <Expenses expenses={expenses} setExpenses={setExpenses} purchases={purchases} onAddPurchase={p => setPurchases(v => [p, ...v])} onDeletePurchase={() => {}} suppliers={suppliers} setSuppliers={setSuppliers} products={products} config={config} userRole={currentUser.role} notify={notifyUser} t={t} />;
       case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
       case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser} notify={notifyUser} t={t} />;
+      case 'calendar': return <CalendarView config={config} t={t} notify={notifyUser} />;
       case 'settings': return (
         <Settings 
           products={products} 
@@ -443,7 +446,9 @@ const App: React.FC = () => {
         <div className="mb-12 text-center animate-fadeIn">
           <AppLogo className="mx-auto mb-6 scale-[1.8]" iconOnly />
           <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
-          <div className="mt-8 text-white/40 font-mono text-xl">{currentTime.toLocaleTimeString()}</div>
+          <div className="mt-8 text-accent font-mono text-3xl font-black tracking-tighter drop-shadow-[0_0_15px_var(--accent-glow)]">
+            {currentTime.toLocaleTimeString()}
+          </div>
         </div>
 
         {loginStep === 'select' ? (
@@ -523,6 +528,7 @@ const App: React.FC = () => {
             { id: 'customers', icon: Users, label: 'Comptes Clients' },
             { id: 'expenses', icon: Wallet, label: t('expenses') },
             { id: 'reports', icon: BarChart3, label: t('reports') },
+            { id: 'calendar', icon: CalendarIcon, label: 'Agenda' },
             { id: 'attendances', icon: ClockIcon, label: t('attendances') },
             { id: 'hr', icon: IdCard, label: t('hr') },
             { id: 'settings', icon: SettingsIcon, label: t('settings') },
@@ -543,10 +549,18 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
         <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-[100]">
-          <div className="flex flex-col">
-            <span className="text-2xl font-black font-mono tracking-tighter leading-none">{currentTime.toLocaleTimeString()}</span>
-            <span className="text-[10px] font-black text-accent uppercase tracking-widest mt-1">{currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-          </div>
+          <button 
+            onClick={() => setIsCalendarOpen(true)}
+            className="flex flex-col items-start group hover:bg-accent/5 p-2 rounded-2xl transition-all"
+          >
+            <span className="text-2xl font-black font-mono tracking-tighter leading-none text-accent transition-colors">
+              {currentTime.toLocaleTimeString()}
+            </span>
+            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 flex items-center group-hover:text-accent transition-colors">
+              <CalendarIcon size={10} className="mr-1" />
+              {currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+          </button>
 
           <div className="flex items-center space-x-4">
             <div className="relative">
@@ -676,6 +690,32 @@ const App: React.FC = () => {
         </header>
         <div className="flex-1 overflow-auto p-8">{renderContent()}</div>
       </main>
+
+      {/* CALENDRIER MODAL (APPELÉ PAR CLIC SUR LA DATE) */}
+      {isCalendarOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[500] flex items-center justify-center p-6 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[85vh] rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn flex flex-col">
+             <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-accent text-white rounded-2xl shadow-lg"><CalendarIcon size={24}/></div>
+                  <div>
+                    <h3 className="text-2xl font-black uppercase tracking-tighter">Agenda de l'établissement</h3>
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">Planning consolidé & Événements</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsCalendarOpen(false)}
+                  className="p-4 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-400 hover:text-rose-600 rounded-2xl transition-all"
+                >
+                  <X size={32} />
+                </button>
+             </div>
+             <div className="flex-1 overflow-auto p-8">
+                <CalendarView config={config} t={t} notify={notifyUser} />
+             </div>
+          </div>
+        </div>
+      )}
 
       <div className="fixed top-28 right-8 z-[300] flex flex-col items-end space-y-4 pointer-events-none w-full max-sm px-4 sm:max-w-sm">
         {toasts.map((toast) => (
