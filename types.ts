@@ -77,6 +77,7 @@ export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate
 export interface ERPConfig {
   companyName: string;
   companySlogan: string;
+  companyLogo?: string; // Nouveau champ pour le logo personnalisé
   email: string;
   phone: string;
   address: string;

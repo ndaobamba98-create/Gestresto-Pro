@@ -6,23 +6,27 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-export const AppLogoDoc = ({ className = "w-16 h-16" }) => (
-  <div className={`${className} flex items-center justify-center`}>
-    <div style={{
-      width: '100%',
-      height: '100%',
-      backgroundColor: '#0f172a',
-      borderRadius: '12px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      border: '2px solid #1e293b'
-    }}>
-      <svg viewBox="0 0 100 100" style={{ width: '70%', height: '70%' }} fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7614 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill="#a855f7"/>
-        <circle cx="20" cy="20" r="12" fill="#3b82f6" />
-      </svg>
-    </div>
+export const AppLogoDoc = ({ className = "w-16 h-16", customLogo = undefined }) => (
+  <div className={`${className} flex items-center justify-center overflow-hidden rounded-xl`}>
+    {customLogo ? (
+      <img src={customLogo} alt="Logo" className="w-full h-full object-cover" />
+    ) : (
+      <div style={{
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#0f172a',
+        borderRadius: '12px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: '2px solid #1e293b'
+      }}>
+        <svg viewBox="0 0 100 100" style={{ width: '70%', height: '70%' }} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7157 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill="#a855f7"/>
+          <circle cx="20" cy="20" r="12" fill="#3b82f6" />
+        </svg>
+      </div>
+    )}
   </div>
 );
 
@@ -239,7 +243,7 @@ const InvoiceSinglePageView = ({ sale, config, onBack, notify }: { sale: SaleOrd
             {/* EN-TÊTE COMPAGNIE */}
             <div className="flex justify-between items-start border-b border-slate-200 pb-4 mb-4">
               <div className="flex items-start space-x-4">
-                {config.showLogoOnInvoice && <AppLogoDoc className="w-12 h-12" />}
+                {config.showLogoOnInvoice && <AppLogoDoc className="w-12 h-12" customLogo={config.companyLogo} />}
                 <div className="space-y-0.5">
                   <h1 className="text-md font-black uppercase leading-none text-slate-900">{config.companyName}</h1>
                   {config.showSloganOnInvoice && <p className="text-[7.5px] font-black text-purple-600 uppercase tracking-widest opacity-80">{config.companySlogan}</p>}

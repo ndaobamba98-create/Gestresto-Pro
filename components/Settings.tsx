@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme, User } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key, Users
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key, Users, Camera, Trash
 } from 'lucide-react';
 
 interface Props {
@@ -66,6 +66,16 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     confirmPassword: ''
   });
   const [showPass, setShowPass] = useState(false);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setFormConfig({ ...formConfig, companyLogo: event.target?.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSaveConfig = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -316,6 +326,40 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               <div className="space-y-8">
+                {/* SECTION LOGO */}
+                <div className="space-y-4">
+                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center">
+                    <ImageIcon size={14} className="mr-2" /> Logo de l'entreprise
+                  </label>
+                  <div className="flex items-center space-x-6 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
+                    <div className="relative group">
+                      <div className="w-24 h-24 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 overflow-hidden flex items-center justify-center shadow-lg transition-all group-hover:scale-105">
+                         {formConfig.companyLogo ? (
+                           <img src={formConfig.companyLogo} alt="Logo Preview" className="w-full h-full object-cover" />
+                         ) : (
+                           <ImageIcon size={32} className="text-slate-200" />
+                         )}
+                      </div>
+                      {formConfig.companyLogo && (
+                        <button 
+                          type="button"
+                          onClick={() => setFormConfig({...formConfig, companyLogo: undefined})}
+                          className="absolute -top-2 -right-2 bg-rose-600 text-white p-1.5 rounded-full shadow-lg hover:scale-110 transition-all opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                       <p className="text-[9px] font-bold text-slate-500 uppercase leading-relaxed">Téléchargez une image carrée ou rectangulaire. Elle sera utilisée sur vos factures et dans l'interface.</p>
+                       <label className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer hover:bg-purple-700 transition-all shadow-md">
+                         <Camera size={14} className="mr-2" /> Choisir Image
+                         <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                       </label>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('language')}</label>
                   <div className="relative">

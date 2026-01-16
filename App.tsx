@@ -42,15 +42,19 @@ const decodeBase64 = (base64: string) => {
   return bytes;
 };
 
-export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = false }) => (
+export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = false, customLogo = undefined }) => (
   <div className={`flex items-center ${iconOnly ? 'justify-center' : 'space-x-4'} ${className}`}>
     <div className="relative group shrink-0">
       <div className="absolute -inset-2 bg-accent rounded-2xl blur-lg opacity-20 group-hover:opacity-50 transition duration-1000"></div>
       <div className={`relative w-12 h-12 ${light ? 'bg-white' : 'bg-slate-900'} rounded-2xl flex items-center justify-center shadow-2xl border border-white/10 overflow-hidden transform group-hover:rotate-6 transition-transform duration-500`}>
-        <svg viewBox="0 0 100 100" className="w-8/12 h-8/12" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7157 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill={light ? "#0f172a" : "white"} />
-          <circle cx="20" cy="20" r="12" className="fill-accent" />
-        </svg>
+        {customLogo ? (
+          <img src={customLogo} alt="Logo" className="w-full h-full object-cover" />
+        ) : (
+          <svg viewBox="0 0 100 100" className="w-8/12 h-8/12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7157 60 55C60 52.2386 57.7157 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill={light ? "#0f172a" : "white"} />
+            <circle cx="20" cy="20" r="12" className="fill-accent" />
+          </svg>
+        )}
       </div>
     </div>
     {!iconOnly && (
@@ -444,7 +448,7 @@ const App: React.FC = () => {
     return (
       <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-950 theme-${config.theme}`}>
         <div className="mb-12 text-center animate-fadeIn">
-          <AppLogo className="mx-auto mb-6 scale-[1.8]" iconOnly />
+          <AppLogo className="mx-auto mb-6 scale-[1.8]" iconOnly customLogo={config.companyLogo} />
           <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
           <div className="mt-8 text-accent font-mono text-3xl font-black tracking-tighter drop-shadow-[0_0_15px_var(--accent-glow)]">
             {currentTime.toLocaleTimeString()}
@@ -515,7 +519,7 @@ const App: React.FC = () => {
       {isNotificationOpen && <div className="fixed inset-0 z-[110]" onClick={() => setIsNotificationOpen(false)} />}
       <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-slate-900 transition-all duration-500 flex flex-col z-20 shadow-2xl`}>
         <div className="p-6 h-28 flex items-center justify-between border-b border-slate-800">
-          <AppLogo className={isSidebarOpen ? "w-full" : "w-12 h-12"} iconOnly={!isSidebarOpen} />
+          <AppLogo className={isSidebarOpen ? "w-full" : "w-12 h-12"} iconOnly={!isSidebarOpen} customLogo={config.companyLogo} />
           <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-xl transition-colors"><Menu size={20}/></button>
         </div>
         <nav className="flex-1 mt-6 space-y-1.5 px-3 overflow-y-auto scrollbar-hide">
@@ -697,7 +701,13 @@ const App: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[85vh] rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn flex flex-col">
              <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                 <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-accent text-white rounded-2xl shadow-lg"><CalendarIcon size={24}/></div>
+                  <div className="p-3 bg-accent text-white rounded-2xl shadow-lg">
+                    {config.companyLogo ? (
+                      <img src={config.companyLogo} alt="Logo" className="w-8 h-8 object-cover rounded-lg" />
+                    ) : (
+                      <CalendarIcon size={24}/>
+                    )}
+                  </div>
                   <div>
                     <h3 className="text-2xl font-black uppercase tracking-tighter">Agenda de l'établissement</h3>
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">Planning consolidé & Événements</p>
