@@ -1,5 +1,5 @@
 
-import { Product, SaleOrder, Employee, ERPConfig, User, Expense, Supplier, PaymentMethod, Customer } from './types';
+import { Product, SaleOrder, Employee, ERPConfig, User, Expense, Supplier, PaymentMethod, Customer, Lead, Task } from './types';
 import { Banknote, Smartphone, Wallet, CreditCard } from 'lucide-react';
 import React from 'react';
 
@@ -7,6 +7,16 @@ export const APP_USERS: User[] = [
   { id: 'U001', name: 'Bamba Ndao', role: 'admin', initials: 'BN', color: 'from-slate-700 to-slate-900', password: '1234' },
   { id: 'U002', name: 'Amy Ndaw', role: 'cashier', initials: 'AN', color: 'from-emerald-600 to-emerald-800', password: '0000' },
   { id: 'U003', name: 'Maman Ndaw', role: 'cashier', initials: 'MN', color: 'from-purple-600 to-purple-800', password: '1111' },
+];
+
+export const INITIAL_LEADS: Lead[] = [
+  { id: 'L1', title: 'Grand Banquet Mairie', contact: 'M. Sow', email: 'sow@mairie.mr', phone: '44556677', revenue: 25000, priority: 'high', stage: 'qualified' },
+  { id: 'L2', title: 'Contrat Cantine École', contact: 'Mme Fall', email: 'fall@ecole.mr', phone: '33445566', revenue: 150000, priority: 'medium', stage: 'new' },
+];
+
+export const INITIAL_TASKS: Task[] = [
+  { id: 'T1', title: 'Inventaire Gaz', description: 'Vérifier le nombre de bouteilles pleines', assignedTo: 'Bamba Ndao', deadline: '2025-05-20', priority: 'high', stage: 'todo' },
+  { id: 'T2', title: 'Nettoyage Filtres Hotte', description: 'Cuisine principale', assignedTo: 'Yatera', deadline: '2025-05-22', priority: 'medium', stage: 'doing' },
 ];
 
 export const PAYMENT_METHODS_LIST: { id: PaymentMethod, label: string, color: string }[] = [

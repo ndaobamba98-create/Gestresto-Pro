@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon, Target, CheckCircle2
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier, Customer } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS, INITIAL_CUSTOMERS } from './constants';
@@ -19,6 +19,8 @@ import Attendances from './components/Attendances';
 import Expenses from './components/Expenses';
 import Customers from './components/Customers';
 import CalendarView from './components/CalendarView';
+import CRM from './components/CRM';
+import Projects from './components/Projects';
 
 const decodeAudioData = async (data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> => {
   const dataInt16 = new Int16Array(data.buffer);
@@ -131,9 +133,9 @@ const App: React.FC = () => {
   const [sessionHistory, setSessionHistory] = useState<CashSession[]>(() => loadStored('sessionHistory', []));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
-    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'manage_users', 'calendar'] },
+    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'manage_users', 'calendar', 'crm', 'projects'] },
     { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout', 'customers', 'calendar'] },
-    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'calendar'] }
+    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'calendar', 'crm', 'projects'] }
   ]));
 
   const userPermissions = useMemo(() => {
@@ -351,7 +353,6 @@ const App: React.FC = () => {
   const handleCloseSession = useCallback((closingBalance: number) => {
     if (!currentSession) return;
     
-    // Calcul précis du montant attendu réel au moment du clic sur 'Valider'
     const cashSalesInSession = sales
       .filter(s => s.date >= currentSession.openedAt && s.paymentMethod === 'Especes' && s.status !== 'refunded')
       .reduce((sum, s) => sum + s.total, 0);
@@ -402,6 +403,8 @@ const App: React.FC = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
     switch (activeView) {
       case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
+      case 'crm': return <CRM config={config} notify={notifyUser} />;
+      case 'projects': return <Projects config={config} notify={notifyUser} />;
       case 'pos': return (
         <POS 
           products={products} 
@@ -447,69 +450,84 @@ const App: React.FC = () => {
   if (isLocked) {
     return (
       <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-950 theme-${config.theme}`}>
-        <div className="mb-12 text-center animate-fadeIn">
-          <AppLogo className="mx-auto mb-6 scale-[1.8]" iconOnly customLogo={config.companyLogo} />
-          <h1 className="text-4xl font-black text-white uppercase mt-16 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
-          <div className="mt-8 text-accent font-mono text-3xl font-black tracking-tighter drop-shadow-[0_0_15px_var(--accent-glow)]">
+        <div className="mb-12 text-center animate-fadeIn px-6">
+          <AppLogo className="mx-auto mb-6 scale-[1.4] md:scale-[1.8]" iconOnly customLogo={config.companyLogo} />
+          <h1 className="text-3xl md:text-4xl font-black text-white uppercase mt-12 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
+          <div className="mt-6 text-accent font-mono text-2xl md:text-3xl font-black tracking-tighter drop-shadow-[0_0_15px_var(--accent-glow)]">
             {currentTime.toLocaleTimeString()}
           </div>
         </div>
 
-        {loginStep === 'select' ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 animate-slideUp">
-            {allUsers.map((user) => (
-              <button 
-                key={user.id} 
-                onClick={() => { setSelectedLoginUser(user); setLoginStep('password'); }} 
-                className="bg-slate-900/50 backdrop-blur-md p-6 rounded-3xl border border-slate-800 hover:border-accent transition-all flex flex-col items-center space-y-4 w-40 hover:scale-105 group"
-              >
-                <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg group-hover:scale-110 transition-transform`}>{user.initials}</div>
-                <p className="text-white font-black uppercase text-[10px] tracking-widest">{user.name}</p>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className={`bg-slate-900/80 backdrop-blur-xl p-10 rounded-[3rem] border-2 border-white/10 w-full max-w-sm animate-scaleIn ${loginError ? 'animate-shake' : ''}`}>
-             <button onClick={() => { setLoginStep('select'); setPasswordInput(''); setLoginError(false); }} className="mb-6 flex items-center text-slate-400 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest">
-               <ArrowLeft size={16} className="mr-2" /> Retour
-             </button>
-             
-             <div className="flex flex-col items-center mb-8">
-               <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${selectedLoginUser?.color} flex items-center justify-center text-white text-2xl font-black shadow-2xl mb-4`}>
-                 {selectedLoginUser?.initials}
+        <div className="w-full max-w-md px-6">
+          {loginStep === 'select' ? (
+            <div className="bg-slate-900/60 backdrop-blur-xl p-8 md:p-10 rounded-[2.5rem] border border-white/10 shadow-2xl animate-scaleIn">
+              <div className="text-center mb-10">
+                <h2 className="text-xl font-black text-white uppercase tracking-tight">Accès Session</h2>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Choisissez votre profil</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {allUsers.map((user) => (
+                  <button 
+                    key={user.id} 
+                    onClick={() => { setSelectedLoginUser(user); setLoginStep('password'); }} 
+                    className="p-5 rounded-[2rem] border border-white/5 hover:border-accent/50 bg-white/5 hover:bg-white/10 transition-all flex flex-col items-center space-y-3 group"
+                  >
+                    <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-lg font-black shadow-lg group-hover:scale-110 transition-transform`}>
+                      {user.initials}
+                    </div>
+                    <p className="text-white font-black uppercase text-[9px] tracking-widest truncate w-full text-center">{user.name.split(' ')[0]}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className={`bg-slate-900/90 backdrop-blur-2xl p-10 rounded-[3rem] border-2 border-white/10 w-full animate-scaleIn shadow-[0_30px_60px_-12px_rgba(0,0,0,0.5)] ${loginError ? 'animate-shake' : ''}`}>
+               <button 
+                  onClick={() => { setLoginStep('select'); setPasswordInput(''); setLoginError(false); }} 
+                  className="mb-8 flex items-center text-slate-500 hover:text-white transition-colors text-[9px] font-black uppercase tracking-widest group"
+               >
+                 <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Retour à la sélection
+               </button>
+               
+               <div className="flex flex-col items-center mb-10">
+                 <div className={`w-24 h-24 rounded-3xl bg-gradient-to-br ${selectedLoginUser?.color} flex items-center justify-center text-white text-3xl font-black shadow-2xl mb-5 group-hover:scale-105 transition-transform`}>
+                   {selectedLoginUser?.initials}
+                 </div>
+                 <h2 className="text-white font-black uppercase tracking-tight text-xl">{selectedLoginUser?.name}</h2>
+                 <span className="mt-2 px-3 py-1 bg-accent/20 text-accent rounded-lg text-[8px] font-black uppercase tracking-widest">{selectedLoginUser?.role}</span>
                </div>
-               <h2 className="text-white font-black uppercase tracking-tight text-xl">{selectedLoginUser?.name}</h2>
-               <p className="text-accent font-black text-[10px] uppercase tracking-widest mt-1">{selectedLoginUser?.role}</p>
-             </div>
 
-             <form onSubmit={handleLoginSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mot de Passe</label>
-                  <div className="relative">
-                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                    <input 
-                      autoFocus
-                      type={showPassword ? "text" : "password"}
-                      value={passwordInput}
-                      onChange={e => { setPasswordInput(e.target.value); setLoginError(false); }}
-                      placeholder="••••••••"
-                      className={`w-full bg-slate-800/50 border-2 ${loginError ? 'border-rose-500' : 'border-transparent focus:border-accent'} rounded-2xl py-4 pl-12 pr-12 text-white font-black outline-none transition-all`}
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
+               <form onSubmit={handleLoginSubmit} className="space-y-8">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Saisie du Code d'accès</label>
+                    <div className="relative">
+                      <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600" size={20} />
+                      <input 
+                        autoFocus
+                        type={showPassword ? "text" : "password"}
+                        value={passwordInput}
+                        onChange={e => { setPasswordInput(e.target.value); setLoginError(false); }}
+                        placeholder="••••••••"
+                        className={`w-full bg-black/40 border-2 ${loginError ? 'border-rose-500/50' : 'border-transparent focus:border-accent/50'} rounded-2xl py-5 pl-14 pr-14 text-white text-lg font-black outline-none transition-all placeholder:text-slate-700 tracking-[0.3em]`}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
+                    {loginError && <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest text-center mt-2 animate-bounce">Mot de passe incorrect</p>}
                   </div>
-                </div>
-                <button type="submit" className="w-full py-4 bg-accent text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
-                  Se Connecter
-                </button>
-             </form>
-          </div>
-        )}
+                  <button type="submit" className="w-full py-5 bg-accent text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center space-x-3">
+                    <span>Valider l'accès</span>
+                    <ArrowRight size={18} />
+                  </button>
+               </form>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -525,6 +543,8 @@ const App: React.FC = () => {
         <nav className="flex-1 mt-6 space-y-1.5 px-3 overflow-y-auto scrollbar-hide">
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: t('dashboard') },
+            { id: 'crm', icon: Target, label: 'CRM' },
+            { id: 'projects', icon: CheckCircle2, label: 'Projets' },
             { id: 'pos', icon: Monitor, label: t('pos') },
             { id: 'sales', icon: ShoppingCart, label: t('sales') },
             { id: 'invoicing', icon: FileText, label: t('invoicing') },
@@ -695,30 +715,21 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-auto p-8">{renderContent()}</div>
       </main>
 
-      {/* CALENDRIER MODAL (APPELÉ PAR CLIC SUR LA DATE) */}
+      {/* CALENDRIER MODAL */}
       {isCalendarOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[500] flex items-center justify-center p-6 animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[85vh] rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn flex flex-col">
              <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                 <div className="flex items-center space-x-4">
                   <div className="p-3 bg-accent text-white rounded-2xl shadow-lg">
-                    {config.companyLogo ? (
-                      <img src={config.companyLogo} alt="Logo" className="w-8 h-8 object-cover rounded-lg" />
-                    ) : (
-                      <CalendarIcon size={24}/>
-                    )}
+                    <CalendarIcon size={24}/>
                   </div>
                   <div>
                     <h3 className="text-2xl font-black uppercase tracking-tighter">Agenda de l'établissement</h3>
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">Planning consolidé & Événements</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setIsCalendarOpen(false)}
-                  className="p-4 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-400 hover:text-rose-600 rounded-2xl transition-all"
-                >
-                  <X size={32} />
-                </button>
+                <button onClick={() => setIsCalendarOpen(false)} className="p-4 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-slate-400 hover:text-rose-600 rounded-2xl transition-all"><X size={32} /></button>
              </div>
              <div className="flex-1 overflow-auto p-8">
                 <CalendarView config={config} t={t} notify={notifyUser} />

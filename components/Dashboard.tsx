@@ -19,7 +19,9 @@ import {
   IdCard,
   Settings as SettingsIcon,
   ChevronRight,
-  LayoutGrid
+  LayoutGrid,
+  Target,
+  CheckCircle2
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
 
@@ -43,24 +45,23 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
   
   const lowStockProducts = useMemo(() => products.filter(p => p.stock <= (p.lowStockThreshold || 10)), [products]);
 
-  // Apps Launcher Configuration
   const apps = [
-    { id: 'pos', icon: Monitor, label: 'Caisse POS', color: 'bg-emerald-500', desc: 'Terminal de vente' },
-    { id: 'inventory', icon: Package, label: 'Stocks', color: 'bg-orange-500', desc: 'Produits & Menu' },
-    { id: 'invoicing', icon: FileText, label: 'Factures', color: 'bg-blue-500', desc: 'Gestion comptable' },
-    { id: 'expenses', icon: Zap, label: 'Charges', color: 'bg-rose-500', desc: 'Journal de caisse' },
-    { id: 'attendances', icon: Clock, label: 'Pointages', color: 'bg-purple-500', desc: 'Temps de travail' },
-    { id: 'settings', icon: SettingsIcon, label: 'Réglages', color: 'bg-slate-500', desc: 'Configuration' },
+    { id: 'pos', icon: Monitor, label: 'Caisse POS', color: 'bg-emerald-500', desc: 'Vente directe' },
+    { id: 'crm', icon: Target, label: 'CRM', color: 'bg-purple-600', desc: 'Opportunités' },
+    { id: 'projects', icon: CheckCircle2, label: 'Projets', color: 'bg-blue-600', desc: 'Suivi tâches' },
+    { id: 'inventory', icon: Package, label: 'Stocks', color: 'bg-orange-500', desc: 'Menu & Logistique' },
+    { id: 'invoicing', icon: FileText, label: 'Factures', color: 'bg-indigo-500', desc: 'Comptabilité' },
+    { id: 'hr', icon: IdCard, label: 'RH', color: 'bg-slate-700', desc: 'Personnel' },
   ];
 
   return (
     <div className="h-full overflow-y-auto space-y-10 animate-fadeIn pb-20 pr-2 scrollbar-hide">
       
-      {/* ZONE 1 : LANCEUR D'APPLICATIONS (WORKSPACE STYLE) */}
+      {/* ZONE 1 : LANCEUR D'APPLICATIONS */}
       <div className="space-y-6">
         <div className="flex items-center space-x-3">
            <div className="p-2 bg-accent/10 rounded-xl text-accent"><LayoutGrid size={20}/></div>
-           <h2 className="text-sm font-black uppercase tracking-widest">Mes Applications</h2>
+           <h2 className="text-sm font-black uppercase tracking-widest">Workspace ERP</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
           {apps.map((app) => (
@@ -84,20 +85,20 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
            <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500"><TrendingUp size={20}/></div>
-           <h2 className="text-sm font-black uppercase tracking-widest">Bilan d'Activité</h2>
+           <h2 className="text-sm font-black uppercase tracking-widest">Performances</h2>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Recettes Brutes" value={`${totalRevenue.toLocaleString()} ${config.currency}`} icon={DollarSign} color="bg-emerald-500" trend={`-${totalExpenses.toLocaleString()} charges`} />
+        <StatCard title="Revenu Brut" value={`${totalRevenue.toLocaleString()} ${config.currency}`} icon={DollarSign} color="bg-emerald-500" trend={`-${totalExpenses.toLocaleString()} frais`} />
         
         <div className="bg-slate-900 dark:bg-slate-800 p-8 rounded-[3rem] border-2 border-accent/30 shadow-2xl flex items-start justify-between transition-all hover:-translate-y-1 group">
           <div className="space-y-3">
-            <p className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em]">Bénéfice Net</p>
+            <p className="text-[10px] font-black text-purple-400 uppercase tracking-[0.2em]">Résultat Net</p>
             <h4 className="text-2xl font-black text-white tracking-tighter">{netProfit.toLocaleString()} <span className="text-xs opacity-40">{config.currency}</span></h4>
             <div className="flex items-center">
               <div className="h-1.5 w-32 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-accent" style={{ width: `${Math.min(100, (netProfit / (totalRevenue || 1)) * 100)}%` }}></div>
+                <div className="h-full bg-accent" style={{ width: `${Math.max(0, Math.min(100, (netProfit / (totalRevenue || 1)) * 100))}%` }}></div>
               </div>
               <span className="text-[10px] font-black ml-3 text-emerald-400">{((netProfit / (totalRevenue || 1)) * 100).toFixed(0)}%</span>
             </div>
@@ -107,8 +108,8 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
           </div>
         </div>
 
-        <StatCard title="Transactions" value={`${sales.length}`} icon={ShoppingCart} color="bg-blue-500" trend="Journal Service" />
-        <StatCard title="Ruptures Stock" value={`${lowStockProducts.length}`} icon={Package} color="bg-orange-500" trend="Alertes seuils" />
+        <StatCard title="Volume Ventes" value={`${sales.length}`} icon={ShoppingCart} color="bg-blue-500" trend="Transactions validées" />
+        <StatCard title="Ruptures" value={`${lowStockProducts.length}`} icon={Package} color="bg-orange-500" trend="Articles sous seuil" />
       </div>
 
       {/* ZONE 3 : FLUX TEMPS RÉEL */}
@@ -116,9 +117,9 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[450px]">
           <div className="flex items-center justify-between mb-8">
              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-sm flex items-center">
-              <History className="mr-3 text-accent" size={18} /> Activité de Vente
+              <History className="mr-3 text-accent" size={18} /> Journal des Opérations
             </h3>
-            <button onClick={() => onNavigate('sales')} className="text-[9px] font-black text-accent uppercase tracking-widest hover:underline flex items-center">Journal Complet <ChevronRight size={14}/></button>
+            <button onClick={() => onNavigate('sales')} className="text-[9px] font-black text-accent uppercase tracking-widest hover:underline flex items-center">Voir Historique <ChevronRight size={14}/></button>
           </div>
           <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4">
             {sales.slice(0, 10).map((sale) => (
@@ -143,7 +144,7 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
-          <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-sm mb-10">Tendance Hebdomadaire</h3>
+          <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-sm mb-10">Activité Hebdomadaire</h3>
           <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={[{name: 'Lun', s: 400}, {name: 'Mar', s: 700}, {name: 'Mer', s: 500}, {name: 'Jeu', s: 900}, {name: 'Ven', s: 1200}, {name: 'Sam', s: 1500}, {name: 'Dim', s: 1100}]}>

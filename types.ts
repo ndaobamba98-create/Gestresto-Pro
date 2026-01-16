@@ -62,7 +62,7 @@ export interface User {
   role: UserRole;
   initials: string;
   color: string;
-  password?: string; // Ajouté pour la sécurité
+  password?: string;
 }
 
 export type ViewType = 
@@ -70,14 +70,14 @@ export type ViewType =
   | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' 
   | 'manage_categories' | 'manage_security' | 'manage_inventory' | 'manage_invoicing'
   | 'manage_notifications' | 'manage_sales' | 'customers' | 'manage_customers' | 'manage_users'
-  | 'calendar';
+  | 'calendar' | 'crm' | 'projects';
 
 export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate';
 
 export interface ERPConfig {
   companyName: string;
   companySlogan: string;
-  companyLogo?: string; // Nouveau champ pour le logo personnalisé
+  companyLogo?: string;
   email: string;
   phone: string;
   address: string;
@@ -100,6 +100,27 @@ export interface ERPConfig {
   showQrCodeOnInvoice: boolean;
 }
 
+export interface Lead {
+  id: string;
+  title: string;
+  contact: string;
+  email: string;
+  phone: string;
+  revenue: number;
+  priority: 'low' | 'medium' | 'high';
+  stage: 'new' | 'qualified' | 'proposition' | 'won' | 'lost';
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignedTo: string;
+  deadline: string;
+  priority: 'low' | 'medium' | 'high';
+  stage: 'todo' | 'doing' | 'done';
+}
+
 export interface SaleItem {
   productId: string;
   name: string;
@@ -118,7 +139,7 @@ export interface Customer {
   id: string;
   name: string;
   phone: string;
-  balance: number; // Solde du compte (positif = crédit, négatif = dette)
+  balance: number;
   email?: string;
 }
 
