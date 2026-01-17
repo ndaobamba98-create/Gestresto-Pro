@@ -1,10 +1,10 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod, Customer } from '../types';
+import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod, Customer, UserRole, ViewType } from '../types';
 import { 
   Search, Plus, Minus, Trash2, ShoppingBag, Monitor, Banknote, ChevronLeft, 
   Package, History, X, Smartphone, Wallet, 
-  CheckCircle2, Zap, LayoutGrid, ChevronRight, Coins, Utensils, Coffee, Truck, User, Calculator, ArrowRight, AlertTriangle, RotateCcw, ArrowRightLeft, MoveHorizontal, UserCheck, Search as SearchIcon, UserPlus, Phone, Lock
+  CheckCircle2, Zap, LayoutGrid, ChevronRight, Coins, Utensils, Coffee, Truck, User, Calculator, ArrowRight, AlertTriangle, RotateCcw, ArrowRightLeft, MoveHorizontal, UserCheck, Search as SearchIcon, UserPlus, Phone, Lock, ShieldAlert
 } from 'lucide-react';
 import { APP_USERS, POS_LOCATIONS } from '../constants';
 
@@ -27,9 +27,11 @@ interface Props {
   onOpenSession: (openingBalance: number, cashierId: string) => void;
   onCloseSession: (closingBalance: number) => void;
   notify: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
+  userRole: UserRole;
+  userPermissions: ViewType[];
 }
 
-const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, session, onOpenSession, onCloseSession, onSaleComplete, notify, sales, onRefundSale }) => {
+const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, session, onOpenSession, onCloseSession, onSaleComplete, notify, sales, onRefundSale, userRole, userPermissions }) => {
   const [pendingCarts, setPendingCarts] = useState<Record<string, CartItem[]>>(() => {
     const saved = localStorage.getItem('sama_pos_pending_carts');
     return saved ? JSON.parse(saved) : {};
@@ -58,6 +60,10 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
   const totalCounted = useMemo(() => 
     DENOMINATIONS.reduce((sum, d) => sum + (d * (counts[d] || 0)), 0)
   , [counts]);
+
+  const canCloseSession = useMemo(() => 
+    userPermissions.includes('manage_session_closing') || userRole === 'admin'
+  , [userPermissions, userRole]);
 
   // Ventes de la session actuelle
   const sessionSales = useMemo(() => {
@@ -372,7 +378,14 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
                 <History size={14} className="text-purple-600"/>
                 <span>Ventes Session</span>
              </button>
-             <button onClick={() => { setCounts(DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {})); setShowClosingModal(true); }} className="bg-rose-600 text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-rose-700 transition-all">Clôturer</button>
+             {canCloseSession ? (
+                <button onClick={() => { setCounts(DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d]: 0 }), {})); setShowClosingModal(true); }} className="bg-rose-600 text-white px-5 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg hover:bg-rose-700 transition-all">Clôturer</button>
+             ) : (
+                <div className="flex items-center px-4 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl space-x-2 border border-slate-200" title="Accès restreint aux managers habilités">
+                   <ShieldAlert size={14} className="text-slate-400" />
+                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Clôture restreinte</span>
+                </div>
+             )}
           </div>
        </div>
 
@@ -781,7 +794,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
                          </div>
                       </div>
 
-                      <div className={`p-4 rounded-xl border-2 flex flex-col items-center text-center space-y-1 ${cashDifference === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
+                      <div className={`p-4 rounded-xl border-2 flex flex-col items-center text-center space-y-1 ${cashDifference === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : cashDifference > 0 ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-rose-50 border-rose-200 text-rose-600'}`}>
                          <span className="text-[9px] font-black uppercase tracking-widest">Écart de Caisse</span>
                          <span className="text-2xl font-black">{cashDifference > 0 ? '+' : ''}{cashDifference.toLocaleString()}</span>
                          <div className="flex items-center text-[8px] font-black uppercase mt-1">
@@ -805,5 +818,15 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
     </div>
   );
 };
+
+// Internal Sub-component for Icon
+const UserPlus = ({ size, className }: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <line x1="19" y1="8" x2="19" y2="14" />
+    <line x1="22" y1="11" x2="16" y2="11" />
+  </svg>
+);
 
 export default POS;

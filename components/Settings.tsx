@@ -254,6 +254,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
   const availableViews: { id: ViewType, label: string }[] = [
     { id: 'dashboard', label: t('dashboard') },
     { id: 'pos', label: t('pos') },
+    { id: 'manage_session_closing', label: 'Clôture de Session Caisse (Encaissement Final)' },
     { id: 'sales', label: t('sales') + " (Consultation)" },
     { id: 'manage_sales', label: t('sales') + " (Exportation/Journal)" },
     { id: 'invoicing', label: t('invoicing') },

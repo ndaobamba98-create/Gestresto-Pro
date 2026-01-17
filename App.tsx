@@ -133,9 +133,9 @@ const App: React.FC = () => {
   const [sessionHistory, setSessionHistory] = useState<CashSession[]>(() => loadStored('sessionHistory', []));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
-    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'manage_users', 'calendar', 'crm', 'projects'] },
+    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'manage_users', 'calendar', 'crm', 'projects', 'manage_session_closing'] },
     { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout', 'customers', 'calendar'] },
-    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'calendar', 'crm', 'projects'] }
+    { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'calendar', 'crm', 'projects', 'manage_session_closing'] }
   ]));
 
   const userPermissions = useMemo(() => {
@@ -417,6 +417,7 @@ const App: React.FC = () => {
           session={currentSession} 
           onOpenSession={handleOpenSession} 
           onCloseSession={handleCloseSession} 
+          userRole={currentUser.role}
           {...commonProps} 
         />
       );
@@ -575,15 +576,17 @@ const App: React.FC = () => {
         <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-[100]">
           <button 
             onClick={() => setIsCalendarOpen(true)}
-            className="flex flex-col items-start group hover:bg-accent/5 p-2 rounded-2xl transition-all"
+            className="flex items-center group hover:bg-accent/5 p-4 rounded-2xl transition-all space-x-4"
           >
-            <span className="text-2xl font-black font-mono tracking-tighter leading-none text-accent transition-colors">
-              {currentTime.toLocaleTimeString()}
-            </span>
-            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 flex items-center group-hover:text-accent transition-colors">
-              <CalendarIcon size={10} className="mr-1" />
-              {currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </span>
+            <CalendarIcon size={24} className="text-accent" />
+            <div className="flex flex-col items-start">
+               <span className="text-2xl font-black font-mono tracking-tighter leading-none text-slate-800 dark:text-white transition-colors">
+                  {currentTime.toLocaleTimeString()}
+               </span>
+               <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 transition-colors">
+                  {currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+               </span>
+            </div>
           </button>
 
           <div className="flex items-center space-x-4">

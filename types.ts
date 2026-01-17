@@ -70,7 +70,7 @@ export type ViewType =
   | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' 
   | 'manage_categories' | 'manage_security' | 'manage_inventory' | 'manage_invoicing'
   | 'manage_notifications' | 'manage_sales' | 'customers' | 'manage_customers' | 'manage_users'
-  | 'calendar' | 'crm' | 'projects';
+  | 'calendar' | 'crm' | 'projects' | 'manage_session_closing';
 
 export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate';
 
