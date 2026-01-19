@@ -32,7 +32,8 @@ import {
   Lock,
   ChevronRight,
   Clock,
-  DownloadCloud
+  DownloadCloud,
+  Wallet
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -59,7 +60,17 @@ interface Props {
   sessions: CashSession[];
 }
 
-const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899'];
+const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899', '#64748b'];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  'Achats Marchandises': '#8b5cf6',
+  'Salaires': '#3b82f6',
+  'Loyer': '#ef4444',
+  'Électricité/Eau': '#10b981',
+  'Maintenance': '#f59e0b',
+  'Marketing': '#ec4899',
+  'Divers': '#64748b'
+};
 
 const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, notify, sessions }) => {
   const [activeReportTab, setActiveReportTab] = useState<'finance' | 'products' | 'sessions'>('finance');
@@ -79,6 +90,16 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
   const filteredExpenses = useMemo(() => {
     return expenses.filter(exp => exp.date >= exportStartDate && exp.date <= exportEndDate);
   }, [expenses, exportStartDate, exportEndDate]);
+
+  const expenseCategoryData = useMemo(() => {
+    const data: Record<string, number> = {};
+    filteredExpenses.forEach(exp => {
+      data[exp.category] = (data[exp.category] || 0) + exp.amount;
+    });
+    return Object.entries(data)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredExpenses]);
 
   const topSellingStats = useMemo(() => {
     const productStats: Record<string, { name: string, qty: number, revenue: number, category: string }> = {};
@@ -103,7 +124,7 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
 
     const sorted = Object.values(productStats)
       .sort((a, b) => b.qty - a.qty)
-      .slice(0, 10); // Augmenté à 10 pour l'export
+      .slice(0, 10);
 
     return {
       list: sorted,
@@ -119,7 +140,6 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
   const comparisonData = useMemo(() => {
     const data: Record<string, { day: string, fullDate: string, recettes: number, depenses: number }> = {};
     
-    // Générer les jours entre start et end
     const start = new Date(exportStartDate);
     const end = new Date(exportEndDate);
     const tempDate = new Date(start);
@@ -275,25 +295,77 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
                 </div>
              </div>
 
-             <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm">
-               <div className="flex items-center justify-between mb-10">
-                  <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-[11px] flex items-center">
-                    <Scale size={20} className="mr-3 text-blue-600" /> Comparatif Entrées / Sorties par Jour
-                  </h3>
-               </div>
-               <div className="h-80">
-                 <ResponsiveContainer width="100%" height="100%">
-                   <BarChart data={comparisonData}>
-                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                     <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} dy={10} />
-                     <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} />
-                     <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)' }} />
-                     <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
-                     <Bar name="Recettes" dataKey="recettes" fill="#10b981" radius={[6, 6, 0, 0]} barSize={20} />
-                     <Bar name="Dépenses" dataKey="depenses" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={20} />
-                   </BarChart>
-                 </ResponsiveContainer>
-               </div>
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+                  <div className="flex items-center justify-between mb-10">
+                      <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-[11px] flex items-center">
+                        <Scale size={20} className="mr-3 text-blue-600" /> Comparatif Entrées / Sorties
+                      </h3>
+                  </div>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={comparisonData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 'bold'}} />
+                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)' }} />
+                        <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }} />
+                        <Bar name="Recettes" dataKey="recettes" fill="#10b981" radius={[6, 6, 0, 0]} barSize={20} />
+                        <Bar name="Dépenses" dataKey="depenses" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={20} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+                  <div className="flex items-center justify-between mb-10">
+                      <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-wider text-[11px] flex items-center">
+                        <Wallet size={20} className="mr-3 text-rose-500" /> Répartition des Charges
+                      </h3>
+                  </div>
+                  <div className="flex-1 flex flex-col md:flex-row items-center">
+                    <div className="h-64 w-full md:w-1/2 relative">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={expenseCategoryData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {expenseCategoryData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[entry.name] || COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)', fontSize: '11px' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-[10px] font-black text-slate-400 uppercase">Total Charges</span>
+                        <span className="text-lg font-black text-slate-900 dark:text-white">{totalCosts.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="w-full md:w-1/2 space-y-3 mt-6 md:mt-0 px-4">
+                       {expenseCategoryData.slice(0, 5).map((entry, index) => (
+                         <div key={entry.name} className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[entry.name] || COLORS[index % COLORS.length] }}></div>
+                               <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-400 truncate max-w-[120px]">{entry.name}</span>
+                            </div>
+                            <span className="text-[10px] font-black text-slate-900 dark:text-white">{((entry.value / (totalCosts || 1)) * 100).toFixed(1)}%</span>
+                         </div>
+                       ))}
+                       {expenseCategoryData.length === 0 && (
+                         <div className="text-center py-10 opacity-20">
+                            <p className="text-[9px] font-black uppercase tracking-widest">Aucune dépense sur la période</p>
+                         </div>
+                       )}
+                    </div>
+                  </div>
+                </div>
              </div>
           </div>
         )}
