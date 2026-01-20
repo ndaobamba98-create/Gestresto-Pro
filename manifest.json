@@ -1,6 +1,7 @@
+
 {
-  "name": "Sama Pos + - MYA D'OR",
-  "short_name": "Sama Pos +",
+  "name": "TerraPOS+ - MYA D'OR",
+  "short_name": "TerraPOS+",
   "description": "Logiciel de caisse et gestion pour MYA D'OR FAST-FOOD",
   "start_url": "./index.html",
   "display": "standalone",

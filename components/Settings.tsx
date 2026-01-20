@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme, User } from '../types';
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key, Users, Camera, Trash
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key, Users, Camera, Trash, AlertTriangle, UserPlus
 } from 'lucide-react';
 
 interface Props {
@@ -125,20 +125,17 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     const initials = userForm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
 
     if (isEditingMode && userForm.id) {
-      // Update existing user
       const updatedUsers = allUsers.map(u => u.id === userForm.id ? { 
         ...u, 
         name: userForm.name!, 
         role: userForm.role as UserRole, 
         color: userForm.color!,
         initials,
-        // Update password only if provided
         ...(userForm.password ? { password: userForm.password } : {})
       } : u);
       onUpdateUsers(updatedUsers);
       notify("Utilisateurs", `Compte de ${userForm.name} mis à jour.`, "success");
     } else {
-      // Create new user
       if (!userForm.password) {
         notify("Erreur", "Un mot de passe est requis pour la création.", "warning");
         return;
@@ -164,9 +161,11 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
       notify("Action interdite", "Vous ne pouvez pas supprimer votre propre compte.", "warning");
       return;
     }
-    if (confirm(`Voulez-vous vraiment supprimer le compte de ${name} ?`)) {
+    
+    // Alerte de confirmation de suppression (standard Odoo-like)
+    if (confirm(`⚠️ ATTENTION : Voulez-vous vraiment supprimer DÉFINITIVEMENT le compte de "${name}" ? Cette action est irréversible et retirera tous les accès à cet utilisateur.`)) {
       onUpdateUsers(allUsers.filter(u => u.id !== id));
-      notify("Utilisateurs", "Compte supprimé.", "info");
+      notify("Utilisateurs", `Le compte de ${name} a été supprimé du système.`, "info");
     }
   };
 
@@ -300,7 +299,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('settings')}</h1>
-          <p className="text-sm text-slate-500 font-medium">Configuration globale Sama Pos +</p>
+          <p className="text-sm text-slate-500 font-medium mt-1">Configuration globale TerraPOS+</p>
         </div>
         <div className="flex space-x-2 bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto scrollbar-hide">
           {availableTabs.map((tab) => (
@@ -642,7 +641,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                          <button 
                            onClick={() => handleDeleteUser(user.id, user.name)}
                            className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                           title="Supprimer"
+                           title="Supprimer Définitivement"
                          >
                            <Trash2 size={18} />
                          </button>
@@ -826,15 +825,5 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     </div>
   );
 };
-
-// Internal Sub-component for Icon
-const UserPlus = ({ size, className }: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <line x1="19" y1="8" x2="19" y2="14" />
-    <line x1="22" y1="11" x2="16" y2="11" />
-  </svg>
-);
 
 export default Settings;

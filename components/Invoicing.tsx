@@ -21,9 +21,11 @@ export const AppLogoDoc = ({ className = "w-16 h-16", customLogo = undefined }) 
         justifyContent: 'center',
         border: '2px solid #1e293b'
       }}>
-        <svg viewBox="0 0 100 100" style={{ width: '70%', height: '70%' }} fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7614 60 55C60 52.2386 57.7157 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill="#a855f7"/>
-          <circle cx="20" cy="20" r="12" fill="#3b82f6" />
+        <svg viewBox="0 0 100 100" style={{ width: '80%', height: '80%' }} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="38" fontWeight="900" letterSpacing="-2">
+            TP+
+          </text>
+          <circle cx="20" cy="20" r="10" fill="#a855f7" opacity="0.8" />
         </svg>
       </div>
     )}

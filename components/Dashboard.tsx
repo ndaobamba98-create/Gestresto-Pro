@@ -21,7 +21,8 @@ import {
   ChevronRight,
   LayoutGrid,
   Target,
-  CheckCircle2
+  CheckCircle2,
+  Users
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
 
@@ -59,9 +60,19 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
       
       {/* ZONE 1 : LANCEUR D'APPLICATIONS */}
       <div className="space-y-6">
-        <div className="flex items-center space-x-3">
-           <div className="p-2 bg-accent/10 rounded-xl text-accent"><LayoutGrid size={20}/></div>
-           <h2 className="text-sm font-black uppercase tracking-widest">Workspace ERP</h2>
+        <div className="flex items-center justify-between">
+           <div className="flex items-center space-x-3">
+              <div className="p-2 bg-accent/10 rounded-xl text-accent"><LayoutGrid size={20}/></div>
+              <h2 className="text-sm font-black uppercase tracking-widest">Workspace ERP</h2>
+           </div>
+           {userRole === 'admin' && (
+             <button 
+               onClick={() => onNavigate('settings')}
+               className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center hover:bg-rose-100 transition-all border border-rose-100"
+             >
+               <Users size={14} className="mr-2" /> Gérer Staff & Accès
+             </button>
+           )}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
           {apps.map((app) => (

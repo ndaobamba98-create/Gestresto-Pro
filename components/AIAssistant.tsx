@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, Bot, Sparkles, User, Loader2 } from 'lucide-react';
 import { getBusinessInsights } from '../services/geminiService';
@@ -14,7 +15,7 @@ interface Message {
 
 const AIAssistant: React.FC<Props> = ({ onClose, context }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Bonjour ! Je suis votre assistant IA Sama Pos +. Je peux vous aider à analyser vos données, rédiger des courriels ou répondre à des questions spécifiques sur votre ERP. Comment puis-je vous aider aujourd'hui ?" }
+    { role: 'assistant', content: "Bonjour ! Je suis votre assistant IA TerraPOS+. Je peux vous aider à analyser vos données, rédiger des courriels ou répondre à des questions spécifiques sur votre ERP. Comment puis-je vous aider aujourd'hui ?" }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -52,7 +53,7 @@ const AIAssistant: React.FC<Props> = ({ onClose, context }) => {
         <div className="flex items-center">
           <div className="p-2 bg-white/10 rounded-lg mr-3"><Bot size={20} /></div>
           <div>
-            <h3 className="font-bold text-sm">Assistant Sama Pos +</h3>
+            <h3 className="font-bold text-sm">Assistant TerraPOS+</h3>
             <span className="text-[10px] text-indigo-200">Propulsé par Gemini AI</span>
           </div>
         </div>

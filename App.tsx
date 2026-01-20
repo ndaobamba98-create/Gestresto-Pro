@@ -61,9 +61,11 @@ export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = fal
         {customLogo ? (
           <img src={customLogo} alt="Logo" className="w-full h-full object-cover" />
         ) : (
-          <svg viewBox="0 0 100 100" className="w-8/12 h-8/12" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M30 35C30 26.7157 36.7157 20 45 20H70V35H45C42.2386 35 40 37.2386 40 40C40 42.7614 42.2386 45 45 45H55C63.2843 45 70 51.7157 70 60C70 68.2843 63.2843 75 55 75H30V60H55C57.7614 60 60 57.7157 60 55C60 52.2386 57.7157 50 55 50H45C36.7157 50 30 43.2843 30 35Z" fill={light ? "#0f172a" : "white"} />
-            <circle cx="20" cy="20" r="12" className="fill-accent" />
+          <svg viewBox="0 0 100 100" className="w-9/12 h-9/12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <text x="50%" y="55%" dominantBaseline="central" textAnchor="middle" fill={light ? "#0f172a" : "white"} fontSize="38" fontWeight="900" letterSpacing="-2">
+              TP+
+            </text>
+            <circle cx="20" cy="20" r="10" className="fill-accent opacity-80" />
           </svg>
         )}
       </div>
@@ -72,7 +74,7 @@ export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = fal
       <div className="flex flex-col">
         <div className="flex items-center">
           <span className={`${light ? 'text-slate-900' : 'text-white'} font-black text-xl leading-none uppercase tracking-tighter`}>
-            Sama Pos
+            TerraPOS+
           </span>
           <div className="ml-2 flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -250,8 +252,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
-    if (darkMode) document.documentElement.classList.add('class');
-    else document.documentElement.classList.remove('class');
+    if (darkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
   }, [darkMode]);
 
   const t = useCallback((key: TranslationKey): string => {
@@ -436,7 +438,7 @@ const App: React.FC = () => {
     setAllUsers(updatedUsers);
     localStorage.setItem('allUsers', JSON.stringify(updatedUsers));
     
-    notifyUser("Compte Créé", `Bienvenue chez Sama Pos +, ${newUser.name}.`, "success");
+    notifyUser("Compte Créé", `Bienvenue chez TerraPOS+, ${newUser.name}.`, "success");
     setLoginStep('login');
     setSignupForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
   };
@@ -495,7 +497,7 @@ const App: React.FC = () => {
       <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-950 theme-${config.theme}`}>
         <div className="mb-10 text-center animate-fadeIn px-6">
           <AppLogo className="mx-auto mb-6 scale-[1.4]" iconOnly customLogo={config.companyLogo} />
-          <h1 className="text-4xl font-black text-white uppercase mt-8 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
+          <h1 className="text-4xl font-black text-white uppercase mt-8 tracking-tighter">TerraPOS+</h1>
           <div className="mt-4 text-accent font-mono text-xl font-black tracking-tighter opacity-80">
             {currentTime.toLocaleTimeString()}
           </div>
@@ -576,7 +578,7 @@ const App: React.FC = () => {
                
                <div className="text-center mb-8">
                   <h2 className="text-white font-black uppercase tracking-tight text-xl">Nouveau Collaborateur</h2>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Créez votre profil Sama Pos +</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Créez votre profil TerraPOS+</p>
                </div>
 
                <form onSubmit={handleSignupSubmit} className="space-y-6">
