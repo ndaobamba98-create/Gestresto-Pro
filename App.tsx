@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon, Target, CheckCircle2, UserPlus, ChevronRight, ChevronDown, UserCircle
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon, Target, CheckCircle2, UserPlus, ChevronRight, ChevronDown, UserCircle, UserCheck
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier, Customer, UserRole } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS, INITIAL_CUSTOMERS } from './constants';
@@ -117,10 +117,8 @@ const App: React.FC = () => {
   
   // Login State
   const [isLocked, setIsLocked] = useState(true);
-  const [loginStep, setLoginStep] = useState<'select' | 'password' | 'signup'>('select');
-  const [isUserListOpen, setIsUserListOpen] = useState(false);
-  const [loginSearch, setLoginSearch] = useState('');
-  const [selectedLoginUser, setSelectedLoginUser] = useState<User | null>(null);
+  const [loginStep, setLoginStep] = useState<'login' | 'signup'>('login');
+  const [identifierInput, setIdentifierInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState(false);
@@ -252,8 +250,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
-    if (darkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    if (darkMode) document.documentElement.classList.add('class');
+    else document.documentElement.classList.remove('class');
   }, [darkMode]);
 
   const t = useCallback((key: TranslationKey): string => {
@@ -402,16 +400,18 @@ const App: React.FC = () => {
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLoginUser) return;
+    const user = allUsers.find(u => 
+      u.name.toLowerCase() === identifierInput.trim().toLowerCase() && 
+      u.password === passwordInput
+    );
 
-    if (passwordInput === selectedLoginUser.password) {
-      setCurrentUser(selectedLoginUser);
+    if (user) {
+      setCurrentUser(user);
       setIsLocked(false);
+      setIdentifierInput('');
       setPasswordInput('');
-      setSelectedLoginUser(null);
-      setLoginStep('select');
       setLoginError(false);
-      notifyUser("Bienvenue", `Bonjour ${selectedLoginUser.name}, session ouverte.`, "success");
+      notifyUser("Bienvenue", `Bonjour ${user.name}, session ouverte.`, "success");
     } else {
       setLoginError(true);
       setTimeout(() => setLoginError(false), 500);
@@ -437,13 +437,9 @@ const App: React.FC = () => {
     localStorage.setItem('allUsers', JSON.stringify(updatedUsers));
     
     notifyUser("Compte Créé", `Bienvenue chez Sama Pos +, ${newUser.name}.`, "success");
-    setLoginStep('select');
+    setLoginStep('login');
     setSignupForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
   };
-
-  const filteredLoginUsers = useMemo(() => {
-    return allUsers.filter(u => u.name.toLowerCase().includes(loginSearch.toLowerCase()));
-  }, [allUsers, loginSearch]);
 
   const renderContent = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
@@ -499,111 +495,46 @@ const App: React.FC = () => {
       <div className={`h-screen w-full flex flex-col items-center justify-center bg-slate-950 theme-${config.theme}`}>
         <div className="mb-10 text-center animate-fadeIn px-6">
           <AppLogo className="mx-auto mb-6 scale-[1.4]" iconOnly customLogo={config.companyLogo} />
-          <h1 className="text-3xl font-black text-white uppercase mt-8 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
+          <h1 className="text-4xl font-black text-white uppercase mt-8 tracking-tighter">Sama Pos <span className="text-accent">+</span></h1>
           <div className="mt-4 text-accent font-mono text-xl font-black tracking-tighter opacity-80">
             {currentTime.toLocaleTimeString()}
           </div>
         </div>
 
         <div className="w-full max-w-md px-6 relative">
-          {loginStep === 'select' ? (
-            <div className="bg-slate-900/60 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/10 shadow-2xl animate-scaleIn">
+          {loginStep === 'login' ? (
+            <div className={`bg-slate-900/60 backdrop-blur-xl p-10 rounded-[3.5rem] border-2 border-white/10 shadow-2xl animate-scaleIn ${loginError ? 'animate-shake' : ''}`}>
               <div className="text-center mb-10">
-                <h2 className="text-xl font-black text-white uppercase tracking-tight">Connexion Session</h2>
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Identifiez-vous pour continuer</p>
+                <h2 className="text-2xl font-black text-white uppercase tracking-tight">Accès Session</h2>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Identifiez-vous pour gérer votre établissement</p>
               </div>
               
-              <div className="space-y-4">
-                <div className="space-y-2 relative">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Utilisateur</label>
-                  <button 
-                    onClick={() => setIsUserListOpen(!isUserListOpen)}
-                    className="w-full bg-black/40 border border-white/10 hover:border-accent/40 rounded-2xl p-5 flex items-center justify-between transition-all group"
-                  >
-                    <div className="flex items-center space-x-4">
-                       <UserCircle size={20} className="text-slate-500 group-hover:text-accent transition-colors" />
-                       <span className="text-white font-bold text-sm">Choisir un compte d'accès</span>
+              <form onSubmit={handleLoginSubmit} className="space-y-8">
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Identifiant Utilisateur</label>
+                    <div className="relative">
+                      <UserCircle className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600" size={20} />
+                      <input 
+                        autoFocus
+                        value={identifierInput}
+                        onChange={e => { setIdentifierInput(e.target.value); setLoginError(false); }}
+                        placeholder="Ex: Bamba Ndao"
+                        className={`w-full bg-black/40 border-2 ${loginError ? 'border-rose-500/50' : 'border-transparent focus:border-accent/50'} rounded-2xl py-4 pl-14 pr-6 text-white text-sm font-bold outline-none transition-all placeholder:text-slate-700`}
+                      />
                     </div>
-                    <ChevronDown size={20} className={`text-slate-500 transition-transform ${isUserListOpen ? 'rotate-180' : ''}`} />
-                  </button>
+                  </div>
 
-                  {isUserListOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-3 bg-slate-900 border border-white/10 rounded-[2rem] shadow-2xl z-50 overflow-hidden animate-slideUp">
-                       <div className="p-4 border-b border-white/5">
-                          <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                            <input 
-                              autoFocus
-                              value={loginSearch}
-                              onChange={e => setLoginSearch(e.target.value)}
-                              placeholder="Rechercher..."
-                              className="w-full pl-11 pr-4 py-3 bg-black/30 rounded-xl text-xs text-white outline-none border border-transparent focus:border-accent/30"
-                            />
-                          </div>
-                       </div>
-                       <div className="max-h-60 overflow-y-auto scrollbar-hide">
-                          {filteredLoginUsers.map(user => (
-                            <button 
-                              key={user.id} 
-                              onClick={() => { setSelectedLoginUser(user); setLoginStep('password'); setIsUserListOpen(false); }}
-                              className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors group"
-                            >
-                               <div className="flex items-center space-x-4">
-                                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white font-black text-xs shadow-lg`}>{user.initials}</div>
-                                  <div className="text-left">
-                                     <p className="text-white font-black text-xs uppercase">{user.name}</p>
-                                     <p className="text-[8px] font-black text-accent uppercase tracking-widest mt-0.5">{user.role}</p>
-                                  </div>
-                               </div>
-                               <ChevronRight size={16} className="text-slate-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                            </button>
-                          ))}
-                       </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-6 flex flex-col items-center">
-                   <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-4">Ou créer un nouveau profil</p>
-                   <button 
-                    onClick={() => setLoginStep('signup')}
-                    className="w-full py-4 border-2 border-dashed border-white/10 hover:border-accent/50 text-slate-500 hover:text-white rounded-2xl transition-all flex items-center justify-center space-x-3 group"
-                  >
-                    <UserPlus size={18} className="group-hover:scale-110 transition-transform" />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Nouveau collaborateur</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : loginStep === 'password' ? (
-            <div className={`bg-slate-900/90 backdrop-blur-2xl p-10 rounded-[3rem] border-2 border-white/10 w-full animate-scaleIn shadow-2xl ${loginError ? 'animate-shake' : ''}`}>
-               <button 
-                  onClick={() => { setLoginStep('select'); setPasswordInput(''); setLoginError(false); }} 
-                  className="mb-8 flex items-center text-slate-500 hover:text-white transition-colors text-[9px] font-black uppercase tracking-widest group"
-               >
-                 <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Retour au choix
-               </button>
-               
-               <div className="flex flex-col items-center mb-10">
-                 <div className={`w-24 h-24 rounded-3xl bg-gradient-to-br ${selectedLoginUser?.color} flex items-center justify-center text-white text-3xl font-black shadow-2xl mb-5 transform hover:scale-105 transition-transform`}>
-                   {selectedLoginUser?.initials}
-                 </div>
-                 <h2 className="text-white font-black uppercase tracking-tight text-xl">{selectedLoginUser?.name}</h2>
-                 <span className="mt-2 px-3 py-1 bg-accent/20 text-accent rounded-lg text-[8px] font-black uppercase tracking-widest">{selectedLoginUser?.role}</span>
-               </div>
-
-               <form onSubmit={handleLoginSubmit} className="space-y-8">
-                  <div className="space-y-3">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Saisie du Code d'accès</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Code d'accès secret</label>
                     <div className="relative">
                       <Key className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600" size={20} />
                       <input 
-                        autoFocus
                         type={showPassword ? "text" : "password"}
                         value={passwordInput}
                         onChange={e => { setPasswordInput(e.target.value); setLoginError(false); }}
                         placeholder="••••••••"
-                        className={`w-full bg-black/40 border-2 ${loginError ? 'border-rose-500/50' : 'border-transparent focus:border-accent/50'} rounded-2xl py-5 pl-14 pr-14 text-white text-lg font-black outline-none transition-all placeholder:text-slate-700 tracking-[0.3em]`}
+                        className={`w-full bg-black/40 border-2 ${loginError ? 'border-rose-500/50' : 'border-transparent focus:border-accent/50'} rounded-2xl py-4 pl-14 pr-14 text-white text-lg font-black outline-none transition-all placeholder:text-slate-700 tracking-[0.3em]`}
                       />
                       <button 
                         type="button" 
@@ -613,21 +544,34 @@ const App: React.FC = () => {
                         {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                       </button>
                     </div>
-                    {loginError && <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest text-center mt-2 animate-bounce">Mot de passe incorrect</p>}
+                    {loginError && <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest text-center mt-2 animate-pulse">Identifiants incorrects</p>}
                   </div>
-                  <button type="submit" className="w-full py-5 bg-accent text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center space-x-3">
-                    <span>Valider l'accès</span>
-                    <ArrowRight size={18} />
+                </div>
+
+                <button type="submit" className="w-full py-5 bg-accent text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center space-x-3">
+                  <span>Ouvrir la session</span>
+                  <ArrowRight size={18} />
+                </button>
+
+                <div className="pt-4 border-t border-white/5 flex flex-col items-center">
+                  <button 
+                    type="button"
+                    onClick={() => setLoginStep('signup')}
+                    className="text-[9px] font-black text-slate-500 hover:text-accent uppercase tracking-widest transition-colors flex items-center space-x-2"
+                  >
+                    <UserPlus size={14} />
+                    <span>Créer un nouveau collaborateur</span>
                   </button>
-               </form>
+                </div>
+              </form>
             </div>
           ) : (
-            <div className="bg-slate-900/90 backdrop-blur-2xl p-10 rounded-[3rem] border-2 border-white/10 w-full animate-scaleIn shadow-2xl">
+            <div className="bg-slate-900/90 backdrop-blur-2xl p-10 rounded-[3.5rem] border-2 border-white/10 w-full animate-scaleIn shadow-2xl">
                <button 
-                  onClick={() => setLoginStep('select')} 
+                  onClick={() => setLoginStep('login')} 
                   className="mb-8 flex items-center text-slate-500 hover:text-white transition-colors text-[9px] font-black uppercase tracking-widest group"
                >
-                 <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Retour
+                 <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" /> Retour à la connexion
                </button>
                
                <div className="text-center mb-8">
@@ -637,7 +581,7 @@ const App: React.FC = () => {
 
                <form onSubmit={handleSignupSubmit} className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nom Complet</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nom Complet (Identifiant)</label>
                     <input 
                       required 
                       autoFocus
@@ -688,7 +632,7 @@ const App: React.FC = () => {
                     </div>
                   </div>
 
-                  <button type="submit" className="w-full py-5 bg-accent text-white rounded-[1.5rem] font-black uppercase text-xs shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center space-x-3 mt-4">
+                  <button type="submit" className="w-full py-5 bg-accent text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center space-x-3 mt-4">
                     <span>Créer le compte</span>
                     <Check size={18} />
                   </button>
@@ -732,7 +676,7 @@ const App: React.FC = () => {
           ))}
         </nav>
         <div className="p-4 border-t border-slate-800">
-           <button onClick={() => { setIsLocked(true); setLoginStep('select'); setPasswordInput(''); setSelectedLoginUser(null); }} className="w-full flex items-center p-3.5 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm">
+           <button onClick={() => { setIsLocked(true); setLoginStep('login'); setPasswordInput(''); setIdentifierInput(''); }} className="w-full flex items-center p-3.5 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm">
              <LogOut size={22} />
              {isSidebarOpen && <span className="ml-4">{t('logout')}</span>}
            </button>
