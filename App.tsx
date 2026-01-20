@@ -514,14 +514,14 @@ const App: React.FC = () => {
               <form onSubmit={handleLoginSubmit} className="space-y-8">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Identifiant Utilisateur</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">IDENTIFIANT</label>
                     <div className="relative">
                       <UserCircle className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-600" size={20} />
                       <input 
                         autoFocus
                         value={identifierInput}
                         onChange={e => { setIdentifierInput(e.target.value); setLoginError(false); }}
-                        placeholder="Ex: Bamba Ndao"
+                        placeholder="IDENTIFIANT"
                         className={`w-full bg-black/40 border-2 ${loginError ? 'border-rose-500/50' : 'border-transparent focus:border-accent/50'} rounded-2xl py-4 pl-14 pr-6 text-white text-sm font-bold outline-none transition-all placeholder:text-slate-700`}
                       />
                     </div>
@@ -583,13 +583,13 @@ const App: React.FC = () => {
 
                <form onSubmit={handleSignupSubmit} className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nom Complet (Identifiant)</label>
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">IDENTIFIANT</label>
                     <input 
                       required 
                       autoFocus
                       value={signupForm.name}
                       onChange={e => setSignupForm({...signupForm, name: e.target.value})}
-                      placeholder="Ex: Ahmed Fall"
+                      placeholder="IDENTIFIANT"
                       className="w-full bg-black/40 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-6 text-white font-bold outline-none transition-all"
                     />
                   </div>
