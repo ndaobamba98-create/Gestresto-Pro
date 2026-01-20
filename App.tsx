@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon, Target, CheckCircle2, UserPlus, ChevronRight, ChevronDown, UserCircle, UserCheck
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon, Target, CheckCircle2, UserPlus, ChevronRight, ChevronDown, UserCircle, UserCheck, ArrowRightLeft
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier, Customer, UserRole } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS, INITIAL_CUSTOMERS } from './constants';
@@ -443,6 +443,14 @@ const App: React.FC = () => {
     setSignupForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
   };
 
+  const logoutAction = () => {
+    setIsLocked(true);
+    setLoginStep('login');
+    setPasswordInput('');
+    setIdentifierInput('');
+    notifyUser("Déconnexion", "Session fermée avec succès.", "info");
+  };
+
   const renderContent = () => {
     const commonProps = { notify: notifyUser, userPermissions, t };
     switch (activeView) {
@@ -677,10 +685,22 @@ const App: React.FC = () => {
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-800">
-           <button onClick={() => { setIsLocked(true); setLoginStep('login'); setPasswordInput(''); setIdentifierInput(''); }} className="w-full flex items-center p-3.5 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm">
+        <div className="p-4 border-t border-slate-800 space-y-1">
+           <button 
+             onClick={logoutAction} 
+             className="w-full flex items-center p-3.5 rounded-2xl text-slate-400 hover:bg-white/5 transition-all font-bold text-sm"
+             title={t('switch_user')}
+           >
+             <ArrowRightLeft size={22} />
+             {isSidebarOpen && <span className="ml-4 truncate">{t('switch_user')}</span>}
+           </button>
+           <button 
+             onClick={logoutAction} 
+             className="w-full flex items-center p-3.5 rounded-2xl text-rose-400 hover:bg-rose-500/10 transition-all font-bold text-sm"
+             title={t('logout')}
+           >
              <LogOut size={22} />
-             {isSidebarOpen && <span className="ml-4">{t('logout')}</span>}
+             {isSidebarOpen && <span className="ml-4 truncate">{t('logout')}</span>}
            </button>
         </div>
       </aside>
@@ -819,13 +839,19 @@ const App: React.FC = () => {
             </div>
 
             <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl hover:bg-slate-200 transition-all cursor-pointer">{darkMode ? <Sun size={22}/> : <Moon size={22}/>}</button>
-            <div className="flex items-center ml-2 pr-4 space-x-3 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-700">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white font-black shadow-lg text-sm`}>{currentUser.initials}</div>
-              <div className="flex flex-col">
+            <button 
+              onClick={logoutAction}
+              className="flex items-center ml-2 pr-4 space-x-3 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 border border-slate-200 dark:border-slate-700 hover:border-accent transition-all group"
+            >
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white font-black shadow-lg text-sm group-hover:scale-105 transition-transform`}>{currentUser.initials}</div>
+              <div className="flex flex-col text-left">
                 <span className="text-xs font-black text-slate-800 dark:text-white uppercase leading-none">{currentUser.name}</span>
-                <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest mt-1">{currentUser.role}</span>
+                <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest mt-1 flex items-center">
+                  {currentUser.role}
+                  <ArrowRightLeft size={10} className="ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </span>
               </div>
-            </div>
+            </button>
           </div>
         </header>
         <div className="flex-1 overflow-auto p-8">{renderContent()}</div>
