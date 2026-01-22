@@ -70,9 +70,22 @@ export type ViewType =
   | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'logout' | 'switch_account' 
   | 'manage_categories' | 'manage_security' | 'manage_inventory' | 'manage_invoicing'
   | 'manage_notifications' | 'manage_sales' | 'customers' | 'manage_customers' | 'manage_users'
-  | 'calendar' | 'crm' | 'projects' | 'manage_session_closing';
+  | 'calendar' | 'crm' | 'projects' | 'manage_session_closing'
+  | 'manage_email_config';
 
 export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate';
+
+export interface EmailNotificationSettings {
+  enabled: boolean;
+  recipientEmail: string;
+  onLowStock: boolean;
+  onSessionClosed: boolean;
+  onNewLargeSale: boolean;
+  onUserLogin: boolean;        // Nouveau
+  onSaleCancelled: boolean;    // Nouveau
+  onDailyExport: boolean;      // Nouveau
+  largeSaleThreshold: number;
+}
 
 export interface ERPConfig {
   companyName: string;
@@ -98,6 +111,7 @@ export interface ERPConfig {
   showEmailOnInvoice: boolean;
   showRegNumberOnInvoice: boolean;
   showQrCodeOnInvoice: boolean;
+  emailNotifications: EmailNotificationSettings;
 }
 
 export interface Lead {

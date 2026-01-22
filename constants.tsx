@@ -45,7 +45,7 @@ export const POS_LOCATIONS = {
 export const INITIAL_CONFIG: ERPConfig = {
   companyName: "FAST FOOD MYA D'OR",
   companySlogan: "Le goût qui vaut de l'or",
-  email: 'restaurantfastfoodmyador@gmail.com',
+  email: 'restaurationsfastfoodmyador@gmail.com',
   phone: '+222 43 85 27 44',
   address: "À côté de l'Hôpital Basra, Nouakchott",
   registrationNumber: 'RC-NKC-2025-B123',
@@ -75,6 +75,17 @@ export const INITIAL_CONFIG: ERPConfig = {
   showEmailOnInvoice: true,
   showRegNumberOnInvoice: true,
   showQrCodeOnInvoice: true,
+  emailNotifications: {
+    enabled: true,
+    recipientEmail: 'restaurationsfastfoodmyador@gmail.com',
+    onLowStock: true,
+    onSessionClosed: true,
+    onNewLargeSale: true,
+    onUserLogin: true,
+    onSaleCancelled: true,
+    onDailyExport: true,
+    largeSaleThreshold: 5000
+  }
 };
 
 export const INITIAL_SUPPLIERS: Supplier[] = [

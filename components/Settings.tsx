@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme, User } from '../types';
+// Fixed: Added 'Trophy' to the lucide-react imports to resolve the reference error on line 492.
 import { 
   Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key, Users, Camera, Trash, AlertTriangle, UserPlus
+  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key, Users, Camera, Trash, AlertTriangle, UserPlus, MailCheck, BellRing, Trophy
 } from 'lucide-react';
 
 interface Props {
@@ -40,7 +41,7 @@ const PROFILE_COLORS = [
 ];
 
 const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify, t, userPermissions, currentUser, allUsers, onUpdateUsers }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security' | 'account' | 'users'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security' | 'account' | 'users' | 'notifications'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
   
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -243,11 +244,17 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
       { id: 'general', label: 'Entreprise', icon: Building2, permission: 'settings' as ViewType },
       { id: 'billing', label: 'Facturation', icon: FileText, permission: 'invoicing' as ViewType },
       { id: 'categories', label: 'Menu POS', icon: Layers, permission: 'manage_categories' as ViewType },
+      { id: 'notifications', label: 'Emails', icon: BellRing, permission: 'manage_email_config' as ViewType },
       { id: 'security', label: 'Accès', icon: ShieldCheck, permission: 'manage_security' as ViewType },
       { id: 'users', label: 'Utilisateurs', icon: Users, permission: 'manage_users' as ViewType },
       { id: 'account', label: 'Mon Compte', icon: Lock, permission: 'dashboard' as ViewType },
     ];
-    return tabs.filter(tab => userPermissions.includes(tab.permission) || (tab.id === 'users' && currentUser.role === 'admin'));
+    // On permet l'onglet notifications si l'utilisateur peut gérer l'email config OU s'il est admin
+    return tabs.filter(tab => {
+        if (tab.id === 'account') return true;
+        if (currentUser.role === 'admin') return true;
+        return userPermissions.includes(tab.permission);
+    });
   }, [userPermissions, currentUser.role]);
 
   const availableViews: { id: ViewType, label: string }[] = [
@@ -261,6 +268,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     { id: 'inventory', label: t('inventory') },
     { id: 'manage_inventory', label: 'Modif. Produits' },
     { id: 'manage_categories', label: 'Modif. Menu/Catégories' },
+    { id: 'manage_email_config', label: 'Config. Notifications Email' },
     { id: 'customers', label: 'Comptes Clients (Consultation)' },
     { id: 'manage_customers', label: 'Gestion Clients (Ajout/Suppression)' },
     { id: 'expenses', label: t('expenses') },
@@ -270,7 +278,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     { id: 'attendances', label: t('attendances') },
     { id: 'settings', label: t('settings') },
     { id: 'manage_security', label: 'Gérer Accès/Rôles' },
-    { id: 'manage_notifications', label: "Gérer Notifications" },
+    { id: 'manage_notifications', label: "Gérer Notifications Système" },
     { id: 'manage_users', label: "Gérer Utilisateurs" },
   ];
 
@@ -326,7 +334,6 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
               <div className="space-y-8">
-                {/* SECTION LOGO */}
                 <div className="space-y-4">
                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center">
                     <ImageIcon size={14} className="mr-2" /> Logo de l'entreprise
@@ -420,6 +427,101 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
           </form>
         )}
 
+        {activeTab === 'notifications' && (
+          <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl"><MailCheck size={24} /></div>
+                <h2 className="text-xl font-black uppercase tracking-tight">Configuration des Emails</h2>
+              </div>
+              <button type="submit" className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"><Save size={16} className="mr-2" /> Appliquer</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+               <div className="space-y-8">
+                  <div className="bg-slate-900 text-white p-6 rounded-[2rem] border border-white/10 space-y-4">
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                           <BellRing size={20} className="text-purple-400" />
+                           <span className="text-xs font-black uppercase tracking-widest">Activer les alertes email</span>
+                        </div>
+                        <button 
+                           type="button"
+                           onClick={() => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, enabled: !formConfig.emailNotifications.enabled}})}
+                           className={`w-12 h-6 rounded-full relative transition-all ${formConfig.emailNotifications.enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                        >
+                           <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${formConfig.emailNotifications.enabled ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </button>
+                     </div>
+                     <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">Les événements sélectionnés seront envoyés instantanément à l'adresse ci-dessous.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('recipient_email')}</label>
+                    <div className="relative">
+                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                       <input 
+                         type="email"
+                         value={formConfig.emailNotifications.recipientEmail}
+                         onChange={e => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, recipientEmail: e.target.value}})}
+                         className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none"
+                         placeholder="manager@myador.mr"
+                       />
+                    </div>
+                  </div>
+               </div>
+
+               <div className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-2">Déclencheurs d'envoi</h3>
+                  <div className="space-y-3">
+                    <ConfigToggle 
+                      label={t('low_stock_alert')} 
+                      icon={AlertTriangle} 
+                      value={formConfig.emailNotifications.onLowStock} 
+                      onChange={v => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, onLowStock: v}})} 
+                    />
+                    <ConfigToggle 
+                      label={t('session_closure_alert')} 
+                      icon={Calculator} 
+                      value={formConfig.emailNotifications.onSessionClosed} 
+                      onChange={v => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, onSessionClosed: v}})} 
+                    />
+                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                       <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                             <div className={`p-2 rounded-lg ${formConfig.emailNotifications.onNewLargeSale ? 'bg-accent/10 text-accent' : 'bg-slate-200 text-slate-400'}`}>
+                                <Trophy size={16} />
+                             </div>
+                             <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-widest">{t('new_sale_alert')}</span>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, onNewLargeSale: !formConfig.emailNotifications.onNewLargeSale}})}
+                            className={`w-10 h-5 rounded-full relative transition-all ${formConfig.emailNotifications.onNewLargeSale ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-700'}`}
+                          >
+                             <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${formConfig.emailNotifications.onNewLargeSale ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                       </div>
+                       {formConfig.emailNotifications.onNewLargeSale && (
+                         <div className="pt-2 flex items-center space-x-3 animate-slideInDown">
+                            <span className="text-[8px] font-black uppercase text-slate-400">{t('threshold')} :</span>
+                            <input 
+                              type="number" 
+                              value={formConfig.emailNotifications.largeSaleThreshold}
+                              onChange={e => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, largeSaleThreshold: parseInt(e.target.value) || 0}})}
+                              className="w-24 px-3 py-1 bg-white dark:bg-slate-900 border rounded-lg font-black text-[10px] outline-none text-accent"
+                            />
+                            <span className="text-[8px] font-black uppercase text-slate-400">{formConfig.currency}</span>
+                         </div>
+                       )}
+                    </div>
+                  </div>
+               </div>
+            </div>
+          </form>
+        )}
+
+        {/* ... Autres onglets existants ... */}
         {activeTab === 'billing' && (
           <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
             <div className="flex items-center justify-between">
@@ -658,7 +760,6 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
                ))}
             </div>
 
-            {/* MODAL UTILISATEUR (CREATION/EDITION) */}
             {isUserModalOpen && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
                 <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">

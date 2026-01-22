@@ -65,13 +65,11 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
     userPermissions.includes('manage_session_closing') || userRole === 'admin'
   , [userPermissions, userRole]);
 
-  // Ventes de la session actuelle
   const sessionSales = useMemo(() => {
     if (!session) return [];
     return sales.filter(s => s.date >= session.openedAt);
   }, [sales, session]);
 
-  // Ventes espèces de la session actuelle pour le calcul en temps réel de l'écart
   const sessionCashSalesTotal = useMemo(() => {
     if (!session) return 0;
     return sessionSales
@@ -261,7 +259,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
                   const parsedValue = parseInt(rawValue);
                   setCounts(v => ({...v, [val]: isNaN(parsedValue) ? 0 : parsedValue}));
                 }} 
-                className="w-14 text-center bg-transparent font-black text-sm outline-none border-b-2 border-slate-200 dark:border-slate-700 focus:border-purple-500" 
+                className="w-14 text-center bg-transparent font-black text-sm outline-none border-b-2 border-slate-200 dark:border-slate-700 focus:border-accent" 
                 placeholder="0"
               />
               <button 
@@ -281,7 +279,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
         </div>
       ))}
       <div className="mt-4 p-4 bg-slate-900 text-white rounded-2xl flex justify-between items-center shadow-lg">
-        <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">Total Compté</span>
+        <span className="text-[10px] font-black uppercase tracking-widest text-accent opacity-80">Total Compté</span>
         <span className="text-xl font-black">{totalCounted.toLocaleString()} <span className="text-xs opacity-40">{config.currency}</span></span>
       </div>
     </div>
@@ -294,13 +292,13 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
            {sessionStep === 'cashier' ? (
              <div className="space-y-8 animate-fadeIn">
                 <div className="text-center">
-                   <div className="w-16 h-16 bg-purple-600/10 text-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-900/10"><User size={32}/></div>
+                   <div className="w-16 h-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-accent/10"><User size={32}/></div>
                    <h2 className="text-xl font-black uppercase tracking-tighter">Ouverture de Session</h2>
                    <p className="text-xs text-slate-500 font-medium">Sélectionnez votre profil</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   {APP_USERS.filter(u => u.role === 'admin' || u.role === 'cashier').map(user => (
-                    <button key={user.id} onClick={() => setSelectedCashierId(user.id)} className={`p-5 rounded-2xl border-2 transition-all flex flex-col items-center space-y-2 ${selectedCashierId === user.id ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/10' : 'border-slate-100 dark:border-slate-800 hover:border-purple-200'}`}>
+                    <button key={user.id} onClick={() => setSelectedCashierId(user.id)} className={`p-5 rounded-2xl border-2 transition-all flex flex-col items-center space-y-2 ${selectedCashierId === user.id ? 'border-accent bg-accent/5 dark:bg-accent/10' : 'border-slate-100 dark:border-slate-800 hover:border-accent/30'}`}>
                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white font-black shadow-md text-xs`}>{user.initials}</div>
                        <span className="text-[9px] font-black uppercase tracking-widest">{user.name}</span>
                     </button>
@@ -312,7 +310,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
              <div className="space-y-6 animate-fadeIn">
                 <div className="flex items-center justify-between">
                   <button onClick={() => setSessionStep('cashier')} className="text-slate-400 hover:text-slate-900 flex items-center text-[9px] font-black uppercase"><ChevronLeft size={14}/> Retour</button>
-                  <span className="text-[9px] font-black text-purple-600 uppercase tracking-widest">Initialisation Caisse</span>
+                  <span className="text-[9px] font-black text-accent uppercase tracking-widest">Initialisation Caisse</span>
                 </div>
                 <CashCounter />
                 <button 
@@ -335,16 +333,16 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
     return (
       <button 
         onClick={onClick ? onClick : () => setActiveLocation(loc)} 
-        className={`relative ${compact ? 'h-20 rounded-2xl' : 'h-32 rounded-[2rem]'} border-2 transition-all flex flex-col items-center justify-center space-y-2 group ${isOccupied ? 'bg-purple-600 border-purple-600 text-white shadow-xl shadow-purple-900/20' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-purple-300'}`}
+        className={`relative z-10 ${compact ? 'h-20 rounded-2xl' : 'h-32 rounded-[2rem]'} border-2 transition-all flex flex-col items-center justify-center space-y-2 group ${isOccupied ? 'bg-accent border-accent text-white shadow-xl shadow-accent/20' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 hover:border-accent/50 hover:bg-white dark:hover:bg-slate-800 shadow-sm'}`}
       >
         {Icon ? (
-          <Icon size={compact ? 16 : 20} className={isOccupied ? 'text-white' : 'text-slate-300 group-hover:text-purple-400'} />
+          <Icon size={compact ? 16 : 20} className={isOccupied ? 'text-white' : 'text-slate-300 group-hover:text-accent'} />
         ) : (
           <Utensils size={compact ? 14 : 18} className={isOccupied ? 'text-white/50' : 'text-slate-200'} />
         )}
         <span className={`font-black uppercase ${compact ? 'text-[8px]' : 'text-[10px]'} tracking-widest text-center px-2`}>{loc}</span>
         {isOccupied && (
-          <span className={`absolute -top-1.5 -right-1.5 ${compact ? 'w-5 h-5' : 'w-7 h-7'} bg-white text-purple-600 rounded-full flex items-center justify-center font-black text-[9px] shadow-lg border-2 border-purple-600 ${compact ? '' : 'animate-bounce'}`}>
+          <span className={`absolute -top-1.5 -right-1.5 ${compact ? 'w-5 h-5' : 'w-7 h-7'} bg-white text-accent rounded-full flex items-center justify-center font-black text-[9px] shadow-lg border-2 border-accent ${compact ? '' : 'animate-bounce'}`}>
             {itemCount}
           </span>
         )}
@@ -375,7 +373,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
                 onClick={() => setShowSalesHistory(true)} 
                 className="flex items-center space-x-2 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
              >
-                <History size={14} className="text-purple-600"/>
+                <History size={14} className="text-accent"/>
                 <span>Ventes Session</span>
              </button>
              {canCloseSession ? (
@@ -390,42 +388,51 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
        </div>
 
        {!activeLocation ? (
-         <div className="flex-1 bg-white dark:bg-slate-900 rounded-[3rem] p-10 border border-slate-200 dark:border-slate-800 shadow-inner overflow-y-auto scrollbar-hide space-y-12">
-            <div className="flex items-center justify-between">
+         <div className="flex-1 bg-slate-50 dark:bg-slate-950/40 rounded-[3rem] p-10 border border-slate-200 dark:border-slate-800 shadow-inner overflow-y-auto scrollbar-hide space-y-12 relative overflow-hidden">
+            {/* Quadrillage de fond technique pour le plan de salle */}
+            <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06] pointer-events-none" style={{ backgroundImage: 'radial-gradient(var(--accent-color) 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
+            <div className="absolute inset-0 opacity-[0.01] dark:opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(var(--accent-color) 1px, transparent 1px), linear-gradient(90deg, var(--accent-color) 1px, transparent 1px)', backgroundSize: '128px 128px' }}></div>
+
+            <div className="flex items-center justify-between relative z-10">
                <div className="flex items-center space-x-4">
-                  <LayoutGrid className="text-purple-600" />
-                  <h3 className="text-xl font-black uppercase tracking-tighter">Plan de Salle</h3>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+                    <LayoutGrid className="text-accent" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black uppercase tracking-tighter">Plan de Salle Interactif</h3>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Vue technique de l'établissement</p>
+                  </div>
                </div>
-               <button onClick={() => setActiveLocation('Comptoir')} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:bg-black transition-all">
-                  <ShoppingBag size={18} className="mr-3"/> Vente Comptoir Directe
+               <button onClick={() => setActiveLocation('Comptoir')} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:bg-black transition-all group">
+                  <ShoppingBag size={18} className="mr-3 group-hover:scale-110 transition-transform"/> Vente Comptoir Directe
                </button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-4 relative z-10">
                <div className="flex items-center space-x-2 px-2">
-                  <Utensils size={14} className="text-slate-400" />
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Espace Salles</h4>
+                  <Utensils size={14} className="text-accent" />
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Espace Salles & Tables</h4>
                </div>
                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                   {POS_LOCATIONS.tables.map(loc => <LocationBtn key={loc} loc={loc} />)}
                </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 relative z-10">
                <div className="flex items-center space-x-2 px-2">
-                  <Coffee size={14} className="text-slate-400" />
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Espace Tabourets</h4>
+                  <Coffee size={14} className="text-accent" />
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Espace Tabourets & Bar</h4>
                </div>
                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                   {POS_LOCATIONS.bar.map(loc => <LocationBtn key={loc} loc={loc} />)}
                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 relative z-10">
                <div className="space-y-4">
                   <div className="flex items-center space-x-2 px-2">
-                     <Package size={14} className="text-slate-400" />
-                     <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">À Emporter</h4>
+                     <Package size={14} className="text-accent" />
+                     <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Zones À Emporter</h4>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                      {POS_LOCATIONS.takeaway.map(loc => <LocationBtn key={loc} loc={loc} icon={Package} />)}
@@ -433,8 +440,8 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
                </div>
                <div className="space-y-4">
                   <div className="flex items-center space-x-2 px-2">
-                     <Truck size={14} className="text-slate-400" />
-                     <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Livraisons</h4>
+                     <Truck size={14} className="text-accent" />
+                     <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">Zones de Livraisons</h4>
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                      {POS_LOCATIONS.delivery.map(loc => <LocationBtn key={loc} loc={loc} icon={Truck} />)}
@@ -446,19 +453,19 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
          <div className="flex-1 grid grid-cols-12 gap-6 overflow-hidden animate-fadeIn">
             <div className="col-span-8 flex flex-col space-y-4 overflow-hidden">
                <div className="flex items-center space-x-3">
-                  <button onClick={() => { setActiveLocation(null); setSelectedCustomer(null); }} className="p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 hover:text-purple-600 transition-all flex items-center space-x-2">
+                  <button onClick={() => { setActiveLocation(null); setSelectedCustomer(null); }} className="p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 hover:text-accent transition-all flex items-center space-x-2">
                     <ChevronLeft size={18} />
                     <span className="text-[10px] font-black uppercase">Plan Salles</span>
                   </button>
                   <div className="flex-1 relative">
                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un plat..." className="w-full pl-12 pr-6 py-4 bg-white dark:bg-slate-900 rounded-2xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-purple-500 outline-none border border-slate-100 dark:border-slate-800" />
+                     <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un plat..." className="w-full pl-12 pr-6 py-4 bg-white dark:bg-slate-900 rounded-2xl text-xs font-bold shadow-sm focus:ring-2 focus:ring-accent outline-none border border-slate-100 dark:border-slate-800" />
                   </div>
                </div>
 
                <div className="flex space-x-2 overflow-x-auto scrollbar-hide pb-2">
                   {categories.map(cat => (
-                    <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-6 py-3 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all border ${activeCategory === cat ? 'bg-purple-600 border-purple-600 text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}>
+                    <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-6 py-3 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all border ${activeCategory === cat ? 'bg-accent border-accent text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}>
                        {cat}
                     </button>
                   ))}
@@ -466,14 +473,14 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
 
                <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 scrollbar-hide pb-10">
                   {filteredProducts.map(p => (
-                     <button key={p.id} onClick={() => addToCart(p)} className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm text-left flex flex-col justify-between hover:border-purple-500 hover:shadow-xl transition-all h-36 group active:scale-95">
+                     <button key={p.id} onClick={() => addToCart(p)} className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm text-left flex flex-col justify-between hover:border-accent hover:shadow-xl transition-all h-36 group active:scale-95">
                         <div className="space-y-1">
                            <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">{p.category}</span>
-                           <h4 className="text-[11px] font-black uppercase leading-tight text-slate-800 dark:text-slate-100 group-hover:text-purple-600">{p.name}</h4>
+                           <h4 className="text-[11px] font-black uppercase leading-tight text-slate-800 dark:text-slate-100 group-hover:text-accent">{p.name}</h4>
                         </div>
                         <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-50 dark:border-slate-800">
                            <span className="text-sm font-black text-slate-900 dark:text-white">{p.price.toLocaleString()} <span className="text-[9px] opacity-40">{config.currency}</span></span>
-                           <div className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-300 group-hover:bg-purple-50 group-hover:text-purple-600 transition-colors">
+                           <div className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-300 group-hover:bg-accent/5 group-hover:text-accent transition-colors">
                               <Plus size={14}/>
                            </div>
                         </div>
@@ -486,11 +493,11 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
                <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col flex-1 relative text-slate-900 dark:text-white">
                   <div className="p-6 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
                      <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-purple-600 text-white rounded-xl shadow-lg"><ShoppingBag size={18}/></div>
+                        <div className="p-2 bg-accent text-white rounded-xl shadow-lg"><ShoppingBag size={18}/></div>
                         <h3 className="text-xs font-black uppercase tracking-widest leading-none">{activeLocation}</h3>
                      </div>
                      <div className="flex items-center space-x-2">
-                        <button onClick={() => setShowTransferModal(true)} className="p-2 text-slate-300 hover:text-purple-600 transition-all" title="Transférer commande">
+                        <button onClick={() => setShowTransferModal(true)} className="p-2 text-slate-300 hover:text-accent transition-all" title="Transférer commande">
                            <ArrowRightLeft size={18}/>
                         </button>
                         <button onClick={() => setPendingCarts(prev => ({ ...prev, [activeLocation!]: [] }))} className="p-2 text-slate-300 hover:text-rose-500 transition-all">
@@ -523,7 +530,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
 
                   <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
                      {currentCart.map(item => (
-                        <div key={item.product.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-transparent hover:border-purple-100 transition-all">
+                        <div key={item.product.id} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-3 rounded-2xl border border-transparent hover:border-accent/10 transition-all">
                            <div className="flex flex-col flex-1 min-w-0 pr-3">
                               <span className="text-[11px] font-black uppercase truncate">{item.product.name}</span>
                               <span className="text-[9px] font-bold text-slate-400">{(item.product.price * item.qty).toLocaleString()} {config.currency}</span>
@@ -542,7 +549,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">À Encaisser</span>
                         <div className="text-right">
                            <span className="text-3xl font-black tracking-tighter">{total.toLocaleString()}</span>
-                           <span className="ml-2 text-xs font-bold text-purple-400 uppercase">{config.currency}</span>
+                           <span className="ml-2 text-xs font-bold text-accent uppercase">{config.currency}</span>
                         </div>
                      </div>
                      <div className="grid grid-cols-4 gap-2">
@@ -663,7 +670,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
              <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn flex flex-col max-h-[90vh]">
                 <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                    <div className="flex items-center space-x-4">
-                      <div className="p-3 bg-purple-600 text-white rounded-2xl shadow-lg"><MoveHorizontal size={24}/></div>
+                      <div className="p-3 bg-accent text-white rounded-2xl shadow-lg"><MoveHorizontal size={24}/></div>
                       <div>
                         <h3 className="text-lg font-black uppercase tracking-tighter text-slate-900 dark:text-white">Transférer la commande</h3>
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">De : {activeLocation} → Vers destination</p>
@@ -724,7 +731,7 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
              <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn flex flex-col">
                 <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-purple-600 text-white rounded-xl shadow-lg"><History size={18}/></div>
+                      <div className="p-2 bg-accent text-white rounded-xl shadow-lg"><History size={18}/></div>
                       <h3 className="text-sm font-black uppercase tracking-tighter text-slate-900 dark:text-white">Ventes de la Session</h3>
                    </div>
                    <button onClick={() => setShowSalesHistory(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-all text-slate-400"><X size={24}/></button>
@@ -732,9 +739,9 @@ const POS: React.FC<Props> = ({ products, customers, onUpdateCustomers, config, 
                 <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3 scrollbar-hide">
                    {sessionSales.length > 0 ? (
                       sessionSales.map(sale => (
-                        <div key={sale.id} className="p-4 bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-purple-300 transition-all">
+                        <div key={sale.id} className="p-4 bg-white dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-accent transition-all">
                            <div className="flex flex-col">
-                              <span className="text-[10px] font-black uppercase text-purple-600">#{sale.id.slice(-8)}</span>
+                              <span className="text-[10px] font-black uppercase text-accent">#{sale.id.slice(-8)}</span>
                               <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase mt-0.5">{sale.customer}</span>
                               <span className="text-[9px] font-bold text-slate-400 mt-0.5">{new Date(sale.date).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})} • {sale.paymentMethod}</span>
                            </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon, Target, CheckCircle2, UserPlus, ChevronRight, ChevronDown, UserCircle, UserCheck, ArrowRightLeft
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Menu, CheckCircle, Info, AlertCircle, Search, ArrowRight, User as UserIcon, Wallet, Bell, X, Check, Trash2, BellOff, AlertTriangle, Inbox, CheckCheck, History, BellRing, Circle, Volume2, Loader2, Play, Filter, Users, Eye, EyeOff, ArrowLeft, Key, Calendar as CalendarIcon, Target, CheckCircle2, UserPlus, ChevronRight, ChevronDown, UserCircle, UserCheck, ArrowRightLeft, Lock, Mail
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, RolePermission, User, CashSession, Expense, Purchase, Supplier, Customer, UserRole } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_EXPENSES, INITIAL_SUPPLIERS, INITIAL_CUSTOMERS } from './constants';
@@ -152,7 +152,7 @@ const App: React.FC = () => {
   const [sessionHistory, setSessionHistory] = useState<CashSession[]>(() => loadStored('sessionHistory', []));
   
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>(() => loadStored('rolePermissions', [
-    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'manage_users', 'calendar', 'crm', 'projects', 'manage_session_closing'] },
+    { role: 'admin', allowedViews: ['dashboard', 'pos', 'invoicing', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'settings', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'manage_users', 'calendar', 'crm', 'projects', 'manage_session_closing', 'manage_email_config'] },
     { role: 'cashier', allowedViews: ['pos', 'attendances', 'logout', 'customers', 'calendar'] },
     { role: 'manager', allowedViews: ['dashboard', 'pos', 'sales', 'inventory', 'expenses', 'reports', 'hr', 'manage_hr', 'attendances', 'logout', 'switch_account', 'manage_categories', 'manage_security', 'manage_inventory', 'manage_invoicing', 'manage_notifications', 'manage_sales', 'customers', 'manage_customers', 'calendar', 'crm', 'projects', 'manage_session_closing'] }
   ]));
@@ -161,18 +161,20 @@ const App: React.FC = () => {
     return rolePermissions.find(p => p.role === currentUser.role)?.allowedViews || [];
   }, [currentUser, rolePermissions]);
 
-  const unreadNotificationsCount = useMemo(() => 
-    notificationHistory.filter(n => !n.isRead).length
-  , [notificationHistory]);
-
-  const displayedNotifications = useMemo(() => {
-    if (notifFilter === 'unread') return notificationHistory.filter(n => !n.isRead);
-    return notificationHistory;
-  }, [notificationHistory, notifFilter]);
-
+  // VÉRIFICATION DES DROITS NOTIFICATIONS
   const canManageNotifications = useMemo(() => 
     userPermissions.includes('manage_notifications') || currentUser.role === 'admin'
   , [userPermissions, currentUser.role]);
+
+  const unreadNotificationsCount = useMemo(() => 
+    canManageNotifications ? notificationHistory.filter(n => !n.isRead).length : 0
+  , [notificationHistory, canManageNotifications]);
+
+  const displayedNotifications = useMemo(() => {
+    if (!canManageNotifications) return [];
+    if (notifFilter === 'unread') return notificationHistory.filter(n => !n.isRead);
+    return notificationHistory;
+  }, [notificationHistory, notifFilter, canManageNotifications]);
 
   // Persistance
   useEffect(() => { localStorage.setItem('notificationHistory', JSON.stringify(notificationHistory)); }, [notificationHistory]);
@@ -191,15 +193,46 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('sessionHistory', JSON.stringify(sessionHistory)); }, [sessionHistory]);
   useEffect(() => { localStorage.setItem('rolePermissions', JSON.stringify(rolePermissions)); }, [rolePermissions]);
 
+  const notifyUser = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
+    const id = Date.now().toString();
+    const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const newToast: Toast = { id, type, title, message, timestamp, isRead: false };
+    
+    setToasts(prev => [...prev, newToast]);
+    setNotificationHistory(prev => {
+      const updated = [newToast, ...prev].slice(0, 50);
+      return updated;
+    });
+
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 5000);
+  }, []);
+
+  /**
+   * Simulation d'envoi d'email basé sur les préférences de configuration
+   */
+  const simulateEmailSend = useCallback((subject: string, body: string, trigger: keyof ERPConfig['emailNotifications']) => {
+    const settings = config.emailNotifications;
+    // Si l'utilisateur a activé les emails et que le déclencheur est actif
+    if (settings.enabled && settings[trigger] && settings.recipientEmail) {
+        console.log(`[ERP MAIL AUTOMATIQUE] Destination: ${settings.recipientEmail}`);
+        console.log(`Sujet: ${subject}`);
+        console.log(`Contenu: ${body}`);
+        notifyUser("Email Automatique Envoyé", `Un rapport a été envoyé à ${settings.recipientEmail}`, "success");
+    }
+  }, [config.emailNotifications, notifyUser]);
+
+  // Fix: Corrected model name for TTS and added safety checks for response parts.
   const speakNotification = async (notification: Toast) => {
-    if (isSpeaking) return;
+    if (isSpeaking || !canManageNotifications) return;
     setIsSpeaking(notification.id);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Lis ce message de notification ERP de manière professionnelle et concise : ${notification.title}. ${notification.message}`;
       
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash-preview-tts",
         contents: prompt,
         config: {
           responseModalities: [Modality.AUDIO],
@@ -211,7 +244,7 @@ const App: React.FC = () => {
         },
       });
 
-      const base64Audio = response.candidates?.[0]?.content?.parts[0]?.inlineData?.data;
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         const audioBuffer = await decodeAudioData(decodeBase64(base64Audio), audioCtx, 24000, 1);
@@ -229,17 +262,23 @@ const App: React.FC = () => {
 
   const markNotificationAsRead = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!canManageNotifications) {
+      notifyUser("Accès Refusé", "Vous n'avez pas la permission de gérer les notifications.", "warning");
+      return;
+    }
     setNotificationHistory(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
   };
 
   const markAllNotificationsAsRead = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!canManageNotifications) return;
     setNotificationHistory(prev => prev.map(n => ({ ...n, isRead: true })));
     notifyUser("Notifications", "Tout a été marqué comme lu.", "info");
   };
 
   const deleteAllNotifications = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    if (!canManageNotifications) return;
     if (confirm("Vider l'historique complet ?")) {
       setNotificationHistory([]);
     }
@@ -259,22 +298,6 @@ const App: React.FC = () => {
   const t = useCallback((key: TranslationKey): string => {
     return (translations[config.language || 'fr'] as any)[key] || key;
   }, [config.language]);
-
-  const notifyUser = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
-    const id = Date.now().toString();
-    const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const newToast: Toast = { id, type, title, message, timestamp, isRead: false };
-    
-    setToasts(prev => [...prev, newToast]);
-    setNotificationHistory(prev => {
-      const updated = [newToast, ...prev].slice(0, 50);
-      return updated;
-    });
-
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
-  }, []);
 
   const handleRefundSale = useCallback((saleId: string) => {
     const saleToRefund = sales.find(s => s.id === saleId);
@@ -297,7 +320,16 @@ const App: React.FC = () => {
     ));
 
     notifyUser("Vente Annulée", `La commande #${saleId.slice(-6)} a été annulée.`, "warning");
-  }, [sales, notifyUser]);
+    
+    simulateEmailSend(
+        `ANNULATION DE VENTE : #${saleId.slice(-8)}`,
+        `Une vente a été annulée par ${currentUser.name} (${currentUser.role}).
+        Date de la vente : ${saleToRefund.date}
+        Client : ${saleToRefund.customer}
+        Montant remboursé/annulé : ${saleToRefund.total} ${config.currency}`,
+        'onSaleCancelled'
+    );
+  }, [sales, notifyUser, currentUser, simulateEmailSend, config.currency]);
 
   const handleAddSale = (newSaleData: Partial<SaleOrder>) => {
     const saleItems = newSaleData.items || [];
@@ -310,7 +342,9 @@ const App: React.FC = () => {
       if (item) {
         const newStock = Math.max(0, p.stock + (isRefund ? item.quantity : -item.quantity));
         if (!isRefund && newStock <= (p.lowStockThreshold || 10)) {
-          notifyUser("Alerte Stock", `${p.name} est presque épuisé !`, "warning");
+          const msg = `${p.name} est presque épuisé ! (Stock: ${newStock})`;
+          notifyUser("Alerte Stock", msg, "warning");
+          simulateEmailSend(`ALERTE STOCK : ${p.name}`, `Le stock de ${p.name} est descendu à ${newStock}. Veuillez prévoir un réapprovisionnement.`, 'onLowStock');
         }
         return { ...p, stock: newStock };
       }
@@ -323,17 +357,22 @@ const App: React.FC = () => {
       ));
     }
 
+    const saleTotal = newSaleData.total || 0;
+    if (saleTotal >= config.emailNotifications.largeSaleThreshold && !isRefund) {
+        simulateEmailSend(`VENTE IMPORTANTE : ${saleTotal} ${config.currency}`, `Une vente de ${saleTotal} ${config.currency} a été réalisée par ${currentUser.name} pour le client ${newSaleData.customer || 'Comptoir'}.`, 'onNewLargeSale');
+    }
+
     const sale: SaleOrder = {
       id: generatedReference,
       customer: newSaleData.customer || 'Client Comptoir',
       customerId: newSaleData.customerId,
       date: new Date().toISOString(),
-      total: newSaleData.total || 0,
+      total: saleTotal,
       status: newSaleData.status || 'confirmed',
       items: saleItems,
       paymentMethod: newSaleData.paymentMethod || 'Especes',
       payments: newSaleData.payments || [],
-      amountReceived: newSaleData.amountReceived || newSaleData.total || 0,
+      amountReceived: newSaleData.amountReceived || saleTotal || 0,
       change: newSaleData.change || 0,
       orderLocation: newSaleData.orderLocation || 'Comptoir',
       invoiceStatus: isRefund ? 'refunded' : 'paid',
@@ -398,7 +437,17 @@ const App: React.FC = () => {
       : `Caisse fermée. Écart de ${difference} ${config.currency} constaté.`;
     
     notifyUser("Session Clôturée", msg, statusType);
-  }, [currentSession, sales, config.currency, notifyUser]);
+    
+    simulateEmailSend(
+        `RAPPORT DE CLÔTURE CAISSE : ${currentSession.cashierName}`, 
+        `La session a été fermée. 
+        Fond attendu: ${actualExpectedBalance} ${config.currency}
+        Fond compté: ${closingBalance} ${config.currency}
+        Écart: ${difference} ${config.currency}`, 
+        'onSessionClosed'
+    );
+
+  }, [currentSession, sales, config.currency, notifyUser, simulateEmailSend]);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -414,6 +463,15 @@ const App: React.FC = () => {
       setPasswordInput('');
       setLoginError(false);
       notifyUser("Bienvenue", `Bonjour ${user.name}, session ouverte.`, "success");
+      
+      simulateEmailSend(
+          `ALERTE CONNEXION : ${user.name}`,
+          `Une nouvelle connexion au système TerraPOS+ a été détectée.
+          Utilisateur : ${user.name}
+          Rôle : ${user.role}
+          Heure : ${new Date().toLocaleString('fr-FR')}`,
+          'onUserLogin'
+      );
     } else {
       setLoginError(true);
       setTimeout(() => setLoginError(false), 500);
@@ -452,7 +510,7 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    const commonProps = { notify: notifyUser, userPermissions, t };
+    const commonProps = { notify: notifyUser, userPermissions, t, simulateEmailSend };
     switch (activeView) {
       case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
       case 'crm': return <CRM config={config} notify={notifyUser} />;
@@ -495,7 +553,7 @@ const App: React.FC = () => {
         />
       );
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser.role} onAddSale={handleAddSale} {...commonProps} />;
-      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} sessions={sessionHistory} />;
+      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} sessions={sessionHistory} simulateEmailSend={simulateEmailSend} />;
       default: return null;
     }
   };
@@ -725,14 +783,16 @@ const App: React.FC = () => {
           <div className="flex items-center space-x-4">
             <div className="relative">
                <button 
+                 disabled={!canManageNotifications}
                  onClick={(e) => { e.stopPropagation(); setIsNotificationOpen(!isNotificationOpen); }}
-                 className={`p-3 rounded-2xl transition-all relative z-[120] ${unreadNotificationsCount > 0 ? 'bg-accent/10 text-accent' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}
+                 className={`p-3 rounded-2xl transition-all relative z-[120] ${!canManageNotifications ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-300' : (unreadNotificationsCount > 0 ? 'bg-accent/10 text-accent' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200')}`}
+                 title={!canManageNotifications ? "Accès restreint" : "Ouvrir les notifications"}
                >
-                 {unreadNotificationsCount > 0 ? <BellRing size={22} className="animate-bounce" /> : <Bell size={22} />}
-                 {unreadNotificationsCount > 0 && <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[9px] font-black w-5 h-5 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-lg">{unreadNotificationsCount}</span>}
+                 {!canManageNotifications ? <Lock size={22} /> : (unreadNotificationsCount > 0 ? <BellRing size={22} className="animate-bounce" /> : <Bell size={22} />)}
+                 {canManageNotifications && unreadNotificationsCount > 0 && <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[9px] font-black w-5 h-5 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-lg">{unreadNotificationsCount}</span>}
                </button>
 
-               {isNotificationOpen && (
+               {isNotificationOpen && canManageNotifications && (
                  <div className="absolute right-0 mt-3 w-[420px] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[130] flex flex-col overflow-hidden animate-slideUp">
                     <div className="p-6 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
                        <div className="flex items-center justify-between mb-4">

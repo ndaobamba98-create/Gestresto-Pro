@@ -33,7 +33,13 @@ export const translations = {
     payroll_report: "Rapport Paie",
     payslip: "Fiche de Paie",
     clock_in: "Pointer Entrée",
-    clock_out: "Pointer Départ"
+    clock_out: "Pointer Départ",
+    email_notifications: "Notifications Email",
+    recipient_email: "Email de Réception",
+    low_stock_alert: "Alerte Stock Faible",
+    session_closure_alert: "Rapport de Clôture",
+    new_sale_alert: "Nouvelle Vente (Importante)",
+    threshold: "Seuil"
   },
   en: {
     dashboard: "Dashboard",
@@ -68,7 +74,13 @@ export const translations = {
     payroll_report: "Payroll Report",
     payslip: "Payslip",
     clock_in: "Clock In",
-    clock_out: "Clock Out"
+    clock_out: "Clock Out",
+    email_notifications: "Email Notifications",
+    recipient_email: "Recipient Email",
+    low_stock_alert: "Low Stock Alert",
+    session_closure_alert: "Closure Report",
+    new_sale_alert: "New Large Sale Alert",
+    threshold: "Threshold"
   },
   ar: {
     dashboard: "لوحة التحكم",
@@ -103,7 +115,13 @@ export const translations = {
     payroll_report: "تقرير الرواتب",
     payslip: "قسيمة الراتب",
     clock_in: "تسجيل دخول",
-    clock_out: "تسجيل خروج"
+    clock_out: "تسجيل خروج",
+    email_notifications: "تنبيهات البريد الإلكتروني",
+    recipient_email: "البريد الإلكتروني للمستلم",
+    low_stock_alert: "تنبيه نقص المخزون",
+    session_closure_alert: "تقرير الإغلاق",
+    new_sale_alert: "تنبيه بيع كبير جديد",
+    threshold: "عتبة"
   }
 };
 
