@@ -6,22 +6,15 @@ import {
   DollarSign, 
   ShoppingCart, 
   Eye, 
-  X, 
   ArrowUpRight,
   Zap,
   Package,
   History,
-  TrendingDown,
-  Scale,
   Monitor,
   FileText,
-  Clock,
   IdCard,
-  Settings as SettingsIcon,
   ChevronRight,
   LayoutGrid,
-  Target,
-  CheckCircle2,
   Users
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
@@ -38,8 +31,6 @@ interface Props {
 }
 
 const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, products, t, onNavigate }) => {
-  const [selectedSale, setSelectedSale] = useState<SaleOrder | null>(null);
-  
   const totalRevenue = useMemo(() => sales.reduce((acc, curr) => curr.status === 'refunded' ? acc - curr.total : acc + curr.total, 0), [sales]);
   const totalExpenses = useMemo(() => expenses.reduce((acc, curr) => acc + curr.amount, 0), [expenses]);
   const netProfit = totalRevenue - totalExpenses;
@@ -48,33 +39,23 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
 
   const apps = [
     { id: 'pos', icon: Monitor, label: 'Caisse POS', color: 'bg-emerald-500', desc: 'Vente directe' },
-    { id: 'crm', icon: Target, label: 'CRM', color: 'bg-purple-600', desc: 'Opportunités' },
-    { id: 'projects', icon: CheckCircle2, label: 'Projets', color: 'bg-blue-600', desc: 'Suivi tâches' },
     { id: 'inventory', icon: Package, label: 'Stocks', color: 'bg-orange-500', desc: 'Menu & Logistique' },
     { id: 'invoicing', icon: FileText, label: 'Factures', color: 'bg-indigo-500', desc: 'Comptabilité' },
     { id: 'hr', icon: IdCard, label: 'RH', color: 'bg-slate-700', desc: 'Personnel' },
+    { id: 'customers', icon: Users, label: 'Clients', color: 'bg-purple-600', desc: 'Comptes' },
   ];
 
   return (
     <div className="h-full overflow-y-auto space-y-10 animate-fadeIn pb-20 pr-2 scrollbar-hide">
       
-      {/* ZONE 1 : LANCEUR D'APPLICATIONS */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
            <div className="flex items-center space-x-3">
               <div className="p-2 bg-accent/10 rounded-xl text-accent"><LayoutGrid size={20}/></div>
               <h2 className="text-sm font-black uppercase tracking-widest">Workspace ERP</h2>
            </div>
-           {userRole === 'admin' && (
-             <button 
-               onClick={() => onNavigate('settings')}
-               className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center hover:bg-rose-100 transition-all border border-rose-100"
-             >
-               <Users size={14} className="mr-2" /> Gérer Staff & Accès
-             </button>
-           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {apps.map((app) => (
             <button 
               key={app.id}
@@ -93,15 +74,8 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-           <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500"><TrendingUp size={20}/></div>
-           <h2 className="text-sm font-black uppercase tracking-widest">Performances</h2>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Revenu Brut" value={`${totalRevenue.toLocaleString()} ${config.currency}`} icon={DollarSign} color="bg-emerald-500" trend={`-${totalExpenses.toLocaleString()} frais`} />
+        <StatCard title="Revenu Brut" value={`${totalRevenue.toLocaleString()} ${config.currency}`} icon={DollarSign} color="bg-emerald-500" trend={`Flux brut`} />
         
         <div className="bg-slate-900 dark:bg-slate-800 p-8 rounded-[3rem] border-2 border-accent/30 shadow-2xl flex items-start justify-between transition-all hover:-translate-y-1 group">
           <div className="space-y-3">
@@ -119,11 +93,10 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
           </div>
         </div>
 
-        <StatCard title="Volume Ventes" value={`${sales.length}`} icon={ShoppingCart} color="bg-blue-500" trend="Transactions validées" />
+        <StatCard title="Volume Ventes" value={`${sales.length}`} icon={ShoppingCart} color="bg-blue-500" trend="Transactions" />
         <StatCard title="Ruptures" value={`${lowStockProducts.length}`} icon={Package} color="bg-orange-500" trend="Articles sous seuil" />
       </div>
 
-      {/* ZONE 3 : FLUX TEMPS RÉEL */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-[450px]">
           <div className="flex items-center justify-between mb-8">
@@ -147,7 +120,6 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
                     <p className={`text-sm font-black tracking-tighter ${sale.status === 'refunded' ? 'text-rose-500 line-through' : 'text-slate-900 dark:text-white'}`}>{sale.total.toLocaleString()} {config.currency}</p>
                     <span className={`text-[8px] px-2 py-0.5 rounded-lg font-black uppercase tracking-widest ${sale.status === 'refunded' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>{sale.status}</span>
                   </div>
-                  <button onClick={() => setSelectedSale(sale)} className="p-2 rounded-xl bg-white dark:bg-slate-700 opacity-0 group-hover:opacity-100 transition-all shadow-sm"><Eye size={16} className="text-slate-400 hover:text-accent"/></button>
                 </div>
               </div>
             ))}

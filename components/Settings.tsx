@@ -1,10 +1,10 @@
 
-import React, { useState, useMemo } from 'react';
-import { Product, ERPConfig, UserRole, ViewType, RolePermission, Language, AppTheme, User } from '../types';
-// Fixed: Added 'Trophy' to the lucide-react imports to resolve the reference error on line 492.
+import React, { useState } from 'react';
+import { Product, ERPConfig, UserRole, ViewType, RolePermission, User } from '../types';
 import { 
-  Save, Plus, Trash2, Edit3, Building2, Layers, ShieldCheck, Lock, ChevronUp, ChevronDown, Check, X, 
-  FileText, Percent, Hash, Info, Printer, QrCode, CreditCard, Layout, Languages, DollarSign, Type, Bell, Sun, Moon, Palette, Fingerprint, EyeOff, Eye, Sparkles, Image as ImageIcon, AlignLeft, Phone, Mail, MapPin, BadgeCheck, UtensilsCrossed, Search, ArrowUp, ArrowDown, Receipt, ListOrdered, Calculator, User as UserIcon, Shield, Key, Users, Camera, Trash, AlertTriangle, UserPlus, MailCheck, BellRing, Trophy
+  Save, Plus, Trash2, Building2, Layers, ShieldCheck, X, 
+  FileText, Hash, Info, Printer, DollarSign, BellRing, Users, UserPlus, 
+  Mail, Phone, MapPin, Percent, Tag, Bell, Check, QrCode, PackageCheck
 } from 'lucide-react';
 
 interface Props {
@@ -22,15 +22,6 @@ interface Props {
   onUpdateUsers: (users: User[]) => void;
 }
 
-const THEMES: { id: AppTheme, label: string, color: string }[] = [
-  { id: 'purple', label: 'Améthyste', color: 'bg-purple-600' },
-  { id: 'emerald', label: 'Émeraude', color: 'bg-emerald-600' },
-  { id: 'blue', label: 'Océan', color: 'bg-blue-600' },
-  { id: 'rose', label: 'Rubis', color: 'bg-rose-600' },
-  { id: 'amber', label: 'Ambre', color: 'bg-amber-500' },
-  { id: 'slate', label: 'Ardoise', color: 'bg-slate-600' },
-];
-
 const PROFILE_COLORS = [
   'from-slate-700 to-slate-900',
   'from-emerald-600 to-emerald-800',
@@ -40,19 +31,12 @@ const PROFILE_COLORS = [
   'from-amber-600 to-amber-800'
 ];
 
-const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, onUpdatePermissions, notify, t, userPermissions, currentUser, allUsers, onUpdateUsers }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'security' | 'account' | 'users' | 'notifications'>('general');
+const Settings: React.FC<Props> = ({ config, onUpdateConfig, notify, t, currentUser, allUsers, onUpdateUsers }) => {
+  const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'users' | 'notifications'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
+  const [newCategory, setNewCategory] = useState('');
   
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [editingCategoryIdx, setEditingCategoryIdx] = useState<number | null>(null);
-  const [editCategoryName, setEditCategoryName] = useState('');
-
-  const [localPermissions, setLocalPermissions] = useState<RolePermission[]>(rolePermissions);
-
-  // User Form State (Creation or Editing)
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [isEditingMode, setIsEditingMode] = useState(false);
   const [userForm, setUserForm] = useState<Partial<User>>({
     name: '',
     role: 'cashier',
@@ -60,869 +44,366 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, rolePermissions, on
     color: PROFILE_COLORS[1]
   });
 
-  // Password Change State (Own account)
-  const [passwordForm, setPasswordForm] = useState({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [showPass, setShowPass] = useState(false);
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setFormConfig({ ...formConfig, companyLogo: event.target?.result as string });
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleSaveConfig = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     onUpdateConfig(formConfig);
-    notify("Configuration", "Modifications enregistrées avec succès.", 'success');
+    notify("Succès", "Configuration mise à jour.", 'success');
   };
 
-  const handleUpdatePassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordForm.oldPassword !== currentUser.password) {
-      notify("Sécurité", "L'ancien mot de passe est incorrect.", "warning");
+  const handleAddCategory = () => {
+    if (!newCategory.trim()) return;
+    if (formConfig.categories.includes(newCategory.trim())) {
+      notify("Attention", "Cette catégorie existe déjà.", "warning");
       return;
     }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      notify("Sécurité", "Les nouveaux mots de passe ne correspondent pas.", "warning");
-      return;
-    }
-    if (passwordForm.newPassword.length < 4) {
-      notify("Sécurité", "Le mot de passe doit faire au moins 4 caractères.", "warning");
-      return;
-    }
-
-    const updatedUsers = allUsers.map(u => 
-      u.id === currentUser.id ? { ...u, password: passwordForm.newPassword } : u
-    );
-    onUpdateUsers(updatedUsers);
-    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
-    notify("Sécurité", "Votre mot de passe a été mis à jour avec succès.", "success");
+    const updatedCats = [...formConfig.categories, newCategory.trim()];
+    setFormConfig({ ...formConfig, categories: updatedCats });
+    setNewCategory('');
   };
 
-  const handleOpenCreateUser = () => {
-    setIsEditingMode(false);
-    setUserForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
-    setIsUserModalOpen(true);
-  };
-
-  const handleOpenEditUser = (user: User) => {
-    setIsEditingMode(true);
-    setUserForm({ ...user });
-    setIsUserModalOpen(true);
+  const handleRemoveCategory = (cat: string) => {
+    const updatedCats = formConfig.categories.filter(c => c !== cat);
+    setFormConfig({ ...formConfig, categories: updatedCats });
   };
 
   const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userForm.name) return;
+    if (!userForm.name || !userForm.password) return;
 
     const initials = userForm.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-
-    if (isEditingMode && userForm.id) {
-      const updatedUsers = allUsers.map(u => u.id === userForm.id ? { 
-        ...u, 
-        name: userForm.name!, 
-        role: userForm.role as UserRole, 
-        color: userForm.color!,
-        initials,
-        ...(userForm.password ? { password: userForm.password } : {})
-      } : u);
-      onUpdateUsers(updatedUsers);
-      notify("Utilisateurs", `Compte de ${userForm.name} mis à jour.`, "success");
-    } else {
-      if (!userForm.password) {
-        notify("Erreur", "Un mot de passe est requis pour la création.", "warning");
-        return;
-      }
-      const newUser: User = {
-        id: `U-${Date.now()}`,
-        name: userForm.name,
-        role: userForm.role as UserRole,
-        password: userForm.password,
-        color: userForm.color || PROFILE_COLORS[1],
-        initials
-      };
-      onUpdateUsers([...allUsers, newUser]);
-      notify("Utilisateurs", `Compte pour ${newUser.name} créé.`, "success");
-    }
-
+    const newUser: User = {
+      id: `U-${Date.now()}`,
+      name: userForm.name,
+      role: userForm.role as UserRole,
+      password: userForm.password,
+      color: userForm.color || PROFILE_COLORS[1],
+      initials
+    };
+    onUpdateUsers([...allUsers, newUser]);
     setIsUserModalOpen(false);
+    notify("Utilisateurs", `Compte ${newUser.name} créé.`, "success");
     setUserForm({ name: '', role: 'cashier', password: '', color: PROFILE_COLORS[1] });
   };
 
-  const handleDeleteUser = (id: string, name: string) => {
-    if (id === currentUser.id) {
-      notify("Action interdite", "Vous ne pouvez pas supprimer votre propre compte.", "warning");
+  const handleDeleteUser = (userId: string, userName: string) => {
+    if (userId === currentUser.id) {
+      notify("Action Interdite", "Vous ne pouvez pas supprimer votre propre compte administrateur.", "warning");
       return;
     }
-    
-    // Alerte de confirmation de suppression (standard Odoo-like)
-    if (confirm(`⚠️ ATTENTION : Voulez-vous vraiment supprimer DÉFINITIVEMENT le compte de "${name}" ? Cette action est irréversible et retirera tous les accès à cet utilisateur.`)) {
-      onUpdateUsers(allUsers.filter(u => u.id !== id));
-      notify("Utilisateurs", `Le compte de ${name} a été supprimé du système.`, "info");
+    if (confirm(`Êtes-vous sûr de vouloir supprimer définitivement l'accès de ${userName} ?`)) {
+      onUpdateUsers(allUsers.filter(u => u.id !== userId));
+      notify("Utilisateur Supprimé", `Le compte de ${userName} a été retiré.`, "info");
     }
   };
-
-  const handleAddCategory = () => {
-    const trimmed = newCategoryName.trim();
-    if (!trimmed) return;
-    if (formConfig.categories.includes(trimmed)) {
-      notify("Attention", "Cette catégorie existe déjà.", "warning");
-      return;
-    }
-    const updated = [...formConfig.categories, trimmed];
-    setFormConfig({ ...formConfig, categories: updated });
-    setNewCategoryName('');
-    notify("Menu", `Catégorie "${trimmed}" ajoutée.`, "success");
-  };
-
-  const handleDeleteCategory = (cat: string) => {
-    if (confirm(`Supprimer la catégorie "${cat}" ? Cela ne supprimera pas les produits associés.`)) {
-      const updated = formConfig.categories.filter(c => c !== cat);
-      setFormConfig({ ...formConfig, categories: updated });
-      notify("Menu", "Catégorie supprimée.", "info");
-    }
-  };
-
-  const startEditCategory = (index: number, currentName: string) => {
-    setEditingCategoryIdx(index);
-    setEditCategoryName(currentName);
-  };
-
-  const saveEditedCategory = () => {
-    if (!editCategoryName.trim() || editingCategoryIdx === null) return;
-    const updated = [...formConfig.categories];
-    updated[editingCategoryIdx] = editCategoryName.trim();
-    setFormConfig({ ...formConfig, categories: updated });
-    setEditingCategoryIdx(null);
-    notify("Menu", "Catégorie renommée.", "success");
-  };
-
-  const moveCategory = (index: number, direction: 'up' | 'down') => {
-    const newIdx = direction === 'up' ? index - 1 : index + 1;
-    if (newIdx < 0 || newIdx >= formConfig.categories.length) return;
-
-    const updated = [...formConfig.categories];
-    const temp = updated[index];
-    updated[index] = updated[newIdx];
-    updated[newIdx] = temp;
-
-    setFormConfig({ ...formConfig, categories: updated });
-  };
-
-  const handleTogglePermission = (role: UserRole, view: ViewType) => {
-    if (role === 'admin' && view === 'settings') return;
-    const updatedPermissions = localPermissions.map(rp => {
-      if (rp.role === role) {
-        const hasPermission = rp.allowedViews.includes(view);
-        return {
-          ...rp,
-          allowedViews: hasPermission 
-            ? rp.allowedViews.filter(v => v !== view)
-            : [...rp.allowedViews, view]
-        };
-      }
-      return rp;
-    });
-    setLocalPermissions(updatedPermissions);
-  };
-
-  const handleSavePermissions = () => {
-    onUpdatePermissions(localPermissions);
-    notify("Sécurité", "Droits d'accès mis à jour.", 'success');
-  };
-
-  const availableTabs = useMemo(() => {
-    const tabs = [
-      { id: 'general', label: 'Entreprise', icon: Building2, permission: 'settings' as ViewType },
-      { id: 'billing', label: 'Facturation', icon: FileText, permission: 'invoicing' as ViewType },
-      { id: 'categories', label: 'Menu POS', icon: Layers, permission: 'manage_categories' as ViewType },
-      { id: 'notifications', label: 'Emails', icon: BellRing, permission: 'manage_email_config' as ViewType },
-      { id: 'security', label: 'Accès', icon: ShieldCheck, permission: 'manage_security' as ViewType },
-      { id: 'users', label: 'Utilisateurs', icon: Users, permission: 'manage_users' as ViewType },
-      { id: 'account', label: 'Mon Compte', icon: Lock, permission: 'dashboard' as ViewType },
-    ];
-    // On permet l'onglet notifications si l'utilisateur peut gérer l'email config OU s'il est admin
-    return tabs.filter(tab => {
-        if (tab.id === 'account') return true;
-        if (currentUser.role === 'admin') return true;
-        return userPermissions.includes(tab.permission);
-    });
-  }, [userPermissions, currentUser.role]);
-
-  const availableViews: { id: ViewType, label: string }[] = [
-    { id: 'dashboard', label: t('dashboard') },
-    { id: 'pos', label: t('pos') },
-    { id: 'manage_session_closing', label: 'Clôture de Session Caisse (Encaissement Final)' },
-    { id: 'sales', label: t('sales') + " (Consultation)" },
-    { id: 'manage_sales', label: t('sales') + " (Exportation/Journal)" },
-    { id: 'invoicing', label: t('invoicing') },
-    { id: 'manage_invoicing', label: 'Création Factures' },
-    { id: 'inventory', label: t('inventory') },
-    { id: 'manage_inventory', label: 'Modif. Produits' },
-    { id: 'manage_categories', label: 'Modif. Menu/Catégories' },
-    { id: 'manage_email_config', label: 'Config. Notifications Email' },
-    { id: 'customers', label: 'Comptes Clients (Consultation)' },
-    { id: 'manage_customers', label: 'Gestion Clients (Ajout/Suppression)' },
-    { id: 'expenses', label: t('expenses') },
-    { id: 'reports', label: t('reports') },
-    { id: 'hr', label: t('hr') },
-    { id: 'manage_hr', label: 'Modif. RH' },
-    { id: 'attendances', label: t('attendances') },
-    { id: 'settings', label: t('settings') },
-    { id: 'manage_security', label: 'Gérer Accès/Rôles' },
-    { id: 'manage_notifications', label: "Gérer Notifications Système" },
-    { id: 'manage_users', label: "Gérer Utilisateurs" },
-  ];
-
-  const roles: UserRole[] = ['admin', 'manager', 'cashier'];
-
-  const ConfigToggle = ({ label, icon: Icon, value, onChange }: { label: string, icon: any, value: boolean, onChange: (v: boolean) => void }) => (
-    <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-accent/30 transition-all">
-      <div className="flex items-center space-x-3">
-        <div className={`p-2 rounded-lg ${value ? 'bg-accent/10 text-accent' : 'bg-slate-200 text-slate-400'}`}>
-          <Icon size={16} />
-        </div>
-        <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-widest">{label}</span>
-      </div>
-      <button 
-        type="button"
-        onClick={() => onChange(!value)}
-        className={`w-10 h-5 rounded-full relative transition-all ${value ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-700'}`}
-      >
-        <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : 'translate-x-0'}`} />
-      </button>
-    </div>
-  );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-20 pr-2">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-24 pr-2">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('settings')}</h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">Configuration globale TerraPOS+</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Configuration</h1>
+          <p className="text-sm text-slate-500 font-medium mt-1">Paramètres système TerraPOS+</p>
         </div>
-        <div className="flex space-x-2 bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto scrollbar-hide">
-          {availableTabs.map((tab) => (
-            <button 
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)} 
-              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center whitespace-nowrap ${activeTab === tab.id ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-            >
-              <tab.icon size={14} className="mr-2" />
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center space-x-3">
+          <div className="flex space-x-1 bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto scrollbar-hide">
+            {[
+              { id: 'general', label: 'Entreprise', icon: Building2 },
+              { id: 'billing', label: 'Facturation', icon: FileText },
+              { id: 'categories', label: 'Menu POS', icon: Layers },
+              { id: 'users', label: 'Personnel', icon: Users },
+              { id: 'notifications', label: 'Alertes', icon: BellRing },
+            ].map((tab) => (
+              <button 
+                key={tab.id} 
+                onClick={() => setActiveTab(tab.id as any)} 
+                className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center whitespace-nowrap ${activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              >
+                <tab.icon size={14} className="mr-2" /> {tab.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={handleSaveConfig} className="bg-emerald-600 text-white px-8 py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-xl flex items-center hover:bg-emerald-700 transition-all">
+            <Save size={18} className="mr-2"/> Sauvegarder
+          </button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden min-h-[600px] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[600px] overflow-hidden">
         
+        {/* TAB: GENERAL */}
         {activeTab === 'general' && (
-          <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-accent/10 text-accent rounded-2xl"><Building2 size={24} /></div>
-              <h2 className="text-xl font-black uppercase tracking-tight">Identité & Apparence</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-              <div className="space-y-8">
-                <div className="space-y-4">
-                   <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center">
-                    <ImageIcon size={14} className="mr-2" /> Logo de l'entreprise
-                  </label>
-                  <div className="flex items-center space-x-6 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
-                    <div className="relative group">
-                      <div className="w-24 h-24 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 overflow-hidden flex items-center justify-center shadow-lg transition-all group-hover:scale-105">
-                         {formConfig.companyLogo ? (
-                           <img src={formConfig.companyLogo} alt="Logo Preview" className="w-full h-full object-cover" />
-                         ) : (
-                           <ImageIcon size={32} className="text-slate-200" />
-                         )}
-                      </div>
-                      {formConfig.companyLogo && (
-                        <button 
-                          type="button"
-                          onClick={() => setFormConfig({...formConfig, companyLogo: undefined})}
-                          className="absolute -top-2 -right-2 bg-rose-600 text-white p-1.5 rounded-full shadow-lg hover:scale-110 transition-all opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash size={14} />
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex-1 space-y-2">
-                       <p className="text-[9px] font-bold text-slate-500 uppercase leading-relaxed">Téléchargez une image carrée ou rectangulaire. Elle sera utilisée sur vos factures et dans l'interface.</p>
-                       <label className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest cursor-pointer hover:bg-purple-700 transition-all shadow-md">
-                         <Camera size={14} className="mr-2" /> Choisir Image
-                         <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
-                       </label>
-                    </div>
-                  </div>
-                </div>
-
+          <div className="p-12 space-y-12 animate-fadeIn">
+            <section className="space-y-6">
+              <h3 className="text-xs font-black uppercase text-purple-600 tracking-[0.2em] flex items-center"><Building2 size={16} className="mr-2"/> Informations de l'établissement</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('language')}</label>
-                  <div className="relative">
-                    <Languages className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                    <select 
-                      value={formConfig.language} 
-                      onChange={e => setFormConfig({...formConfig, language: e.target.value as Language})}
-                      className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none appearance-none"
-                    >
-                      <option value="fr">Français (FR)</option>
-                      <option value="en">English (EN)</option>
-                      <option value="ar">العربية (AR)</option>
-                    </select>
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Nom Commercial</label>
+                  <input value={formConfig.companyName} onChange={e => setFormConfig({...formConfig, companyName: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Slogan / Signature</label>
+                  <input value={formConfig.companySlogan} onChange={e => setFormConfig({...formConfig, companySlogan: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Numéro d'Identification (NIF/RC)</label>
+                  <input value={formConfig.registrationNumber} onChange={e => setFormConfig({...formConfig, registrationNumber: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Devise Locale</label>
+                  <input value={formConfig.currency} onChange={e => setFormConfig({...formConfig, currency: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" />
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-6 pt-8 border-t dark:border-slate-800">
+              <h3 className="text-xs font-black uppercase text-purple-600 tracking-[0.2em] flex items-center"><MapPin size={16} className="mr-2"/> Coordonnées & Contact</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Adresse Physique</label>
+                  <input value={formConfig.address} onChange={e => setFormConfig({...formConfig, address: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Téléphone de contact</label>
+                  <div className="flex">
+                    <div className="p-4 bg-slate-200 dark:bg-slate-700 rounded-l-2xl flex items-center"><Phone size={16}/></div>
+                    <input value={formConfig.phone} onChange={e => setFormConfig({...formConfig, phone: e.target.value})} className="flex-1 px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-r-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" />
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center">
-                    <Palette size={14} className="mr-2" /> Thème Visuel du Système
-                  </label>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-                    {THEMES.map((theme) => (
-                      <button
-                        key={theme.id}
-                        type="button"
-                        onClick={() => setFormConfig({...formConfig, theme: theme.id})}
-                        className={`group relative flex flex-col items-center space-y-2 p-3 rounded-2xl border-2 transition-all ${formConfig.theme === theme.id ? 'border-accent bg-accent/5 dark:bg-accent/10' : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'}`}
-                      >
-                        <div className={`w-8 h-8 rounded-full ${theme.color} shadow-lg group-hover:scale-110 transition-transform flex items-center justify-center`}>
-                          {formConfig.theme === theme.id && <Check size={16} className="text-white" />}
-                        </div>
-                        <span className="text-[8px] font-black uppercase tracking-tighter text-slate-500">{theme.label}</span>
-                      </button>
-                    ))}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Email Professionnel</label>
+                  <div className="flex">
+                    <div className="p-4 bg-slate-200 dark:bg-slate-700 rounded-l-2xl flex items-center"><Mail size={16}/></div>
+                    <input value={formConfig.email} onChange={e => setFormConfig({...formConfig, email: e.target.value})} className="flex-1 px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-r-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" />
                   </div>
                 </div>
               </div>
-
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom de l'établissement</label>
-                  <input value={formConfig.companyName} onChange={e => setFormConfig({...formConfig, companyName: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none transition-all" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Immatriculation (NIF/RC)</label>
-                  <input value={formConfig.registrationNumber} onChange={e => setFormConfig({...formConfig, registrationNumber: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none transition-all" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Adresse Siège</label>
-                  <input value={formConfig.address} onChange={e => setFormConfig({...formConfig, address: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none transition-all" />
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-8 border-t flex justify-end">
-              <button type="submit" className="bg-accent text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"><Save size={18} className="mr-3" /> {t('save')}</button>
-            </div>
-          </form>
+            </section>
+          </div>
         )}
 
-        {activeTab === 'notifications' && (
-          <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl"><MailCheck size={24} /></div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Configuration des Emails</h2>
-              </div>
-              <button type="submit" className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"><Save size={16} className="mr-2" /> Appliquer</button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-               <div className="space-y-8">
-                  <div className="bg-slate-900 text-white p-6 rounded-[2rem] border border-white/10 space-y-4">
-                     <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                           <BellRing size={20} className="text-purple-400" />
-                           <span className="text-xs font-black uppercase tracking-widest">Activer les alertes email</span>
-                        </div>
-                        <button 
-                           type="button"
-                           onClick={() => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, enabled: !formConfig.emailNotifications.enabled}})}
-                           className={`w-12 h-6 rounded-full relative transition-all ${formConfig.emailNotifications.enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
-                        >
-                           <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${formConfig.emailNotifications.enabled ? 'translate-x-6' : 'translate-x-0'}`} />
-                        </button>
-                     </div>
-                     <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">Les événements sélectionnés seront envoyés instantanément à l'adresse ci-dessous.</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('recipient_email')}</label>
-                    <div className="relative">
-                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                       <input 
-                         type="email"
-                         value={formConfig.emailNotifications.recipientEmail}
-                         onChange={e => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, recipientEmail: e.target.value}})}
-                         className="w-full pl-12 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none"
-                         placeholder="manager@myador.mr"
-                       />
-                    </div>
-                  </div>
-               </div>
-
-               <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-2">Déclencheurs d'envoi</h3>
-                  <div className="space-y-3">
-                    <ConfigToggle 
-                      label={t('low_stock_alert')} 
-                      icon={AlertTriangle} 
-                      value={formConfig.emailNotifications.onLowStock} 
-                      onChange={v => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, onLowStock: v}})} 
-                    />
-                    <ConfigToggle 
-                      label={t('session_closure_alert')} 
-                      icon={Calculator} 
-                      value={formConfig.emailNotifications.onSessionClosed} 
-                      onChange={v => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, onSessionClosed: v}})} 
-                    />
-                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                       <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                             <div className={`p-2 rounded-lg ${formConfig.emailNotifications.onNewLargeSale ? 'bg-accent/10 text-accent' : 'bg-slate-200 text-slate-400'}`}>
-                                <Trophy size={16} />
-                             </div>
-                             <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-widest">{t('new_sale_alert')}</span>
-                          </div>
-                          <button 
-                            type="button"
-                            onClick={() => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, onNewLargeSale: !formConfig.emailNotifications.onNewLargeSale}})}
-                            className={`w-10 h-5 rounded-full relative transition-all ${formConfig.emailNotifications.onNewLargeSale ? 'bg-accent' : 'bg-slate-300 dark:bg-slate-700'}`}
-                          >
-                             <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${formConfig.emailNotifications.onNewLargeSale ? 'translate-x-5' : 'translate-x-0'}`} />
-                          </button>
-                       </div>
-                       {formConfig.emailNotifications.onNewLargeSale && (
-                         <div className="pt-2 flex items-center space-x-3 animate-slideInDown">
-                            <span className="text-[8px] font-black uppercase text-slate-400">{t('threshold')} :</span>
-                            <input 
-                              type="number" 
-                              value={formConfig.emailNotifications.largeSaleThreshold}
-                              onChange={e => setFormConfig({...formConfig, emailNotifications: {...formConfig.emailNotifications, largeSaleThreshold: parseInt(e.target.value) || 0}})}
-                              className="w-24 px-3 py-1 bg-white dark:bg-slate-900 border rounded-lg font-black text-[10px] outline-none text-accent"
-                            />
-                            <span className="text-[8px] font-black uppercase text-slate-400">{formConfig.currency}</span>
-                         </div>
-                       )}
-                    </div>
-                  </div>
-               </div>
-            </div>
-          </form>
-        )}
-
-        {/* ... Autres onglets existants ... */}
+        {/* TAB: BILLING */}
         {activeTab === 'billing' && (
-          <form onSubmit={handleSaveConfig} className="p-12 space-y-12 animate-fadeIn">
-            <div className="flex items-center justify-between">
-               <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl"><Receipt size={24} /></div>
-                  <h2 className="text-xl font-black uppercase tracking-tight">Facturation</h2>
-               </div>
-               <button type="submit" className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"><Save size={16} className="mr-2" /> Enregistrer</button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-               <div className="space-y-10">
-                  <div className="space-y-4">
-                    <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-2">Numérotation</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><ListOrdered size={12} className="mr-2" /> Préfixe</label>
-                        <input value={formConfig.invoicePrefix} onChange={e => setFormConfig({...formConfig, invoicePrefix: e.target.value})} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-xl font-black text-xs" placeholder="ex: FAC/2025/" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><Hash size={12} className="mr-2" /> Prochain Numéro</label>
-                        <input type="number" value={formConfig.nextInvoiceNumber} onChange={e => setFormConfig({...formConfig, nextInvoiceNumber: parseInt(e.target.value) || 1})} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-xl font-black text-xs" />
-                      </div>
-                    </div>
+          <div className="p-12 space-y-12 animate-fadeIn">
+            <section className="space-y-8">
+              <div className="flex items-center space-x-4 mb-4">
+                 <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl"><FileText size={24}/></div>
+                 <div>
+                    <h3 className="text-sm font-black uppercase">Paramètres de Facturation</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contrôle des séquences et taxes</p>
+                 </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Préfixe des Factures</label>
+                  <input value={formConfig.invoicePrefix} onChange={e => setFormConfig({...formConfig, invoicePrefix: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-indigo-500 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-indigo-500" placeholder="ex: FAC/2025/" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Prochain Numéro de Séquence</label>
+                  <input type="number" value={formConfig.nextInvoiceNumber} onChange={e => setFormConfig({...formConfig, nextInvoiceNumber: parseInt(e.target.value) || 1})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Taux de Taxe (TVA %)</label>
+                  <div className="flex">
+                    <input type="number" value={formConfig.taxRate} onChange={e => setFormConfig({...formConfig, taxRate: parseFloat(e.target.value) || 0})} className="flex-1 px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-l-2xl font-bold border-none outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <div className="p-4 bg-slate-200 dark:bg-slate-700 rounded-r-2xl flex items-center"><Percent size={16}/></div>
                   </div>
-
-                  <div className="space-y-4">
-                    <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-2">Fiscalité</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><Calculator size={12} className="mr-2" /> Taux TVA (%)</label>
-                        <input type="number" value={formConfig.taxRate} onChange={e => setFormConfig({...formConfig, taxRate: parseFloat(e.target.value) || 0})} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-xl font-black text-xs" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><DollarSign size={12} className="mr-2" /> Devise</label>
-                        <input value={formConfig.currency} onChange={e => setFormConfig({...formConfig, currency: e.target.value})} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-xl font-black text-xs" />
-                      </div>
-                    </div>
-                  </div>
-               </div>
-
-               <div className="space-y-4">
-                  <h3 className="text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b pb-2">Options Document</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <ConfigToggle label="Logo" icon={ImageIcon} value={formConfig.showLogoOnInvoice} onChange={v => setFormConfig({...formConfig, showLogoOnInvoice: v})} />
-                    <ConfigToggle label="QR Code" icon={QrCode} value={formConfig.showQrCodeOnInvoice} onChange={v => setFormConfig({...formConfig, showQrCodeOnInvoice: v})} />
-                    <ConfigToggle label="Slogan" icon={AlignLeft} value={formConfig.showSloganOnInvoice} onChange={v => setFormConfig({...formConfig, showSloganOnInvoice: v})} />
-                    <ConfigToggle label="Adresse" icon={MapPin} value={formConfig.showAddressOnInvoice} onChange={v => setFormConfig({...formConfig, showAddressOnInvoice: v})} />
-                    <ConfigToggle label="Téléphone" icon={Phone} value={formConfig.showPhoneOnInvoice} onChange={v => setFormConfig({...formConfig, showPhoneOnInvoice: v})} />
-                    <ConfigToggle label="Email" icon={Mail} value={formConfig.showEmailOnInvoice} onChange={v => setFormConfig({...formConfig, showEmailOnInvoice: v})} />
-                    <ConfigToggle label="NIF/RC" icon={BadgeCheck} value={formConfig.showRegNumberOnInvoice} onChange={v => setFormConfig({...formConfig, showRegNumberOnInvoice: v})} />
-                    <ConfigToggle label="Impression Auto" icon={Printer} value={formConfig.autoPrintReceipt} onChange={v => setFormConfig({...formConfig, autoPrintReceipt: v})} />
-                  </div>
-               </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-               <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><Sparkles size={12} className="mr-2" /> Slogan</label>
-                  <input value={formConfig.companySlogan} onChange={e => setFormConfig({...formConfig, companySlogan: e.target.value})} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-800 border-none rounded-2xl font-bold text-xs" />
-               </div>
-               <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center"><AlignLeft size={12} className="mr-2" /> Pied de page</label>
-                  <textarea value={formConfig.receiptFooter} onChange={e => setFormConfig({...formConfig, receiptFooter: e.target.value})} className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-none outline-none focus:ring-2 focus:ring-accent font-bold text-xs h-24" />
-               </div>
-            </div>
-          </form>
+                </div>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Options de Document</label>
+                   <div className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+                      {/* Fixed: QrCode is now correctly imported */}
+                      <button type="button" onClick={() => setFormConfig({...formConfig, showQrCodeOnInvoice: !formConfig.showQrCodeOnInvoice})} className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${formConfig.showQrCodeOnInvoice ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                        <QrCode size={14}/> <span>QR Code</span>
+                      </button>
+                      <button type="button" onClick={() => setFormConfig({...formConfig, autoPrintReceipt: !formConfig.autoPrintReceipt})} className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${formConfig.autoPrintReceipt ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                        <Printer size={14}/> <span>Auto-Print</span>
+                      </button>
+                   </div>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Texte Pied de Page (Ticket de Caisse)</label>
+                  <textarea value={formConfig.receiptFooter} onChange={e => setFormConfig({...formConfig, receiptFooter: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-indigo-500 h-24" placeholder="Merci de votre visite..." />
+                </div>
+              </div>
+            </section>
+          </div>
         )}
 
+        {/* TAB: CATEGORIES */}
         {activeTab === 'categories' && (
-          <div className="p-12 space-y-10 animate-fadeIn">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-               <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-accent/10 text-accent rounded-2xl"><Layers size={24} /></div>
-                  <div>
-                    <h2 className="text-xl font-black uppercase tracking-tight">Configuration du Menu</h2>
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mt-1">Gérez vos catégories de produits</p>
-                  </div>
+          <div className="p-12 space-y-8 animate-fadeIn">
+            <div className="flex items-center space-x-4 mb-6">
+               <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl"><Layers size={24}/></div>
+               <div>
+                  <h3 className="text-sm font-black uppercase">Catégories du Menu POS</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Organisez vos articles pour la caisse</p>
                </div>
-               <button onClick={() => handleSaveConfig()} className="bg-slate-900 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg flex items-center hover:bg-black transition-all">
-                 <Save size={16} className="mr-2" /> Appliquer
-               </button>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-               <div className="flex items-center space-x-4">
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] space-y-8 border-2 border-dashed border-slate-200 dark:border-slate-800">
+               <div className="flex items-center gap-3">
                   <div className="relative flex-1">
-                    <UtensilsCrossed className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input 
-                      value={newCategoryName} 
-                      onChange={e => setNewCategoryName(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddCategory()}
-                      placeholder="Nouvelle catégorie..." 
-                      className="w-full pl-12 pr-6 py-4 bg-white dark:bg-slate-900 border-2 border-transparent focus:border-accent rounded-2xl font-bold outline-none transition-all shadow-sm" 
-                    />
+                     <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                     <input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="Nom de la nouvelle catégorie..." className="w-full pl-12 pr-6 py-4 bg-white dark:bg-slate-900 border-2 border-transparent focus:border-orange-500 rounded-2xl font-bold outline-none shadow-sm" onKeyDown={e => e.key === 'Enter' && handleAddCategory()} />
                   </div>
-                  <button onClick={handleAddCategory} className="bg-accent text-white p-4 rounded-2xl shadow-lg hover:opacity-90 transition-all">
-                    <Plus size={24} />
+                  <button type="button" onClick={handleAddCategory} className="bg-slate-900 text-white p-4 rounded-2xl shadow-lg hover:bg-black transition-all">
+                    <Plus size={24}/>
                   </button>
                </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-               {formConfig.categories.map((cat, idx) => (
-                 <div key={idx} className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between group hover:border-accent/30 transition-all">
-                    {editingCategoryIdx === idx ? (
-                      <div className="flex items-center space-x-2 w-full">
-                        <input 
-                          autoFocus
-                          value={editCategoryName}
-                          onChange={e => setEditCategoryName(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && saveEditedCategory()}
-                          className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs outline-none border border-accent"
-                        />
-                        <button onClick={saveEditedCategory} className="p-2 text-emerald-500"><Check size={18}/></button>
-                        <button onClick={() => setEditingCategoryIdx(null)} className="p-2 text-rose-500"><X size={18}/></button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center space-x-3 min-w-0 flex-1">
-                           <div className="flex flex-col space-y-1">
-                              <button 
-                                onClick={() => moveCategory(idx, 'up')} 
-                                disabled={idx === 0}
-                                className={`p-1 rounded-md transition-all ${idx === 0 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-300 hover:text-accent hover:bg-accent/5'}`}
-                              >
-                                <ChevronUp size={14}/>
-                              </button>
-                              <button 
-                                onClick={() => moveCategory(idx, 'down')} 
-                                disabled={idx === formConfig.categories.length - 1}
-                                className={`p-1 rounded-md transition-all ${idx === formConfig.categories.length - 1 ? 'text-slate-100 dark:text-slate-800' : 'text-slate-300 hover:text-accent hover:bg-accent/5'}`}
-                              >
-                                <ChevronDown size={14}/>
-                              </button>
-                           </div>
-                           <div className="flex items-center space-x-2 min-w-0">
-                              <div className="w-8 h-8 rounded-xl bg-accent/10 text-accent flex items-center justify-center font-black text-[10px] shrink-0">{idx + 1}</div>
-                              <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-200 truncate">{cat}</span>
-                           </div>
-                        </div>
-                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                           <button onClick={() => startEditCategory(idx, cat)} className="p-2 text-slate-400 hover:text-blue-500 transition-all"><Edit3 size={16}/></button>
-                           <button onClick={() => handleDeleteCategory(cat)} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><Trash2 size={16}/></button>
-                        </div>
-                      </>
-                    )}
-                 </div>
-               ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'security' && (
-           <div className="p-12 space-y-12 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-2xl"><ShieldCheck size={24} /></div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Contrôle des Accès</h2>
-              </div>
-              <button onClick={handleSavePermissions} className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"><Save size={16} className="mr-2" /> Appliquer</button>
-            </div>
-            <div className="overflow-x-auto rounded-[2rem] border border-slate-100 dark:border-slate-800">
-              <table className="w-full text-left">
-                <thead className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
-                  <tr><th className="px-8 py-5">Fonctionnalité</th>{roles.map(role => <th key={role} className="px-8 py-5 text-center">{role}</th>)}</tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {availableViews.map(view => (
-                    <tr key={view.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                      <td className="px-8 py-5"><span className="text-xs font-black uppercase">{view.label}</span></td>
-                      {roles.map(role => {
-                        const isAllowed = localPermissions.find(p => p.role === role)?.allowedViews.includes(view.id);
-                        return (
-                          <td key={role} className="px-8 py-5 text-center">
-                            <button 
-                              onClick={() => handleTogglePermission(role, view.id)}
-                              className={`w-10 h-5 rounded-full relative transition-all ${isAllowed ? 'bg-accent' : 'bg-slate-200 dark:bg-slate-700'}`}
-                            >
-                              <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${isAllowed ? 'translate-x-5' : 'translate-x-0'}`} />
-                            </button>
-                          </td>
-                        );
-                      })}
-                    </tr>
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {formConfig.categories.map(cat => (
+                    <div key={cat} className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between group">
+                       <span className="font-black uppercase text-[10px] tracking-widest text-slate-700 dark:text-white">{cat}</span>
+                       <button type="button" onClick={() => handleRemoveCategory(cat)} className="p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
+                         <Trash2 size={16}/>
+                       </button>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+               </div>
+            </div>
+            <div className="p-6 bg-blue-50 dark:bg-blue-900/10 rounded-2xl flex items-center space-x-4">
+               <Info className="text-blue-500" size={20}/>
+               <p className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase leading-relaxed">Ces catégories s'afficheront sous forme d'onglets de filtrage dans votre interface de vente POS.</p>
             </div>
           </div>
         )}
 
-        {activeTab === 'users' && currentUser.role === 'admin' && (
-          <div className="p-12 space-y-12 animate-fadeIn flex flex-col h-full">
-            <div className="flex items-center justify-between">
+        {/* TAB: USERS */}
+        {activeTab === 'users' && (
+          <div className="p-12 space-y-8 animate-fadeIn">
+            <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
-                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl"><Users size={24} /></div>
-                <h2 className="text-xl font-black uppercase tracking-tight">Utilisateurs Système</h2>
+                 <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><Users size={24}/></div>
+                 <div>
+                    <h2 className="text-xl font-black uppercase">Gestion du Personnel</h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Identifiants et niveaux d'accès</p>
+                 </div>
               </div>
-              <button 
-                onClick={handleOpenCreateUser}
-                className="bg-accent text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center hover:opacity-90 transition-all"
-              >
-                <Plus size={16} className="mr-2" /> Créer Utilisateur
+              <button onClick={() => setIsUserModalOpen(true)} className="bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl hover:bg-black transition-all">
+                <UserPlus size={18} className="mr-2"/> Nouvel IDENTIFIANT
               </button>
             </div>
-
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-               {allUsers.map((user) => (
-                 <div key={user.id} className="bg-white dark:bg-slate-800 p-6 rounded-[2.5rem] border-2 border-slate-50 dark:border-slate-700 flex flex-col items-center text-center group hover:border-accent transition-all relative">
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-xl font-black shadow-lg mb-4`}>
-                      {user.initials}
-                    </div>
-                    <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.name}</h3>
-                    <p className="text-[10px] font-black text-accent uppercase tracking-widest mt-1">{user.role}</p>
-                    
-                    <div className="mt-6 w-full flex items-center justify-center space-x-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                       {user.id !== currentUser.id && (
-                         <button 
-                           onClick={() => handleDeleteUser(user.id, user.name)}
-                           className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                           title="Supprimer Définitivement"
-                         >
-                           <Trash2 size={18} />
-                         </button>
-                       )}
-                       <button 
-                         onClick={() => handleOpenEditUser(user)}
-                         className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-accent hover:text-white transition-all shadow-sm"
-                         title="Modifier"
-                       >
-                         <Edit3 size={18} />
-                       </button>
-                    </div>
-                 </div>
-               ))}
-            </div>
-
-            {isUserModalOpen && (
-              <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
-                <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
-                  <div className={`p-8 border-b dark:border-slate-800 ${isEditingMode ? 'bg-purple-600' : 'bg-accent'} text-white flex justify-between items-center transition-colors`}>
-                    <div className="flex items-center space-x-4">
-                      <div className="p-3 bg-white/20 rounded-2xl">
-                        {isEditingMode ? <Edit3 size={24}/> : <UserPlus size={24}/>}
-                      </div>
-                      <h3 className="text-xl font-black uppercase tracking-tighter">
-                        {isEditingMode ? 'Modifier Utilisateur' : 'Nouvel Utilisateur'}
-                      </h3>
-                    </div>
-                    <button onClick={() => setIsUserModalOpen(false)}><X size={28} className="text-white/70 hover:text-white transition-colors"/></button>
+              {allUsers.map(u => (
+                <div key={u.id} className="group relative bg-slate-50 dark:bg-slate-800 p-8 rounded-[2.5rem] border-2 border-transparent hover:border-purple-500/30 transition-all flex flex-col items-center text-center">
+                  {u.id !== currentUser.id && (
+                    <button 
+                      onClick={() => handleDeleteUser(u.id, u.name)}
+                      className="absolute top-4 right-4 p-2 bg-rose-500/10 text-rose-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500 hover:text-white"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                  <div className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${u.color} flex items-center justify-center text-white text-2xl font-black shadow-xl mb-4 group-hover:rotate-6 transition-transform`}>
+                    {u.initials}
                   </div>
-                  
-                  <form onSubmit={handleSaveUser} className="p-10 space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nom Complet</label>
-                      <input 
-                        required 
-                        autoFocus
-                        value={userForm.name}
-                        onChange={e => setUserForm({...userForm, name: e.target.value})}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-6 font-bold outline-none"
-                        placeholder="Ex: Moussa Diop"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Rôle</label>
-                        <select 
-                          value={userForm.role}
-                          onChange={e => setUserForm({...userForm, role: e.target.value as any})}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-4 font-bold outline-none text-[10px] uppercase tracking-widest appearance-none"
-                        >
-                          <option value="admin">Administrateur</option>
-                          <option value="manager">Gestionnaire</option>
-                          <option value="cashier">Caissier</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">
-                          {isEditingMode ? 'Mot de Passe (laisser vide pour ne pas changer)' : 'Mot de Passe'}
-                        </label>
-                        <input 
-                          type="password"
-                          required={!isEditingMode}
-                          value={userForm.password}
-                          onChange={e => setUserForm({...userForm, password: e.target.value})}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-accent rounded-2xl py-4 px-6 font-bold outline-none"
-                          placeholder="••••••••"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Couleur du profil</label>
-                      <div className="flex flex-wrap gap-3">
-                        {PROFILE_COLORS.map((c) => (
-                          <button 
-                            key={c}
-                            type="button"
-                            onClick={() => setUserForm({...userForm, color: c})}
-                            className={`w-10 h-10 rounded-xl bg-gradient-to-br ${c} border-4 transition-all ${userForm.color === c ? 'border-white dark:border-slate-400 scale-110 shadow-lg' : 'border-transparent opacity-50'}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="pt-4">
-                      <button type="submit" className={`w-full py-5 ${isEditingMode ? 'bg-purple-600' : 'bg-accent'} text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl active:scale-95 transition-all`}>
-                        {isEditingMode ? 'Enregistrer les modifications' : 'Finaliser la création'}
-                      </button>
-                    </div>
-                  </form>
+                  <span className="font-black uppercase text-sm text-slate-800 dark:text-white">{u.name}</span>
+                  <div className="mt-2">
+                    <span className="text-[9px] font-black bg-purple-100 dark:bg-purple-900/30 text-purple-600 px-3 py-1 rounded-lg uppercase tracking-widest">{u.role}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )}
 
-        {activeTab === 'account' && (
-           <div className="p-12 space-y-12 animate-fadeIn max-w-2xl mx-auto w-full">
-              <div className="text-center space-y-4">
-                 <div className={`w-24 h-24 rounded-3xl bg-gradient-to-br ${currentUser.color} flex items-center justify-center text-white text-3xl font-black shadow-2xl mx-auto`}>
-                    {currentUser.initials}
-                 </div>
-                 <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tight">{currentUser.name}</h2>
-                    <p className="text-accent font-black text-[10px] uppercase tracking-widest mt-1">{currentUser.role}</p>
-                 </div>
-              </div>
+        {/* TAB: NOTIFICATIONS */}
+        {activeTab === 'notifications' && (
+          <div className="p-12 space-y-12 animate-fadeIn">
+            <div className="flex items-center space-x-4 mb-6">
+               <div className="p-4 bg-rose-50 text-rose-600 rounded-2xl"><BellRing size={24}/></div>
+               <div>
+                  <h3 className="text-sm font-black uppercase">Centre d'Alertes Système</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Configuration des notifications automatiques</p>
+               </div>
+            </div>
 
-              <form onSubmit={handleUpdatePassword} className="bg-slate-50 dark:bg-slate-800/50 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-800 space-y-6 shadow-sm">
-                 <div className="flex items-center space-x-3 mb-4">
-                    <Shield size={20} className="text-accent" />
-                    <h3 className="text-sm font-black uppercase tracking-widest">Modifier le Mot de Passe</h3>
-                 </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-700 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-4">
+                     <div className="flex items-center space-x-3">
+                        {/* Fixed: PackageCheck is now correctly imported */}
+                        <PackageCheck className="text-rose-500" size={20}/>
+                        <h4 className="text-[11px] font-black uppercase">Alerte Stock Faible</h4>
+                     </div>
+                     <div className="w-12 h-6 bg-emerald-500 rounded-full relative p-1 cursor-pointer">
+                        <div className="w-4 h-4 bg-white rounded-full ml-auto shadow-sm"></div>
+                     </div>
+                  </div>
+                  <p className="text-[10px] font-medium text-slate-500 leading-relaxed mb-6">Génère une notification immédiate lorsqu'un article du menu descend sous son seuil de sécurité.</p>
+                  <div className="flex items-center justify-between pt-4 border-t dark:border-slate-700">
+                     <span className="text-[9px] font-black text-slate-400 uppercase">Seuil Global</span>
+                     <span className="text-xs font-black">10 unités</span>
+                  </div>
+               </div>
 
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Ancien Mot de Passe</label>
-                    <div className="relative">
-                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                       <input 
-                          type={showPass ? "text" : "password"}
-                          required
-                          value={passwordForm.oldPassword}
-                          onChange={e => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
-                          className="w-full bg-white dark:bg-slate-900 border-2 border-transparent focus:border-accent rounded-2xl py-4 pl-12 pr-12 font-bold outline-none transition-all"
-                       />
-                    </div>
-                 </div>
-
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Nouveau Mot de Passe</label>
-                    <div className="relative">
-                       <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                       <input 
-                          type={showPass ? "text" : "password"}
-                          required
-                          value={passwordForm.newPassword}
-                          onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                          className="w-full bg-white dark:bg-slate-900 border-2 border-transparent focus:border-accent rounded-2xl py-4 pl-12 pr-12 font-bold outline-none transition-all"
-                       />
-                       <button 
-                          type="button" 
-                          onClick={() => setShowPass(!showPass)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-accent"
-                       >
-                          {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                       </button>
-                    </div>
-                 </div>
-
-                 <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Confirmer le Nouveau Mot de Passe</label>
-                    <div className="relative">
-                       <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                       <input 
-                          type={showPass ? "text" : "password"}
-                          required
-                          value={passwordForm.confirmPassword}
-                          onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                          className="w-full bg-white dark:bg-slate-900 border-2 border-transparent focus:border-accent rounded-2xl py-4 pl-12 pr-12 font-bold outline-none transition-all"
-                       />
-                    </div>
-                 </div>
-
-                 <button type="submit" className="w-full py-4 bg-accent text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-xl shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center">
-                    <Save size={18} className="mr-3" /> Mettre à jour les accès
-                 </button>
-              </form>
-
-              <div className="bg-slate-900 text-white p-6 rounded-[2rem] border border-white/10 flex items-center space-x-4">
-                 <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl"><Info size={24}/></div>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase leading-relaxed">
-                   Conseil : Utilisez un code unique que vous ne partagez pas. La sécurité de la caisse dépend de la confidentialité de vos accès.
-                 </p>
-              </div>
-           </div>
+               <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-700 flex flex-col justify-between">
+                  <div className="flex items-center justify-between mb-4">
+                     <div className="flex items-center space-x-3">
+                        <Check className="text-emerald-500" size={20}/>
+                        <h4 className="text-[11px] font-black uppercase">Rapport de Fin de Session</h4>
+                     </div>
+                     <div className="w-12 h-6 bg-emerald-500 rounded-full relative p-1 cursor-pointer">
+                        <div className="w-4 h-4 bg-white rounded-full ml-auto shadow-sm"></div>
+                     </div>
+                  </div>
+                  <p className="text-[10px] font-medium text-slate-500 leading-relaxed mb-6">Envoie un bilan complet des ventes et des écarts de caisse à l'administrateur lors de chaque clôture.</p>
+                  <div className="flex items-center justify-between pt-4 border-t dark:border-slate-700">
+                     <span className="text-[9px] font-black text-slate-400 uppercase">Cible</span>
+                     <span className="text-xs font-black truncate max-w-[150px]">{formConfig.email}</span>
+                  </div>
+               </div>
+            </div>
+          </div>
         )}
       </div>
+
+      {/* User Modal (Maintain "IDENTIFIANT" request) */}
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden border border-white/10 animate-scaleIn">
+            <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+               <h3 className="text-lg font-black uppercase tracking-tighter">Nouvel Utilisateur</h3>
+               <button onClick={() => setIsUserModalOpen(false)}><X size={24}/></button>
+            </div>
+            <form onSubmit={handleSaveUser} className="p-10 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">IDENTIFIANT</label>
+                <input required value={userForm.name} onChange={e => setUserForm({...userForm, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500 transition-all uppercase" placeholder="Saisir IDENTIFIANT" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Mot de passe</label>
+                <input type="password" required value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-black tracking-[0.3em] border-none outline-none focus:ring-2 focus:ring-purple-500 transition-all" placeholder="••••" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Rôle / Accès</label>
+                <select value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value as any})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-black text-[10px] uppercase tracking-widest border-none outline-none appearance-none">
+                  <option value="admin">Administrateur</option>
+                  <option value="manager">Manager</option>
+                  <option value="cashier">Caissier</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Couleur</label>
+                 <div className="flex justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+                    {PROFILE_COLORS.map(color => (
+                      <button 
+                        key={color} 
+                        type="button" 
+                        onClick={() => setUserForm({...userForm, color})}
+                        className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} transition-all ${userForm.color === color ? 'scale-110 shadow-lg ring-2 ring-white ring-offset-2' : 'opacity-60 hover:opacity-100'}`}
+                      />
+                    ))}
+                 </div>
+              </div>
+              <button type="submit" className="w-full py-5 bg-purple-600 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-xl hover:bg-purple-700 transition-all">Créer le compte</button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
