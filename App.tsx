@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Monitor, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Search, ArrowRight, User as UserIcon, Users, ChevronLeft, ChevronRight, UserPlus, LogIn, Key, ShieldCheck, ChevronDown, ArrowRightLeft, Bell, X, Check, Trash2, BellOff, Info, AlertTriangle, CheckCircle, Maximize, Minimize, Calendar as CalendarIcon, Shield, UtensilsCrossed
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Search, ArrowRight, Users, ChevronLeft, ChevronRight, UserPlus, LogIn, Key, ShieldCheck, ChevronDown, ArrowRightLeft, Bell, X, Check, Trash2, BellOff, Info, AlertTriangle, CheckCircle, Maximize, Minimize, Calendar as CalendarIcon, Shield, UtensilsCrossed, ChefHat
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, User, CashSession, Expense, Customer, UserRole, AppNotification, RolePermission, POSLocations } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_CUSTOMERS, POS_LOCATIONS as INITIAL_LOCATIONS } from './constants';
@@ -16,6 +16,7 @@ import Settings from './components/Settings';
 import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Customers from './components/Customers';
+import Kitchen from './components/Kitchen';
 
 const loadStored = <T extends unknown>(key: string, initial: T): T => {
   const saved = localStorage.getItem(key);
@@ -24,10 +25,10 @@ const loadStored = <T extends unknown>(key: string, initial: T): T => {
 };
 
 const DEFAULT_PERMISSIONS: RolePermission[] = [
-  { role: 'admin', permissions: ['dashboard', 'pos', 'sales', 'inventory', 'invoicing', 'customers', 'reports', 'attendances', 'hr', 'settings', 'manage_inventory', 'manage_session_closing', 'manage_sales', 'manage_hr', 'manage_customers'] },
-  { role: 'manager', permissions: ['dashboard', 'pos', 'sales', 'inventory', 'customers', 'reports', 'attendances', 'manage_inventory'] },
-  { role: 'cashier', permissions: ['dashboard', 'pos', 'attendances'] },
-  { role: 'waiter', permissions: ['pos', 'attendances'] }
+  { role: 'admin', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'invoicing', 'customers', 'reports', 'attendances', 'hr', 'settings', 'manage_inventory', 'manage_session_closing', 'manage_sales', 'manage_hr', 'manage_customers'] },
+  { role: 'manager', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'customers', 'reports', 'attendances', 'manage_inventory'] },
+  { role: 'cashier', permissions: ['dashboard', 'pos', 'preparation', 'attendances'] },
+  { role: 'waiter', permissions: ['pos', 'preparation', 'attendances'] }
 ];
 
 const PROFILE_COLORS = [
@@ -99,27 +100,35 @@ const App: React.FC = () => {
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => loadStored('currentUser', null));
 
+  // Fix: Deriving unreadCount from notifications to resolve reference errors
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
+
   const userPermissions = useMemo(() => {
     if (!currentUser) return [];
     const rolePerms = rolePermissions.find(rp => rp.role === currentUser.role);
     return rolePerms ? rolePerms.permissions : [];
   }, [currentUser, rolePermissions]);
 
+  const t = useCallback((key: TranslationKey): string => {
+    return (translations[config.language || 'fr'] as any)[key] || key;
+  }, [config.language]);
+
   const sidebarItems = useMemo(() => {
     const allItems = [
-      { id: 'dashboard', icon: LayoutDashboard, label: 'Tableau de bord' },
-      { id: 'pos', icon: UtensilsCrossed, label: currentUser?.role === 'waiter' ? 'Prise de Commande' : 'Caisse POS' },
-      { id: 'sales', icon: ShoppingCart, label: 'Ventes' },
-      { id: 'inventory', icon: Package, label: 'Stocks' },
-      { id: 'invoicing', icon: FileText, label: 'Factures' },
-      { id: 'customers', icon: Users, label: 'Clients' },
-      { id: 'reports', icon: BarChart3, label: 'Analyses' },
-      { id: 'attendances', icon: ClockIcon, label: 'Pointages' },
-      { id: 'hr', icon: IdCard, label: 'RH' },
-      { id: 'settings', icon: SettingsIcon, label: 'Paramètres' },
+      { id: 'dashboard', icon: LayoutDashboard, label: t('dashboard') },
+      { id: 'pos', icon: UtensilsCrossed, label: currentUser?.role === 'waiter' ? 'Prise de Commande' : t('pos') },
+      { id: 'preparation', icon: ChefHat, label: 'Suivi Cuisine' },
+      { id: 'sales', icon: ShoppingCart, label: t('sales') },
+      { id: 'inventory', icon: Package, label: t('inventory') },
+      { id: 'invoicing', icon: FileText, label: t('invoicing') },
+      { id: 'customers', icon: Users, label: t('customer') + 's' },
+      { id: 'reports', icon: BarChart3, label: t('reports') },
+      { id: 'attendances', icon: ClockIcon, label: t('attendances') },
+      { id: 'hr', icon: IdCard, label: t('hr') },
+      { id: 'settings', icon: SettingsIcon, label: t('settings') },
     ];
     return allItems.filter(item => userPermissions.includes(item.id as ViewType));
-  }, [userPermissions, currentUser]);
+  }, [userPermissions, currentUser, t]);
 
   useEffect(() => {
     if (!isLocked && !userPermissions.includes(activeView)) {
@@ -130,12 +139,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
   const toggleFullscreen = () => {
@@ -161,55 +164,46 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('darkMode', JSON.stringify(darkMode)); }, [darkMode]);
   useEffect(() => { localStorage.setItem('notifications', JSON.stringify(notifications)); }, [notifications]);
 
-  const addNotification = (title: string, message: string, type: AppNotification['type'] = 'info') => {
-    const newNotif: AppNotification = { id: `notif-${Date.now()}`, title, message, timestamp: new Date().toISOString(), type, read: false };
-    setNotifications(prev => [newNotif, ...prev]);
-  };
-
-  const markNotificationAsRead = (id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  const deleteNotification = (id: string) => setNotifications(prev => prev.filter(n => n.id !== id));
-  const markAllAsRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-
-  const currentSession = useMemo(() => sessionHistory.find(s => s.status === 'open' && (currentUser?.role === 'admin' ? true : s.cashierId === currentUser?.id || currentUser?.role === 'waiter')), [sessionHistory, currentUser]);
-
   const notifyUser = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
-    if (currentUser?.role === 'admin' || currentUser?.role === 'manager') addNotification(title, message, type === 'warning' ? 'warning' : 'info');
-  }, [currentUser]);
+    const newNotif: AppNotification = { id: `notif-${Date.now()}`, title, message, timestamp: new Date().toISOString(), type: type === 'warning' ? 'warning' : 'info', read: false };
+    setNotifications(prev => [newNotif, ...prev]);
+  }, []);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const user = allUsers.find(u => u.id === selectedUserId && u.password === passwordInput);
-    if (user) {
-      setCurrentUser(user);
-      setIsLocked(false);
-      setSelectedUserId('');
-      setPasswordInput('');
-      if (user.role === 'waiter') setActiveView('pos');
+  const handleSaleComplete = (s: Partial<SaleOrder>) => {
+    // Si la vente est confirmée (encaissée), on lui donne un numéro séquentiel
+    if (s.status === 'confirmed' && !s.id?.startsWith(config.invoicePrefix)) {
+      const seqStr = String(config.nextInvoiceNumber).padStart(4, '0');
+      const newId = `${config.invoicePrefix}${seqStr}`;
+      
+      const completeSale = { ...s, id: newId } as SaleOrder;
+      setSales([completeSale, ...sales]);
+      
+      // Incrémentation du compteur global
+      setConfig({ ...config, nextInvoiceNumber: config.nextInvoiceNumber + 1 });
+      
+      if (currentUser?.role === 'admin' || currentUser?.role === 'cashier') {
+        notifyUser("Facture émise", `Commande ${newId} enregistrée.`, 'success');
+      }
     } else {
-      setLoginError(true);
-      setTimeout(() => setLoginError(false), 500);
+      // Pour les brouillons (draft), on garde l'ID temporaire ou on en crée un
+      const finalSale = { ...s, id: s.id || `TMP-${Date.now()}` } as SaleOrder;
+      const exists = sales.find(prev => prev.id === finalSale.id);
+      if (exists) {
+        setSales(sales.map(prev => prev.id === finalSale.id ? finalSale : prev));
+      } else {
+        setSales([finalSale, ...sales]);
+      }
     }
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signupName || !signupPassword) return;
-    const initials = signupName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-    const newUser: User = {
-      id: `U-${Date.now()}`,
-      name: signupName,
-      role: signupRole,
-      password: signupPassword,
-      color: PROFILE_COLORS[Math.floor(Math.random() * PROFILE_COLORS.length)],
-      initials
-    };
-    setAllUsers([...allUsers, newUser]);
-    setCurrentUser(newUser);
-    setIsLocked(false);
-    setSignupName('');
-    setSignupPassword('');
-    if (newUser.role === 'waiter') setActiveView('pos');
-    notifyUser("Compte créé", `Bienvenue ${newUser.name} !`, "success");
+  const handleRefundSale = (id: string) => {
+    setSales(prev => prev.map(s => s.id === id ? { ...s, status: 'refunded', invoiceStatus: 'refunded' } as SaleOrder : s));
+    notifyUser("Opération annulée", `La commande #${id.slice(-6)} a été annulée.`, "warning");
+  };
+
+  const handleDeleteDraft = (id: string) => {
+    setSales(prev => prev.filter(s => s.id !== id));
+    notifyUser("Brouillon supprimé", "La table a été libérée.", "info");
   };
 
   const logoutAction = () => {
@@ -219,16 +213,34 @@ const App: React.FC = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   };
 
-  const selectedUser = useMemo(() => allUsers.find(u => u.id === selectedUserId), [allUsers, selectedUserId]);
+  const currentSession = useMemo(() => sessionHistory.find(s => s.status === 'open' && (currentUser?.role === 'admin' ? true : s.cashierId === currentUser?.id || currentUser?.role === 'waiter')), [sessionHistory, currentUser]);
 
-  const t = useCallback((key: TranslationKey): string => {
-    return (translations[config.language || 'fr'] as any)[key] || key;
-  }, [config.language]);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const renderContent = () => {
+    const commonProps = { 
+      notify: notifyUser, 
+      userPermissions: userPermissions, 
+      t, 
+      currentUser: currentUser! 
+    };
+    
+    switch (activeView) {
+      case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser!.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
+      case 'pos': return <POS products={products} customers={customers} onUpdateCustomers={setCustomers} sales={sales} onSaleComplete={handleSaleComplete} onRefundSale={handleRefundSale} onDeleteDraft={handleDeleteDraft} config={config} session={currentSession || null} onOpenSession={(bal, cid) => setSessionHistory([{id:`S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, totalCashSales: 0, status: 'open', cashierName: currentUser!.name, cashierId: cid} as CashSession, ...sessionHistory])} onCloseSession={bal => setSessionHistory(sessionHistory.map(s => s.id === currentSession?.id ? {...s, status: 'closed', closingBalance: bal} as CashSession : s))} userRole={currentUser!.role} userPermissions={commonProps.userPermissions} onUpdateSales={setSales} posLocations={posLocations} onUpdateLocations={setPosLocations} {...commonProps} />;
+      case 'preparation': return <Kitchen sales={sales} onUpdateSales={setSales} config={config} notify={notifyUser} />;
+      case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser!.role} t={t} userPermissions={commonProps.userPermissions} />;
+      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={handleRefundSale} config={config} products={products} userRole={currentUser!.role} currentUser={currentUser!} onAddSale={handleSaleComplete} {...commonProps} />;
+      case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser!.role} onAddSale={() => {}} {...commonProps} />;
+      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} sessions={sessionHistory} />;
+      case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
+      case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser!} notify={notifyUser} />;
+      case 'customers': return <Customers customers={customers} onUpdate={setCustomers} config={config} userRole={currentUser!.role} t={t} userPermissions={commonProps.userPermissions} notify={notifyUser} />;
+      case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} posLocations={posLocations} onUpdateLocations={setPosLocations} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} currentUser={currentUser!} allUsers={allUsers} onUpdateUsers={setAllUsers} userPermissions={commonProps.userPermissions} t={t} notify={notifyUser} />;
+      default: return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser!.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
+    }
+  };
 
   if (isLocked) {
-    return (
+     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-950 overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full blur-[120px]"></div>
@@ -242,7 +254,20 @@ const App: React.FC = () => {
         <div className="w-full max-w-lg px-6 relative z-10">
           <div className={`bg-slate-900/40 backdrop-blur-3xl p-8 md:p-12 rounded-[3.5rem] border-2 border-white/5 shadow-2xl animate-scaleIn ${loginError ? 'animate-shake' : ''}`}>
             {authMode === 'login' ? (
-              <form onSubmit={handleLoginSubmit} className="space-y-8">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const user = allUsers.find(u => u.id === selectedUserId && u.password === passwordInput);
+                if (user) {
+                  setCurrentUser(user);
+                  setIsLocked(false);
+                  setSelectedUserId('');
+                  setPasswordInput('');
+                  if (user.role === 'waiter') setActiveView('pos');
+                } else {
+                  setLoginError(true);
+                  setTimeout(() => setLoginError(false), 500);
+                }
+              }} className="space-y-8">
                 <div className="text-center space-y-2 mb-4">
                   <h2 className="text-xl font-black text-white uppercase tracking-tight">Accès Session</h2>
                   <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Connectez-vous pour commencer</p>
@@ -251,10 +276,10 @@ const App: React.FC = () => {
                   <div className="space-y-2 relative">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2 flex items-center"><Users size={12} className="mr-2" /> IDENTIFIANT</label>
                     <button type="button" onClick={() => setIsUserListOpen(!isUserListOpen)} className="w-full bg-black/40 border-2 border-white/5 hover:border-purple-500 rounded-2xl py-4 px-6 text-white flex items-center justify-between transition-all group">
-                      {selectedUser ? (
+                      {selectedUserId ? (
                         <div className="flex items-center space-x-3">
-                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${selectedUser.color} flex items-center justify-center text-white font-black text-[10px]`}>{selectedUser.initials}</div>
-                          <span className="font-bold text-sm uppercase">{selectedUser.name}</span>
+                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${allUsers.find(u => u.id === selectedUserId)?.color} flex items-center justify-center text-white font-black text-[10px]`}>{allUsers.find(u => u.id === selectedUserId)?.initials}</div>
+                          <span className="font-bold text-sm uppercase">{allUsers.find(u => u.id === selectedUserId)?.name}</span>
                         </div>
                       ) : (
                         <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">SÉLECTIONNER IDENTIFIANT</span>
@@ -293,7 +318,26 @@ const App: React.FC = () => {
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleSignupSubmit} className="space-y-6">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!signupName || !signupPassword) return;
+                const initials = signupName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+                const newUser: User = {
+                  id: `U-${Date.now()}`,
+                  name: signupName,
+                  role: signupRole,
+                  password: signupPassword,
+                  color: PROFILE_COLORS[Math.floor(Math.random() * PROFILE_COLORS.length)],
+                  initials
+                };
+                setAllUsers([...allUsers, newUser]);
+                setCurrentUser(newUser);
+                setIsLocked(false);
+                setSignupName('');
+                setSignupPassword('');
+                if (newUser.role === 'waiter') setActiveView('pos');
+                notifyUser("Compte créé", `Bienvenue ${newUser.name} !`, "success");
+              }} className="space-y-6">
                 <div className="text-center space-y-2 mb-4">
                   <h2 className="text-xl font-black text-white uppercase tracking-tight">Inscription</h2>
                   <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Nouveau collaborateur</p>
@@ -332,29 +376,6 @@ const App: React.FC = () => {
       </div>
     );
   }
-
-  const renderContent = () => {
-    const commonProps = { 
-      notify: notifyUser, 
-      userPermissions: userPermissions, 
-      t, 
-      currentUser: currentUser! 
-    };
-    
-    switch (activeView) {
-      case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser!.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
-      case 'pos': return <POS products={products} customers={customers} onUpdateCustomers={setCustomers} sales={sales} onSaleComplete={s => { setSales([s as SaleOrder, ...sales]); if(currentUser?.role === 'admin' || (currentUser?.role === 'cashier' && (s as SaleOrder).status === 'confirmed')) addNotification("Opération Validée", `Commande de ${(s as SaleOrder).total} ${config.currency}`, 'success'); }} onRefundSale={() => {}} config={config} session={currentSession || null} onOpenSession={(bal, cid) => setSessionHistory([{id:`S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, totalCashSales: 0, status: 'open', cashierName: currentUser!.name, cashierId: cid} as CashSession, ...sessionHistory])} onCloseSession={bal => setSessionHistory(sessionHistory.map(s => s.id === currentSession?.id ? {...s, status: 'closed', closingBalance: bal} as CashSession : s))} userRole={currentUser!.role} userPermissions={commonProps.userPermissions} onUpdateSales={setSales} posLocations={posLocations} onUpdateLocations={setPosLocations} {...commonProps} />;
-      case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser!.role} t={t} userPermissions={commonProps.userPermissions} />;
-      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={() => {}} config={config} products={products} userRole={currentUser!.role} currentUser={currentUser!} onAddSale={s => setSales([s as SaleOrder, ...sales])} {...commonProps} />;
-      case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser!.role} onAddSale={() => {}} {...commonProps} />;
-      case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} sessions={sessionHistory} />;
-      case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
-      case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser!} notify={notifyUser} />;
-      case 'customers': return <Customers customers={customers} onUpdate={setCustomers} config={config} userRole={currentUser!.role} t={t} userPermissions={commonProps.userPermissions} notify={notifyUser} />;
-      case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} posLocations={posLocations} onUpdateLocations={setPosLocations} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} currentUser={currentUser!} allUsers={allUsers} onUpdateUsers={setAllUsers} userPermissions={commonProps.userPermissions} t={t} notify={notifyUser} />;
-      default: return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser!.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
-    }
-  };
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${config.theme} ${darkMode ? 'dark text-slate-100' : 'text-slate-900'}`}>
@@ -403,8 +424,8 @@ const App: React.FC = () => {
                </button>
                {isNotifOpen && (
                  <div className="absolute top-full right-0 mt-4 w-96 bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl border-2 border-slate-100 dark:border-slate-800 z-[100] animate-scaleIn origin-top-right overflow-hidden">
-                    <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50"><h3 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">Alertes & Notifications</h3><div className="flex items-center space-x-2"><button onClick={markAllAsRead} className="p-2 text-slate-400 hover:text-emerald-500 transition-all"><CheckCircle size={16} /></button><button onClick={() => setNotifications([])} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><Trash2 size={16} /></button></div></div>
-                    <div className="max-h-[450px] overflow-y-auto scrollbar-hide py-2">{notifications.length === 0 ? (<div className="py-20 text-center space-y-3"><BellOff size={40} className="mx-auto text-slate-300 dark:text-slate-700" /><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aucune notification</p></div>) : (notifications.map(notif => (<div key={notif.id} className={`p-6 border-b border-slate-50 dark:border-slate-800 flex items-start space-x-4 transition-all hover:bg-slate-50/50 dark:hover:bg-slate-800/30 group ${!notif.read ? 'bg-purple-50/20 dark:bg-purple-900/5' : ''}`}><div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${notif.type === 'warning' ? 'bg-rose-100 text-rose-500' : notif.type === 'success' ? 'bg-emerald-100 text-emerald-500' : 'bg-blue-100 text-blue-500'}`}>{notif.type === 'warning' ? <AlertTriangle size={18} /> : notif.type === 'success' ? <CheckCircle size={18} /> : <Info size={18} />}</div><div className="flex-1 min-w-0"><div className="flex justify-between items-start"><h4 className={`text-xs font-black uppercase tracking-tight truncate ${notif.read ? 'text-slate-500' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h4><span className="text-[8px] font-bold text-slate-400 uppercase whitespace-nowrap ml-2">{new Date(notif.timestamp).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span></div><p className={`text-[10px] font-medium leading-relaxed mt-1 ${notif.read ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>{notif.message}</p><div className="flex items-center space-x-4 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">{!notif.read && (<button onClick={() => markNotificationAsRead(notif.id)} className="text-[8px] font-black uppercase text-emerald-600 flex items-center"><Check size={12} className="mr-1"/> Marquer lu</button>)}<button onClick={() => deleteNotification(notif.id)} className="text-[8px] font-black uppercase text-rose-500 flex items-center"><X size={12} className="mr-1"/> Supprimer</button></div></div></div>)))}</div>
+                    <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50"><h3 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">Alertes & Notifications</h3><div className="flex items-center space-x-2"><button onClick={() => setNotifications([])} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><Trash2 size={16} /></button></div></div>
+                    <div className="max-h-[450px] overflow-y-auto scrollbar-hide py-2">{notifications.length === 0 ? (<div className="py-20 text-center space-y-3"><BellOff size={40} className="mx-auto text-slate-300 dark:text-slate-700" /><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aucune notification</p></div>) : (notifications.map(notif => (<div key={notif.id} className={`p-6 border-b border-slate-50 dark:border-slate-800 flex items-start space-x-4 transition-all hover:bg-slate-50/50 dark:hover:bg-slate-800/30 group ${!notif.read ? 'bg-purple-50/20 dark:bg-purple-900/5' : ''}`}><div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${notif.type === 'warning' ? 'bg-rose-100 text-rose-500' : notif.type === 'success' ? 'bg-emerald-100 text-emerald-500' : 'bg-blue-100 text-blue-500'}`}>{notif.type === 'warning' ? <AlertTriangle size={18} /> : notif.type === 'success' ? <CheckCircle size={18} /> : <Info size={18} />}</div><div className="flex-1 min-w-0"><div className="flex justify-between items-start"><h4 className={`text-xs font-black uppercase tracking-tight truncate ${notif.read ? 'text-slate-500' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h4><span className="text-[8px] font-bold text-slate-400 uppercase whitespace-nowrap ml-2">{new Date(notif.timestamp).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span></div><p className={`text-[10px] font-medium leading-relaxed mt-1 ${notif.read ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>{notif.message}</p><div className="flex items-center space-x-4 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">{!notif.read && (<button onClick={() => setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))} className="text-[8px] font-black uppercase text-emerald-600 flex items-center"><Check size={12} className="mr-1"/> Marquer lu</button>)}<button onClick={() => setNotifications(prev => prev.filter(n => n.id !== notif.id))} className="text-[8px] font-black uppercase text-rose-500 flex items-center"><X size={12} className="mr-1"/> Supprimer</button></div></div></div>)))}</div>
                  </div>
                )}
             </div>

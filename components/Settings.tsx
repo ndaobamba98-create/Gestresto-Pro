@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { Product, ERPConfig, UserRole, ViewType, RolePermission, User, POSLocations, POSLocationCategory } from '../types';
+import { Product, ERPConfig, UserRole, ViewType, RolePermission, User, POSLocations, POSLocationCategory, AppTheme } from '../types';
 import { 
   Save, Plus, Trash2, Building2, Layers, ShieldCheck, X, 
   FileText, Hash, Info, Printer, DollarSign, BellRing, Users, UserPlus, 
-  Mail, Phone, MapPin, Percent, Tag, Bell, Check, QrCode, PackageCheck, Shield, CheckSquare, Square, Edit3, Key, Utensils
+  Mail, Phone, MapPin, Percent, Tag, Bell, Check, QrCode, PackageCheck, Shield, CheckSquare, Square, Edit3, Key, Utensils, Globe,
+  ChevronDown, Palette
 } from 'lucide-react';
 
 interface Props {
@@ -33,6 +34,15 @@ const PROFILE_COLORS = [
   'from-amber-600 to-amber-800'
 ];
 
+const THEMES: { id: AppTheme; color: string; label: string }[] = [
+  { id: 'purple', color: 'bg-purple-600', label: 'Améthyste' },
+  { id: 'emerald', color: 'bg-emerald-600', label: 'Émeraude' },
+  { id: 'blue', color: 'bg-blue-600', label: 'Océan' },
+  { id: 'rose', color: 'bg-rose-600', label: 'Rubis' },
+  { id: 'amber', color: 'bg-amber-500', label: 'Ambre' },
+  { id: 'slate', color: 'bg-slate-600', label: 'Acier' },
+];
+
 const MODULES: { id: ViewType; label: string }[] = [
   { id: 'dashboard', label: 'Tableau de bord' },
   { id: 'pos', label: 'Caisse POS' },
@@ -53,7 +63,7 @@ const MODULES: { id: ViewType; label: string }[] = [
 
 const ROLES: UserRole[] = ['admin', 'manager', 'cashier', 'waiter'];
 
-const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpdateLocations, rolePermissions, onUpdatePermissions, notify, currentUser, allUsers, onUpdateUsers }) => {
+const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpdateLocations, rolePermissions, onUpdatePermissions, notify, currentUser, allUsers, onUpdateUsers, t }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'billing' | 'categories' | 'zones' | 'users' | 'access' | 'notifications'>('general');
   const [formConfig, setFormConfig] = useState<ERPConfig>(config);
   const [newCategory, setNewCategory] = useState('');
@@ -72,7 +82,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
   const handleSaveConfig = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     onUpdateConfig(formConfig);
-    notify("Succès", "Configuration mise à jour.", 'success');
+    notify(t('save'), "Configuration mise à jour.", 'success');
   };
 
   const handleTogglePermission = (role: UserRole, permission: ViewType) => {
@@ -154,7 +164,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
         initials
       } : u);
       onUpdateUsers(updatedUsers);
-      notify("Utilisateurs", `Compte ${userForm.name} mis à jour.`, "success");
+      notify(t('hr'), `Compte ${userForm.name} mis à jour.`, "success");
     } else {
       const newUser: User = {
         id: `U-${Date.now()}`,
@@ -165,7 +175,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
         initials
       };
       onUpdateUsers([...allUsers, newUser]);
-      notify("Utilisateurs", `Compte ${newUser.name} créé.`, "success");
+      notify(t('hr'), `Compte ${newUser.name} créé.`, "success");
     }
     
     closeUserModal();
@@ -205,18 +215,18 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
     <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn pb-24 pr-2">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Configuration</h1>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">{t('settings')}</h1>
           <p className="text-sm text-slate-500 font-medium mt-1">Paramètres système TerraPOS+</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className={`flex items-center space-x-3 ${config.language === 'ar' ? 'space-x-reverse' : ''}`}>
           <div className="flex space-x-1 bg-white dark:bg-slate-900 p-1.5 rounded-[1.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto scrollbar-hide">
             {[
               { id: 'general', label: 'Entreprise', icon: Building2 },
-              { id: 'billing', label: 'Factures', icon: FileText },
-              { id: 'categories', label: 'Menu', icon: Layers },
+              { id: 'billing', label: t('invoicing'), icon: FileText },
+              { id: 'categories', label: t('inventory'), icon: Layers },
               { id: 'zones', label: 'Salles & Tables', icon: Utensils },
-              { id: 'users', label: 'Personnel', icon: Users },
-              { id: 'access', label: 'Accès', icon: Shield, hidden: !isAdmin },
+              { id: 'users', label: t('staff_active'), icon: Users },
+              { id: 'access', label: t('settings'), icon: Shield, hidden: !isAdmin },
               { id: 'notifications', label: 'Alertes', icon: BellRing },
             ].filter(tab => !tab.hidden).map((tab) => (
               <button 
@@ -224,12 +234,12 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
                 onClick={() => setActiveTab(tab.id as any)} 
                 className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center whitespace-nowrap ${activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
-                <tab.icon size={14} className="mr-2" /> {tab.label}
+                <tab.icon size={14} className={config.language === 'ar' ? 'ml-2' : 'mr-2'} /> {tab.label}
               </button>
             ))}
           </div>
           <button onClick={handleSaveConfig} className="bg-emerald-600 text-white px-8 py-4 rounded-[1.5rem] font-black uppercase text-xs tracking-widest shadow-xl flex items-center hover:bg-emerald-700 transition-all">
-            <Save size={18} className="mr-2"/> Sauvegarder
+            <Save size={18} className={config.language === 'ar' ? 'ml-2' : 'mr-2'}/> {t('save')}
           </button>
         </div>
       </div>
@@ -239,7 +249,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
         {activeTab === 'general' && (
           <div className="p-12 space-y-12 animate-fadeIn">
             <section className="space-y-6">
-              <h3 className="text-xs font-black uppercase text-purple-600 tracking-[0.2em] flex items-center"><Building2 size={16} className="mr-2"/> Établissement</h3>
+              <h3 className="text-xs font-black uppercase text-purple-600 tracking-[0.2em] flex items-center"><Building2 size={16} className={config.language === 'ar' ? 'ml-2' : 'mr-2'}/> Établissement</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Nom</label>
@@ -259,8 +269,47 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
                 </div>
               </div>
             </section>
+
+            <section className="space-y-8 pt-8 border-t dark:border-slate-800">
+              <h3 className="text-xs font-black uppercase text-purple-600 tracking-[0.2em] flex items-center"><Palette size={16} className={config.language === 'ar' ? 'ml-2' : 'mr-2'}/> Identité Visuelle & Thèmes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Couleur d'accentuation (Thème)</label>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                    {THEMES.map(theme => (
+                      <button 
+                        key={theme.id}
+                        type="button"
+                        onClick={() => setFormConfig({...formConfig, theme: theme.id})}
+                        className={`group relative h-12 rounded-2xl flex items-center justify-center transition-all ${theme.color} ${formConfig.theme === theme.id ? 'ring-4 ring-offset-4 ring-slate-200 dark:ring-slate-700 shadow-xl scale-110 z-10' : 'opacity-60 hover:opacity-100'}`}
+                        title={theme.label}
+                      >
+                        {formConfig.theme === theme.id && <Check size={20} className="text-white animate-scaleIn" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase text-slate-400">{t('language')}</label>
+                  <div className="relative">
+                    <select 
+                      value={formConfig.language} 
+                      onChange={e => setFormConfig({...formConfig, language: e.target.value as any})} 
+                      className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none appearance-none focus:ring-2 focus:ring-purple-500 uppercase text-xs"
+                    >
+                      <option value="fr">Français</option>
+                      <option value="ar">العربية (Arabe)</option>
+                      <option value="en">English (Anglais)</option>
+                    </select>
+                    <ChevronDown size={18} className={`absolute ${config.language === 'ar' ? 'left-5' : 'right-5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`} />
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <section className="space-y-6 pt-8 border-t dark:border-slate-800">
-              <h3 className="text-xs font-black uppercase text-purple-600 tracking-[0.2em] flex items-center"><MapPin size={16} className="mr-2"/> Contact</h3>
+              <h3 className="text-xs font-black uppercase text-purple-600 tracking-[0.2em] flex items-center"><MapPin size={16} className={config.language === 'ar' ? 'ml-2' : 'mr-2'}/> Contact</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">Adresse</label>
@@ -334,13 +383,13 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
               <div className="flex items-center space-x-4">
                  <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><Users size={24}/></div>
                  <div>
-                    <h2 className="text-xl font-black uppercase">Collaborateurs</h2>
+                    <h2 className="text-xl font-black uppercase">{t('staff_active')}</h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Comptes et accès personnels</p>
                  </div>
               </div>
               {isAdmin && (
                 <button onClick={() => { setEditingUserId(null); setIsUserModalOpen(true); }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center shadow-xl hover:bg-black transition-all">
-                  <UserPlus size={18} className="mr-2"/> Nouvel IDENTIFIANT
+                  <UserPlus size={18} className={config.language === 'ar' ? 'ml-2' : 'mr-2'}/> Nouvel IDENTIFIANT
                 </button>
               )}
             </div>
@@ -349,7 +398,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
               {allUsers.map(u => (
                 <div key={u.id} className="group relative bg-slate-50 dark:bg-slate-800 p-8 rounded-[2.5rem] border-2 border-transparent hover:border-purple-500/30 transition-all flex flex-col items-center text-center">
                   {isAdmin && (
-                    <div className="absolute top-4 right-4 flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className={`absolute top-4 ${config.language === 'ar' ? 'left-4' : 'right-4'} flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity`}>
                       <button 
                         onClick={() => openEditUserModal(u)}
                         className="p-2 bg-white dark:bg-slate-700 text-blue-500 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-sm"
@@ -395,26 +444,26 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
               {posLocations.categories.map((zone) => (
                 <div key={zone.id} className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 flex flex-col space-y-6">
-                  <div className="flex items-center justify-between">
+                  <div className={`flex items-center justify-between ${config.language === 'ar' ? 'flex-row-reverse' : ''}`}>
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">{zone.name}</h4>
                     <span className="text-[10px] font-black px-2 py-1 bg-white dark:bg-slate-700 rounded-lg">{zone.items.length} items</span>
                   </div>
                   
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {zone.items.map((item) => (
-                      <div key={item} className="bg-white dark:bg-slate-900 p-3 rounded-xl border flex items-center justify-between group shadow-sm">
+                      <div key={item} className={`bg-white dark:bg-slate-900 p-3 rounded-xl border flex items-center justify-between group shadow-sm ${config.language === 'ar' ? 'flex-row-reverse' : ''}`}>
                         <span className="text-[10px] font-bold uppercase truncate">{item}</span>
                         <button onClick={() => handleRemoveItemFromZone(zone.id, item)} className="text-rose-500 opacity-0 group-hover:opacity-100 p-1"><X size={14}/></button>
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex gap-2 pt-4 border-t dark:border-slate-700">
+                  <div className={`flex gap-2 pt-4 border-t dark:border-slate-700 ${config.language === 'ar' ? 'flex-row-reverse' : ''}`}>
                     <input 
                       value={newItemName[zone.id] || ''} 
                       onChange={e => setNewItemName({...newItemName, [zone.id]: e.target.value})} 
                       placeholder={`Nom (ex: Table ${zone.items.length + 1})`} 
-                      className="flex-1 px-4 py-3 bg-white dark:bg-slate-900 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-purple-500"
+                      className={`flex-1 px-4 py-3 bg-white dark:bg-slate-900 rounded-xl text-xs font-bold outline-none border-2 border-transparent focus:border-purple-500 ${config.language === 'ar' ? 'text-right' : ''}`}
                     />
                     <button 
                       onClick={() => handleAddItemToZone(zone.id)}
@@ -435,7 +484,7 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
               <div className="flex items-center space-x-4 mb-4">
                  <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl"><FileText size={24}/></div>
                  <div>
-                    <h3 className="text-sm font-black uppercase">Facturation</h3>
+                    <h3 className="text-sm font-black uppercase">{t('invoicing')}</h3>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Séquences et taxes</p>
                  </div>
               </div>
@@ -464,13 +513,13 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
         {activeTab === 'categories' && (
           <div className="p-12 space-y-8 animate-fadeIn">
             <div className="bg-slate-50 dark:bg-slate-800/50 p-8 rounded-[2.5rem] space-y-8">
-               <div className="flex gap-3">
-                  <input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="Nouvelle catégorie..." className="flex-1 px-6 py-4 bg-white dark:bg-slate-900 rounded-2xl font-bold outline-none" />
+               <div className={`flex gap-3 ${config.language === 'ar' ? 'flex-row-reverse' : ''}`}>
+                  <input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="Nouvelle catégorie..." className={`flex-1 px-6 py-4 bg-white dark:bg-slate-900 rounded-2xl font-bold outline-none ${config.language === 'ar' ? 'text-right' : ''}`} />
                   <button onClick={handleAddCategory} className="bg-slate-900 text-white p-4 rounded-2xl"><Plus/></button>
                </div>
                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {formConfig.categories.map(cat => (
-                    <div key={cat} className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm flex items-center justify-between group">
+                    <div key={cat} className={`bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm flex items-center justify-between group ${config.language === 'ar' ? 'flex-row-reverse' : ''}`}>
                        <span className="font-black uppercase text-[10px]">{cat}</span>
                        <button onClick={() => handleRemoveCategory(cat)} className="text-rose-500 opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
                     </div>
@@ -485,14 +534,14 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                <div className="bg-slate-50 dark:bg-slate-800 p-8 rounded-[2.5rem] flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-4">
-                     <h4 className="text-[11px] font-black uppercase">Stock Faible</h4>
+                     <h4 className="text-[11px] font-black uppercase">{t('low_stock_alert')}</h4>
                      <div className="w-12 h-6 bg-emerald-500 rounded-full p-1"><div className="w-4 h-4 bg-white rounded-full ml-auto"></div></div>
                   </div>
                   <p className="text-[10px] text-slate-500">Alertes automatiques sous 10 unités.</p>
                </div>
                <div className="bg-slate-50 dark:bg-slate-800 p-8 rounded-[2.5rem] flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-4">
-                     <h4 className="text-[11px] font-black uppercase">Clôture Caisse</h4>
+                     <h4 className="text-[11px] font-black uppercase">{t('session_closure_alert')}</h4>
                      <div className="w-12 h-6 bg-emerald-500 rounded-full p-1"><div className="w-4 h-4 bg-white rounded-full ml-auto"></div></div>
                   </div>
                   <p className="text-[10px] text-slate-500">Rapport de clôture envoyé à {formConfig.email}.</p>
@@ -505,12 +554,12 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
       {isUserModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[250] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden border border-white/10 animate-scaleIn">
-            <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-               <div className="flex items-center space-x-4">
+            <div className={`p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 ${config.language === 'ar' ? 'flex-row-reverse' : ''}`}>
+               <div className={`flex items-center space-x-4 ${config.language === 'ar' ? 'space-x-reverse' : ''}`}>
                  <div className={`p-3 rounded-2xl ${editingUserId ? 'bg-blue-600' : 'bg-purple-600'} text-white shadow-lg`}>
                    {editingUserId ? <Edit3 size={24}/> : <UserPlus size={24}/>}
                  </div>
-                 <div>
+                 <div className={config.language === 'ar' ? 'text-right' : ''}>
                     <h3 className="text-lg font-black uppercase tracking-tighter">{editingUserId ? 'Modifier Collaborateur' : 'Nouveau Collaborateur'}</h3>
                     <p className="text-[10px] font-black uppercase opacity-60">Accès TerraPOS+</p>
                  </div>
@@ -520,23 +569,30 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
             <form onSubmit={handleSaveUser} className="p-10 space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">IDENTIFIANT / NOM</label>
-                <input required value={userForm.name} onChange={e => setUserForm({...userForm, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-black outline-none transition-all uppercase" placeholder="NOM DE L'AGENT" />
+                <input required value={userForm.name} onChange={e => setUserForm({...userForm, name: e.target.value})} className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-black outline-none transition-all uppercase ${config.language === 'ar' ? 'text-right' : ''}`} placeholder="NOM DE L'AGENT" />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center">
-                  <Key size={10} className="mr-2"/> MOT DE PASSE
+                  <Key size={10} className={config.language === 'ar' ? 'ml-2' : 'mr-2'}/> MOT DE PASSE
                 </label>
-                <input type="password" required value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-black tracking-[0.3em] outline-none transition-all" placeholder="••••" />
+                <input type="password" required value={userForm.password} onChange={e => setUserForm({...userForm, password: e.target.value})} className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-black tracking-[0.3em] outline-none transition-all ${config.language === 'ar' ? 'text-right' : ''}`} placeholder="••••" />
                 {editingUserId && <p className="text-[8px] font-bold text-slate-400 mt-1 italic uppercase">Laissez tel quel pour ne pas changer</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">RÔLE / NIVEAU D'ACCÈS</label>
-                <select value={userForm.role} onChange={e => setUserForm({...userForm, role: e.target.value as any})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-black text-[10px] uppercase tracking-widest outline-none transition-all">
-                  <option value="admin">Administrateur (Accès Total)</option>
-                  <option value="manager">Manager (Opérations)</option>
-                  <option value="cashier">Caissier (Ventes)</option>
-                  <option value="waiter">Serveuse (Prise de commande)</option>
-                </select>
+                <div className="relative">
+                  <select 
+                    value={userForm.role} 
+                    onChange={e => setUserForm({...userForm, role: e.target.value as any})} 
+                    className={`w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-transparent focus:border-purple-500 rounded-2xl font-black text-[10px] uppercase tracking-widest outline-none appearance-none transition-all ${config.language === 'ar' ? 'text-right' : ''}`}
+                  >
+                    <option value="admin">Administrateur (Accès Total)</option>
+                    <option value="manager">Manager (Opérations)</option>
+                    <option value="cashier">Caissier (Ventes)</option>
+                    <option value="waiter">Serveuse (Prise de commande)</option>
+                  </select>
+                  <ChevronDown size={18} className={`absolute ${config.language === 'ar' ? 'left-5' : 'right-5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`} />
+                </div>
               </div>
               <div className="space-y-2">
                  <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">COULEUR DE PROFIL</label>

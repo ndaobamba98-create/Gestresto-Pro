@@ -31,7 +31,7 @@ export type UserRole = 'admin' | 'cashier' | 'manager' | 'waiter';
 export type ViewType = 
   | 'dashboard' | 'pos' | 'sales' | 'inventory' | 'expenses' | 'hr' 
   | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'customers' 
-  | 'manage_inventory' | 'manage_session_closing' | 'manage_sales' | 'manage_hr' | 'manage_customers';
+  | 'preparation' | 'manage_inventory' | 'manage_session_closing' | 'manage_sales' | 'manage_hr' | 'manage_customers';
 
 export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate';
 
@@ -111,7 +111,7 @@ export interface SaleOrder {
   customerId?: string;
   cashierId?: string;
   date: string;
-  openedAt?: string; // Date d'ouverture de la table
+  openedAt?: string;
   total: number;
   status: 'draft' | 'confirmed' | 'delivered' | 'refunded' | 'quotation';
   items?: SaleItem[];
@@ -196,10 +196,12 @@ export interface RolePermission {
   permissions: ViewType[];
 }
 
+// Fixed missing types referenced in HR and Expenses components
 export interface LeaveRequest {
   id: string;
   employeeId: string;
-  type: string;
+  employeeName: string;
+  type: 'vacation' | 'sick' | 'other';
   startDate: string;
   endDate: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -208,9 +210,13 @@ export interface LeaveRequest {
 export interface Payslip {
   id: string;
   employeeId: string;
-  month: string;
-  year: number;
-  netSalary: number;
+  employeeName: string;
+  period: string;
+  baseSalary: number;
+  bonus: number;
+  deductions: number;
+  netPay: number;
+  date: string;
 }
 
 export interface Supplier {
@@ -218,12 +224,16 @@ export interface Supplier {
   name: string;
   contact: string;
   phone: string;
+  email?: string;
+  category: string;
 }
 
 export interface Purchase {
   id: string;
-  supplierId: string;
   date: string;
+  supplierId: string;
+  supplierName: string;
   total: number;
+  status: 'draft' | 'confirmed' | 'received' | 'cancelled';
   items: SaleItem[];
 }

@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod, Customer, UserRole, ViewType, User as AppUser, POSLocations } from '../types';
+// Add missing ShoppingCart icon import
 import { 
   Search, Plus, Minus, ChevronLeft, ChevronRight, LayoutGrid, Coins, Utensils, 
   Package, Truck, Wallet, Smartphone, Send, Clock, ClipboardList, 
-  LayoutList, CheckCircle2, History, Timer, Save, Banknote, Calculator, X, Lock, Unlock, AlertTriangle, Car, Armchair
+  LayoutList, CheckCircle2, History, Timer, Save, Banknote, Calculator, X, Lock, Unlock, AlertTriangle, Car, Armchair, Trash2, RotateCcw, ShoppingCart
 } from 'lucide-react';
 
 const DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10, 5];
@@ -20,6 +21,8 @@ interface Props {
   onUpdateCustomers: (customers: Customer[]) => void;
   sales: SaleOrder[];
   onSaleComplete: (sale: Partial<SaleOrder>) => void;
+  onRefundSale: (id: string) => void;
+  onDeleteDraft: (id: string) => void;
   config: ERPConfig;
   session: CashSession | null;
   onOpenSession: (openingBalance: number, cashierId: string) => void;
@@ -30,9 +33,10 @@ interface Props {
   onUpdateSales?: (sales: SaleOrder[]) => void;
   posLocations: POSLocations;
   onUpdateLocations: (locations: POSLocations) => void;
+  userPermissions: any;
 }
 
-const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSession, onCloseSession, onSaleComplete, notify, sales, userRole, currentUser, onUpdateSales, posLocations, onUpdateLocations }) => {
+const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSession, onCloseSession, onSaleComplete, onRefundSale, onDeleteDraft, notify, sales, userRole, currentUser, onUpdateSales, posLocations, onUpdateLocations, userPermissions }) => {
   const [activeLocation, setActiveLocation] = useState<string | null>(null);
   const [localCart, setLocalCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
@@ -129,6 +133,21 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
       setIsResumingDraft(null);
       setDraftStartTime(null);
       setSelectedCustomer(null);
+    }
+  };
+
+  const handleCancelOrder = () => {
+    if (!isResumingDraft) {
+      setLocalCart([]);
+      setActiveLocation(null);
+      return;
+    }
+
+    if (confirm("Voulez-vous vraiment annuler cette commande et libérer la table ?")) {
+      onDeleteDraft(isResumingDraft);
+      setLocalCart([]);
+      setActiveLocation(null);
+      setIsResumingDraft(null);
     }
   };
 
@@ -506,22 +525,32 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
 
       <div className="col-span-12 lg:col-span-4 flex flex-col overflow-hidden">
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col flex-1">
-          <div className="p-6 border-b dark:border-slate-800 bg-slate-900 text-white flex items-center justify-between">
+          <div className={`p-6 border-b dark:border-slate-800 text-white flex items-center justify-between ${isResumingDraft ? 'bg-blue-600' : 'bg-slate-900'}`}>
             <div className="flex items-center space-x-4">
-               <div className={`p-2.5 rounded-xl ${isResumingDraft ? 'bg-blue-600' : 'bg-purple-600'} shadow-lg shadow-black/20`}>
+               <div className={`p-2.5 rounded-xl bg-white/20 shadow-lg`}>
                   <LayoutGrid size={22}/>
                </div>
                <div>
                   <h3 className="text-sm font-black uppercase tracking-widest">{activeLocation}</h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">En service</p>
+                  <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest">En service</p>
                </div>
             </div>
-            {isResumingDraft && (
-               <div className="flex items-center space-x-2 bg-blue-500/20 px-3 py-1.5 rounded-xl border border-blue-500/30">
-                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                  <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Draft</span>
-               </div>
-            )}
+            
+            <div className="flex items-center space-x-2">
+               {isResumingDraft && (
+                 <div className="flex items-center space-x-2 bg-white/10 px-3 py-1.5 rounded-xl border border-white/20 mr-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span className="text-[9px] font-black text-white uppercase tracking-widest">Draft</span>
+                 </div>
+               )}
+               <button 
+                 onClick={handleCancelOrder} 
+                 className="p-2.5 bg-rose-500/20 hover:bg-rose-500 text-white rounded-xl transition-all"
+                 title="Annuler/Vider la table"
+               >
+                 <Trash2 size={20} />
+               </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
@@ -538,6 +567,12 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
                 </div>
               </div>
             ))}
+            {localCart.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center opacity-20 py-20 text-center space-y-4">
+                <ShoppingCart size={48} />
+                <p className="text-[10px] font-black uppercase tracking-widest">Table vide</p>
+              </div>
+            )}
           </div>
 
           <div className="p-8 bg-slate-950 text-white rounded-t-3xl space-y-8 shadow-[0_-20px_40px_rgba(0,0,0,0.3)]">
