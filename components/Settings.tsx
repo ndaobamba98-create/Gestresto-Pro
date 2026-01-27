@@ -5,7 +5,7 @@ import {
   Save, Plus, Trash2, Building2, Layers, ShieldCheck, X, 
   FileText, Hash, Info, Printer, DollarSign, BellRing, Users, UserPlus, 
   Mail, Phone, MapPin, Percent, Tag, Bell, Check, QrCode, PackageCheck, Shield, CheckSquare, Square, Edit3, Key, Utensils, Globe,
-  ChevronDown, Palette
+  ChevronDown, Palette, Wifi
 } from 'lucide-react';
 
 interface Props {
@@ -304,6 +304,20 @@ const Settings: React.FC<Props> = ({ config, onUpdateConfig, posLocations, onUpd
                     </select>
                     <ChevronDown size={18} className={`absolute ${config.language === 'ar' ? 'left-5' : 'right-5'} top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none`} />
                   </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-6 pt-8 border-t dark:border-slate-800">
+              <h3 className="text-xs font-black uppercase text-purple-600 tracking-[0.2em] flex items-center"><Wifi size={16} className={config.language === 'ar' ? 'ml-2' : 'mr-2'}/> Accès WiFi Client</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Nom du réseau (SSID)</label>
+                  <input value={formConfig.wifiName || ''} onChange={e => setFormConfig({...formConfig, wifiName: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" placeholder="ex: MYA_DOR_GUEST" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400">Mot de passe</label>
+                  <input value={formConfig.wifiPassword || ''} onChange={e => setFormConfig({...formConfig, wifiPassword: e.target.value})} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold border-none outline-none focus:ring-2 focus:ring-purple-500" placeholder="••••••••" />
                 </div>
               </div>
             </section>

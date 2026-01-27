@@ -15,7 +15,9 @@ import {
   IdCard,
   ChevronRight,
   LayoutGrid,
-  Users
+  Users,
+  Wifi,
+  Copy
 } from 'lucide-react';
 import { CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis } from 'recharts';
 
@@ -94,7 +96,26 @@ const Dashboard: React.FC<Props> = ({ sales, expenses = [], userRole, config, pr
         </div>
 
         <StatCard title="Volume Ventes" value={`${sales.length}`} icon={ShoppingCart} color="bg-blue-500" trend="Transactions" />
-        <StatCard title="Ruptures" value={`${lowStockProducts.length}`} icon={Package} color="bg-orange-500" trend="Articles sous seuil" />
+        
+        {/* WIFI INFO CARD */}
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm flex items-start justify-between transition-all hover:-translate-y-1 hover:shadow-xl group">
+          <div className="space-y-3">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Accès WiFi Client</p>
+            <div className="flex flex-col">
+               <span className="text-sm font-black text-slate-800 dark:text-white uppercase truncate max-w-[140px]">{config.wifiName}</span>
+               <span className="text-[10px] font-mono font-bold text-purple-600 mt-1">{config.wifiPassword}</span>
+            </div>
+            <button onClick={() => {
+              navigator.clipboard.writeText(config.wifiPassword || '');
+              alert('Mot de passe WiFi copié !');
+            }} className="text-[9px] font-black uppercase text-accent flex items-center hover:underline">
+              <Copy size={10} className="mr-1.5" /> Copier Pass
+            </button>
+          </div>
+          <div className="bg-purple-100 dark:bg-purple-900/30 p-4 rounded-2xl text-purple-600 shadow-sm transition-transform group-hover:scale-110">
+            <Wifi size={24} />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

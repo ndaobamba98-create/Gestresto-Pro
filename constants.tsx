@@ -31,7 +31,9 @@ export const INITIAL_CONFIG: ERPConfig = {
   showPhoneOnInvoice: true,
   showEmailOnInvoice: true,
   showRegNumberOnInvoice: true,
-  showQrCodeOnInvoice: true
+  showQrCodeOnInvoice: true,
+  wifiName: "MYA_DOR_GUEST",
+  wifiPassword: "MyaDorWiFi2025"
 };
 
 export const INITIAL_CUSTOMERS: Customer[] = [

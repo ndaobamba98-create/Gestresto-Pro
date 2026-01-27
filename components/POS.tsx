@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod, Customer, UserRole, ViewType, User as AppUser, POSLocations } from '../types';
-// Add missing ShoppingCart icon import
 import { 
   Search, Plus, Minus, ChevronLeft, ChevronRight, LayoutGrid, Coins, Utensils, 
   Package, Truck, Wallet, Smartphone, Send, Clock, ClipboardList, 
@@ -192,6 +191,7 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
       date: new Date().toISOString(),
       openedAt: draftStartTime || new Date().toISOString(),
       status: (isWaiter || !method) ? 'draft' : 'confirmed', 
+      preparationStatus: 'pending', // Set to pending when sent to kitchen
       paymentMethod: method || undefined,
       cashierId: currentUser.id,
       payments: method ? [{ method, amount: total }] : []
@@ -209,7 +209,7 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
         setActiveLocation(null);
         notify("Vente Encaissée", `Paiement ${method} validé.`, "success");
     } else {
-        notify("Table Mise à Jour", `Commande enregistrée en attente pour ${activeLocation}.`, "info");
+        notify("Cuisine Alertée", `Commande #${saleData.id?.slice(-6)} envoyée en préparation.`, "info");
         setActiveLocation(null);
         setLocalCart([]);
     }
@@ -459,7 +459,7 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
 
         {isAddTableOpen.isOpen && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
+            <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
                <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                   <h3 className="text-lg font-black uppercase tracking-tighter">Nouvel Emplacement</h3>
                   <button onClick={() => setIsAddTableOpen({ isOpen: false, categoryId: null })}><X size={24}/></button>

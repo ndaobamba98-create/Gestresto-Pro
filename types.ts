@@ -71,6 +71,8 @@ export interface ERPConfig {
   showEmailOnInvoice: boolean;
   showRegNumberOnInvoice: boolean;
   showQrCodeOnInvoice: boolean;
+  wifiName?: string;
+  wifiPassword?: string;
 }
 
 export interface Customer {
@@ -114,6 +116,7 @@ export interface SaleOrder {
   openedAt?: string;
   total: number;
   status: 'draft' | 'confirmed' | 'delivered' | 'refunded' | 'quotation';
+  preparationStatus?: 'pending' | 'preparing' | 'ready' | 'served';
   items?: SaleItem[];
   invoiceStatus?: 'draft' | 'posted' | 'paid' | 'cancelled' | 'refunded';
   paymentMethod?: PaymentMethod;
@@ -134,6 +137,8 @@ export interface Expense {
   attachments?: Attachment[];
 }
 
+export type ContractType = 'CDI' | 'CDD' | 'Stage' | 'Interim';
+
 export interface Employee {
   id: string;
   name: string;
@@ -145,7 +150,11 @@ export interface Employee {
   isClockedIn: boolean;
   photo?: string;
   phone?: string;
+  email?: string;
   bankAccount?: string;
+  contractType?: ContractType;
+  contractEndDate?: string;
+  trialPeriodMonths?: number;
   attachments?: Attachment[];
 }
 
@@ -196,7 +205,6 @@ export interface RolePermission {
   permissions: ViewType[];
 }
 
-// Fixed missing types referenced in HR and Expenses components
 export interface LeaveRequest {
   id: string;
   employeeId: string;

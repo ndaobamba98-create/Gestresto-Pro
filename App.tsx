@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Search, ArrowRight, Users, ChevronLeft, ChevronRight, UserPlus, LogIn, Key, ShieldCheck, ChevronDown, ArrowRightLeft, Bell, X, Check, Trash2, BellOff, Info, AlertTriangle, CheckCircle, Maximize, Minimize, Calendar as CalendarIcon, Shield, UtensilsCrossed, ChefHat
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Search, ArrowRight, Users, ChevronLeft, ChevronRight, UserPlus, LogIn, Key, ShieldCheck, ChevronDown, ArrowRightLeft, Bell, X, Check, Trash2, BellOff, Info, AlertTriangle, CheckCircle, Maximize, Minimize, Calendar as CalendarIcon, Shield, UtensilsCrossed, ChefHat, Wifi, Sparkles
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, User, CashSession, Expense, Customer, UserRole, AppNotification, RolePermission, POSLocations } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_CUSTOMERS, POS_LOCATIONS as INITIAL_LOCATIONS } from './constants';
@@ -65,8 +65,57 @@ export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = fal
   </div>
 );
 
+const WelcomeSplash = ({ user, theme }: { user: User, theme: string }) => (
+  <div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden">
+    {/* Background cinématique */}
+    <div className="absolute inset-0 bg-slate-950">
+      <div className="absolute top-1/4 left-1/4 w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[120px] animate-float"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[120px] animate-float" style={{ animationDelay: '2s' }}></div>
+      {/* Particules */}
+      {[...Array(20)].map((_, i) => (
+        <div key={i} 
+             className="absolute w-1 h-1 bg-white/20 rounded-full animate-float"
+             style={{ 
+               top: `${Math.random() * 100}%`, 
+               left: `${Math.random() * 100}%`,
+               animationDuration: `${3 + Math.random() * 5}s`,
+               animationDelay: `${Math.random() * 5}s`
+             }}
+        ></div>
+      ))}
+    </div>
+
+    <div className="relative z-10 text-center space-y-8 animate-welcomeScale">
+       <div className={`w-32 h-32 mx-auto rounded-[3rem] bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-4xl font-black shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-white/20 relative`}>
+          {user.initials}
+          <div className="absolute -top-2 -right-2 bg-white text-slate-900 p-2 rounded-2xl shadow-xl animate-bounce">
+            <Sparkles size={20} className="text-purple-600" />
+          </div>
+       </div>
+       
+       <div className="space-y-4">
+          <h1 className="text-6xl font-black text-white uppercase tracking-tighter">
+            BIENVENUE <span className="text-shimmer italic">{user.name.split(' ')[0]}</span>
+          </h1>
+          <div className="flex items-center justify-center space-x-4">
+             <div className="h-px w-12 bg-white/20"></div>
+             <p className="text-slate-400 font-black uppercase text-xs tracking-[0.5em]">Initialisation TerraPOS+</p>
+             <div className="h-px w-12 bg-white/20"></div>
+          </div>
+       </div>
+
+       <div className="flex items-center justify-center space-x-2 pt-10">
+          <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+          <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+          <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+       </div>
+    </div>
+  </div>
+);
+
 const App: React.FC = () => {
   const [isLocked, setIsLocked] = useState(true);
+  const [isEntering, setIsEntering] = useState(false); // Nouvel état pour l'animation
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -100,7 +149,6 @@ const App: React.FC = () => {
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => loadStored('currentUser', null));
 
-  // Fix: Deriving unreadCount from notifications to resolve reference errors
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
   const userPermissions = useMemo(() => {
@@ -169,23 +217,29 @@ const App: React.FC = () => {
     setNotifications(prev => [newNotif, ...prev]);
   }, []);
 
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    setIsEntering(true);
+    if (user.role === 'waiter') setActiveView('pos');
+    
+    // Séquence cinématique
+    setTimeout(() => {
+      setIsEntering(false);
+      setIsLocked(false);
+    }, 2800);
+  };
+
   const handleSaleComplete = (s: Partial<SaleOrder>) => {
-    // Si la vente est confirmée (encaissée), on lui donne un numéro séquentiel
     if (s.status === 'confirmed' && !s.id?.startsWith(config.invoicePrefix)) {
       const seqStr = String(config.nextInvoiceNumber).padStart(4, '0');
       const newId = `${config.invoicePrefix}${seqStr}`;
-      
       const completeSale = { ...s, id: newId } as SaleOrder;
       setSales([completeSale, ...sales]);
-      
-      // Incrémentation du compteur global
       setConfig({ ...config, nextInvoiceNumber: config.nextInvoiceNumber + 1 });
-      
       if (currentUser?.role === 'admin' || currentUser?.role === 'cashier') {
         notifyUser("Facture émise", `Commande ${newId} enregistrée.`, 'success');
       }
     } else {
-      // Pour les brouillons (draft), on garde l'ID temporaire ou on en crée un
       const finalSale = { ...s, id: s.id || `TMP-${Date.now()}` } as SaleOrder;
       const exists = sales.find(prev => prev.id === finalSale.id);
       if (exists) {
@@ -239,6 +293,10 @@ const App: React.FC = () => {
     }
   };
 
+  if (isEntering && currentUser) {
+    return <WelcomeSplash user={currentUser} theme={config.theme} />;
+  }
+
   if (isLocked) {
      return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-950 overflow-hidden relative">
@@ -258,11 +316,7 @@ const App: React.FC = () => {
                 e.preventDefault();
                 const user = allUsers.find(u => u.id === selectedUserId && u.password === passwordInput);
                 if (user) {
-                  setCurrentUser(user);
-                  setIsLocked(false);
-                  setSelectedUserId('');
-                  setPasswordInput('');
-                  if (user.role === 'waiter') setActiveView('pos');
+                  handleLoginSuccess(user);
                 } else {
                   setLoginError(true);
                   setTimeout(() => setLoginError(false), 500);
@@ -331,11 +385,9 @@ const App: React.FC = () => {
                   initials
                 };
                 setAllUsers([...allUsers, newUser]);
-                setCurrentUser(newUser);
-                setIsLocked(false);
+                handleLoginSuccess(newUser);
                 setSignupName('');
                 setSignupPassword('');
-                if (newUser.role === 'waiter') setActiveView('pos');
                 notifyUser("Compte créé", `Bienvenue ${newUser.name} !`, "success");
               }} className="space-y-6">
                 <div className="text-center space-y-2 mb-4">
@@ -379,7 +431,7 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${config.theme} ${darkMode ? 'dark text-slate-100' : 'text-slate-900'}`}>
-      <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-slate-900 transition-all duration-500 ease-in-out flex flex-col z-20 shadow-2xl relative`}>
+      <aside className={`${isSidebarOpen ? 'w-72' : 'w-24'} bg-slate-900 transition-all duration-500 ease-in-out flex flex-col z-20 shadow-2xl relative animate-entrySidebar`}>
         <div className="p-6 h-28 flex items-center justify-between border-b border-slate-800">
           <AppLogo className={isSidebarOpen ? "w-full" : "w-10 h-10"} iconOnly={!isSidebarOpen} customLogo={config.companyLogo} />
         </div>
@@ -387,13 +439,39 @@ const App: React.FC = () => {
           {isSidebarOpen ? <ChevronLeft size={16}/> : <ChevronRight size={16}/>}
         </button>
         <nav className="flex-1 mt-6 space-y-1 px-3 overflow-y-auto scrollbar-hide">
-          {sidebarItems.map((item) => (
-            <button key={item.id} onClick={() => setActiveView(item.id as ViewType)} className={`w-full flex items-center p-4 rounded-2xl transition-all ${activeView === item.id ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+          {sidebarItems.map((item, idx) => (
+            <button 
+              key={item.id} 
+              onClick={() => setActiveView(item.id as ViewType)} 
+              style={{ animationDelay: `${0.1 * idx}s` }}
+              className={`w-full flex items-center p-4 rounded-2xl transition-all animate-fadeIn ${activeView === item.id ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
               <item.icon size={22} className={!isSidebarOpen ? 'mx-auto' : ''} />
               {isSidebarOpen && <span className="ml-4 font-bold text-sm">{item.label}</span>}
             </button>
           ))}
         </nav>
+        
+        {/* WIFI WIDGET IN SIDEBAR */}
+        {config.wifiName && isSidebarOpen && (
+          <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/40">
+             <div className="flex items-center space-x-3 mb-2 text-purple-400">
+                <Wifi size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Accès WiFi</span>
+             </div>
+             <div className="space-y-1">
+                <div className="flex justify-between items-center text-[9px] font-bold">
+                   <span className="text-slate-500 uppercase">SSID</span>
+                   <span className="text-white">{config.wifiName}</span>
+                </div>
+                <div className="flex justify-between items-center text-[9px] font-bold">
+                   <span className="text-slate-500 uppercase">PASS</span>
+                   <span className="text-white font-mono">{config.wifiPassword}</span>
+                </div>
+             </div>
+          </div>
+        )}
+
         <div className="p-4 border-t border-slate-800">
            <button onClick={logoutAction} className={`w-full flex items-center p-4 rounded-2xl text-rose-500 hover:bg-rose-500/10 transition-all font-bold text-sm ${!isSidebarOpen ? 'justify-center' : ''}`}>
              <LogOut size={20} className={isSidebarOpen ? "mr-3" : ""} /> {isSidebarOpen && 'Déconnexion'}
@@ -401,7 +479,7 @@ const App: React.FC = () => {
         </div>
       </aside>
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 relative">
-        <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-10">
+        <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-10 animate-entryHeader">
           <div className="flex items-center space-x-6">
             <div className="flex flex-col">
               <h2 className="text-xl font-black uppercase tracking-tight text-slate-800 dark:text-white leading-none">{config.companyName}</h2>
@@ -438,7 +516,7 @@ const App: React.FC = () => {
             </div>
           </div>
         </header>
-        <div className="flex-1 overflow-auto p-8 scrollbar-hide">{renderContent()}</div>
+        <div className="flex-1 overflow-auto p-8 scrollbar-hide animate-entryMain">{renderContent()}</div>
       </main>
     </div>
   );
