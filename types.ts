@@ -10,7 +10,6 @@ export interface AppNotification {
   read: boolean;
 }
 
-// ... le reste du fichier types.ts existant
 export interface Attachment {
   id: string;
   name: string;
@@ -27,7 +26,7 @@ export interface User {
   password?: string;
 }
 
-export type UserRole = 'admin' | 'cashier' | 'manager';
+export type UserRole = 'admin' | 'cashier' | 'manager' | 'waiter';
 
 export type ViewType = 
   | 'dashboard' | 'pos' | 'sales' | 'inventory' | 'expenses' | 'hr' 
@@ -35,6 +34,18 @@ export type ViewType =
   | 'manage_inventory' | 'manage_session_closing' | 'manage_sales' | 'manage_hr' | 'manage_customers';
 
 export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate';
+
+export interface POSLocationCategory {
+  id: string;
+  name: string;
+  icon: string;
+  items: string[];
+}
+
+export interface POSLocations {
+  categories: POSLocationCategory[];
+  default: string;
+}
 
 export interface ERPConfig {
   companyName: string;
@@ -100,6 +111,7 @@ export interface SaleOrder {
   customerId?: string;
   cashierId?: string;
   date: string;
+  openedAt?: string; // Date d'ouverture de la table
   total: number;
   status: 'draft' | 'confirmed' | 'delivered' | 'refunded' | 'quotation';
   items?: SaleItem[];
