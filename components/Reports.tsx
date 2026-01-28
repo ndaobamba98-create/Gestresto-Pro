@@ -1,7 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { SaleOrder, ERPConfig, Product, Expense, CashSession } from '../types';
-// Fixed missing TrendingDown import from lucide-react
 import { 
   BarChart3, TrendingUp, TrendingDown, Calendar, Download, Zap, ShoppingCart, FileText, 
   ArrowDownRight, ArrowUpRight, Banknote, Eye, FileSpreadsheet, Trophy, 
@@ -47,6 +46,13 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => e.date >= startDate && e.date <= endDate);
   }, [expenses, startDate, endDate]);
+
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(s => {
+      const d = s.openedAt.substring(0, 10);
+      return d >= startDate && d <= endDate;
+    });
+  }, [sessions, startDate, endDate]);
 
   const validSales = useMemo(() => filteredSales.filter(s => s.status !== 'refunded'), [filteredSales]);
 
@@ -105,24 +111,68 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
   }, [validSales]);
 
   const handleExportExcel = () => {
-    const data = validSales.map(s => ({
-      'Date': s.date,
-      'Référence': s.id,
-      'Client': s.customer,
-      'Total': s.total,
-      'Paiement': s.paymentMethod
-    }));
+    let data: any[] = [];
+    let sheetName = "Données";
+    let filename = `Export_TerraPOS_${startDate}_${endDate}.xlsx`;
+
+    if (activeTab === 'sessions') {
+      data = filteredSessions.map(s => ({
+        'Date Ouverture': new Date(s.openedAt).toLocaleDateString('fr-FR'),
+        'Heure Ouverture': new Date(s.openedAt).toLocaleTimeString('fr-FR'),
+        'Date Clôture': s.closedAt ? new Date(s.closedAt).toLocaleDateString('fr-FR') : 'Session Ouverte',
+        'Heure Clôture': s.closedAt ? new Date(s.closedAt).toLocaleTimeString('fr-FR') : '-',
+        'Identifiant': s.id,
+        'Agent de Caisse': s.cashierName,
+        'Statut': s.status === 'open' ? 'EN COURS' : 'CLÔTURÉE',
+        'Fond de Caisse Initial': s.openingBalance,
+        'Total Ventes Espèces': s.totalCashSales,
+        'Théorique Attendu': s.expectedBalance,
+        'Compté Réel': s.closingBalance ?? '-',
+        'Écart constaté': s.difference ?? 0,
+        'Devise': config.currency
+      }));
+      sheetName = "Audit Sessions Caisse";
+      filename = `Rapport_Sessions_${startDate}_au_${endDate}.xlsx`;
+    } else if (activeTab === 'products') {
+      data = topProducts.map(p => ({
+        'Désignation Produit': p.name,
+        'Unités Vendues': p.qty,
+        'Chiffre d\'Affaires': p.rev,
+        'Devise': config.currency
+      }));
+      sheetName = "Performances Menu";
+      filename = `Ventes_Produits_${startDate}_au_${endDate}.xlsx`;
+    } else if (activeTab === 'finance') {
+      const salesEntries = validSales.map(s => ({ 'Date': s.date, 'Type': 'VENTE', 'Réf': s.id, 'Libellé': s.customer, 'Entrée': s.total, 'Sortie': 0 }));
+      const expenseEntries = filteredExpenses.map(e => ({ 'Date': e.date, 'Type': 'DÉPENSE', 'Réf': e.id, 'Libellé': e.description, 'Entrée': 0, 'Sortie': e.amount }));
+      data = [...salesEntries, ...expenseEntries].sort((a,b) => b.Date.localeCompare(a.Date));
+      sheetName = "Journal Trésorerie";
+      filename = `Journal_Financier_${startDate}_au_${endDate}.xlsx`;
+    } else {
+      data = validSales.map(s => ({
+        'Date/Heure': s.date,
+        'Référence': s.id,
+        'Client/Table': s.customer,
+        'Zone': s.orderLocation || 'Comptoir',
+        'Total TTC': s.total,
+        'Mode Paiement': s.paymentMethod || 'Espèces',
+        'Devise': config.currency
+      }));
+      sheetName = "Historique Ventes";
+      filename = `Rapport_Ventes_${startDate}_au_${endDate}.xlsx`;
+    }
+
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Ventes");
-    XLSX.writeFile(wb, `Rapport_TerraPOS_${startDate}_${endDate}.xlsx`);
-    notify("Export réussi", "Le fichier Excel est prêt.", "success");
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, filename);
+    notify("Export réussi", `Le fichier Excel "${sheetName}" a été généré.`, "success");
   };
 
   const handleDownloadPDF = () => {
     const element = document.getElementById('report-export-area');
     if (!element) return;
-    const opt = { margin: 10, filename: `Rapport_Analyse.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } };
+    const opt = { margin: 10, filename: `Rapport_Analytique_${activeTab}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } };
     // @ts-ignore
     window.html2pdf().set(opt).from(element).save();
     notify("Export PDF", "Génération du rapport en cours...", "info");
@@ -165,11 +215,11 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
         </div>
         
         <div className="flex items-center space-x-3 ml-auto">
-           <button onClick={handleDownloadPDF} className="p-4 bg-white dark:bg-slate-800 border-2 rounded-2xl text-slate-400 hover:text-rose-600 transition-all">
+           <button onClick={handleDownloadPDF} title="Télécharger le rapport visuel en PDF" className="p-4 bg-white dark:bg-slate-800 border-2 rounded-2xl text-slate-400 hover:text-rose-600 transition-all">
              <FileDown size={22}/>
            </button>
            <button onClick={handleExportExcel} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center hover:bg-emerald-700">
-             <FileSpreadsheet size={18} className="mr-3"/> Exporter Excel
+             <FileSpreadsheet size={18} className="mr-3"/> Exporter {activeTab === 'sessions' ? 'Sessions' : 'Données'} Excel
            </button>
         </div>
       </div>
@@ -300,7 +350,6 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                   {/* Ici on pourrait mélanger Ventes et Dépenses chronologiquement */}
                    {validSales.slice(0, 15).map(s => (
                      <tr key={s.id} className="hover:bg-slate-50">
                         <td className="px-10 py-4 font-mono text-xs text-emerald-600 font-bold">#{s.id.slice(-6)}</td>
@@ -315,33 +364,76 @@ const Reports: React.FC<Props> = ({ sales, expenses = [], products, config, t, n
           </div>
         )}
 
+        {activeTab === 'products' && (
+          <div className="bg-white dark:bg-slate-900 rounded-[3rem] border shadow-sm overflow-hidden animate-fadeIn">
+            <div className="p-8 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+               <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Détail Performance Menu</h3>
+            </div>
+             <table className="w-full text-left">
+                <thead className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+                   <tr>
+                      <th className="px-10 py-5">Position</th>
+                      <th className="px-10 py-5">Produit / Plat</th>
+                      <th className="px-10 py-5 text-center">Volume Vendu</th>
+                      <th className="px-10 py-5 text-right">Chiffre d'Affaires</th>
+                   </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                   {topProducts.map((p, idx) => (
+                     <tr key={p.name} className="hover:bg-slate-50">
+                        <td className="px-10 py-6 font-black text-slate-300">#0{idx + 1}</td>
+                        <td className="px-10 py-6 font-black uppercase text-xs text-slate-800 dark:text-white">{p.name}</td>
+                        <td className="px-10 py-6 text-center font-bold text-slate-500">{p.qty} unités</td>
+                        <td className="px-10 py-6 text-right font-black text-emerald-600">{p.rev.toLocaleString()} {config.currency}</td>
+                     </tr>
+                   ))}
+                </tbody>
+             </table>
+          </div>
+        )}
+
         {activeTab === 'sessions' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
-             {sessions.map(s => (
-                <div key={s.id} className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border shadow-sm space-y-6">
+             {filteredSessions.map(s => (
+                <div key={s.id} className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border shadow-sm space-y-6 hover:border-purple-300 transition-all group">
                    <div className="flex justify-between items-start">
-                      <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center"><Clock size={24}/></div>
-                      <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${s.status === 'open' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>{s.status}</span>
+                      <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/20 text-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><Clock size={24}/></div>
+                      <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${s.status === 'open' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500'}`}>{s.status === 'open' ? 'En Cours' : 'Clôturée'}</span>
                    </div>
                    <div>
-                      <h4 className="font-black uppercase text-sm">{s.cashierName}</h4>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Session {s.id.slice(-6)}</p>
+                      <h4 className="font-black uppercase text-sm group-hover:text-purple-600 transition-colors">{s.cashierName}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Session: {s.id.slice(-8)}</p>
                    </div>
                    <div className="grid grid-cols-2 gap-4 py-4 border-y dark:border-slate-800">
                       <div>
-                         <p className="text-[8px] font-black text-slate-400 uppercase">Espèces Ventées</p>
-                         <p className="text-md font-black">{s.totalCashSales} <span className="text-[10px] opacity-40">{config.currency}</span></p>
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Espèces Ventes</p>
+                         <p className="text-md font-black">{s.totalCashSales.toLocaleString()} <span className="text-[10px] opacity-40">{config.currency}</span></p>
                       </div>
                       <div>
-                         <p className="text-[8px] font-black text-slate-400 uppercase">Écart Final</p>
-                         <p className={`text-md font-black ${s.difference && s.difference < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>{s.difference || 0}</p>
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Écart Final</p>
+                         <p className={`text-md font-black ${s.difference && s.difference < 0 ? 'text-rose-500' : s.difference && s.difference > 0 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                           {s.difference && s.difference > 0 ? '+' : ''}{s.difference?.toLocaleString() || 0}
+                         </p>
                       </div>
                    </div>
-                   <div className="flex items-center text-[9px] font-bold text-slate-400 space-x-2">
-                      <Calendar size={10}/> <span>Ouvert le {new Date(s.openedAt).toLocaleDateString('fr-FR')}</span>
+                   <div className="space-y-2">
+                      <div className="flex items-center text-[9px] font-bold text-slate-400 space-x-2">
+                        <Calendar size={10}/> <span>Ouvert: {new Date(s.openedAt).toLocaleDateString('fr-FR')} à {new Date(s.openedAt).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span>
+                      </div>
+                      {s.closedAt && (
+                        <div className="flex items-center text-[9px] font-bold text-slate-400 space-x-2">
+                          <Lock size={10}/> <span>Clos: {new Date(s.closedAt).toLocaleDateString('fr-FR')} à {new Date(s.closedAt).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span>
+                        </div>
+                      )}
                    </div>
                 </div>
              ))}
+             {filteredSessions.length === 0 && (
+                <div className="col-span-full py-20 text-center opacity-30">
+                   <Monitor size={48} className="mx-auto mb-4" />
+                   <p className="font-black uppercase text-sm tracking-[0.2em]">Aucune session sur cette période</p>
+                </div>
+             )}
           </div>
         )}
       </div>

@@ -237,12 +237,7 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
       payments: method ? [{ method, amount: total }] : []
     };
 
-    if (isResumingDraft) {
-      const updatedSales = sales.map(s => s.id === isResumingDraft ? { ...s, ...saleData } as SaleOrder : s);
-      onUpdateSales(updatedSales);
-    } else {
-      onSaleComplete(saleData);
-    }
+    onSaleComplete(saleData);
 
     if (method) {
         setLocalCart([]);
@@ -312,13 +307,13 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
               {expected !== undefined && (
                 <div className="p-6 bg-white/5 rounded-[2rem] border border-white/10 space-y-4">
                    <div className="flex justify-between items-center">
-                      <span className="text-[9px] font-black text-slate-400 uppercase">Théorique</span>
-                      <span className="text-sm font-black">{expected.toLocaleString()}</span>
+                      <span className="text-[9px] font-black text-slate-400 uppercase">Solde Attendu (Théorique)</span>
+                      <span className="text-sm font-black">{expected.toLocaleString()} {config.currency}</span>
                    </div>
                    <div className="h-px bg-white/10"></div>
                    <div className="flex justify-between items-center">
-                      <span className="text-[9px] font-black text-slate-400 uppercase">Écart</span>
-                      <span className={`text-sm font-black ${countedTotal - expected < 0 ? 'text-rose-500' : countedTotal - expected > 0 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                      <span className="text-[9px] font-black text-slate-400 uppercase">Écart de caisse</span>
+                      <span className={`text-xl font-black ${countedTotal - expected < 0 ? 'text-rose-500' : countedTotal - expected > 0 ? 'text-emerald-500' : 'text-slate-400'}`}>
                         {countedTotal - expected > 0 ? '+' : ''}{(countedTotal - expected).toLocaleString()}
                       </span>
                    </div>

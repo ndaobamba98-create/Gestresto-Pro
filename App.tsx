@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Search, ArrowRight, Users, ChevronLeft, ChevronRight, UserPlus, LogIn, Key, ShieldCheck, ChevronDown, ArrowRightLeft, Bell, X, Check, Trash2, BellOff, Info, AlertTriangle, CheckCircle, Maximize, Minimize, Calendar as CalendarIcon, Shield, UtensilsCrossed, ChefHat, Wifi, Sparkles, Wallet
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Search, ArrowRight, Users, ChevronLeft, ChevronRight, UserPlus, LogIn, Key, ShieldCheck, ChevronDown, ArrowRightLeft, Bell, X, Check, Trash2, BellOff, Info, AlertTriangle, CheckCircle, Maximize, Minimize, Calendar as CalendarIcon, Shield, UtensilsCrossed, ChefHat, Wifi, Sparkles, Wallet, UserRoundExchange, Eye, EyeOff, Calendar
 } from 'lucide-react';
-import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, User, CashSession, Expense, Customer, UserRole, AppNotification, RolePermission, POSLocations } from './types';
+import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, User, CashSession, Expense, Customer, UserRole, AppNotification, RolePermission, POSLocations, CalendarEvent } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_CUSTOMERS, POS_LOCATIONS as INITIAL_LOCATIONS } from './constants';
 import { translations, TranslationKey } from './translations';
 import Dashboard from './components/Dashboard';
@@ -18,6 +18,7 @@ import Attendances from './components/Attendances';
 import Customers from './components/Customers';
 import Kitchen from './components/Kitchen';
 import Expenses from './components/Expenses';
+import CalendarView from './components/CalendarView';
 
 const loadStored = <T extends unknown>(key: string, initial: T): T => {
   const saved = localStorage.getItem(key);
@@ -26,9 +27,9 @@ const loadStored = <T extends unknown>(key: string, initial: T): T => {
 };
 
 const DEFAULT_PERMISSIONS: RolePermission[] = [
-  { role: 'admin', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'expenses', 'invoicing', 'customers', 'reports', 'attendances', 'hr', 'settings', 'manage_inventory', 'manage_session_closing', 'manage_sales', 'manage_hr', 'manage_customers'] },
-  { role: 'manager', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'expenses', 'customers', 'reports', 'attendances', 'manage_inventory'] },
-  { role: 'cashier', permissions: ['dashboard', 'pos', 'preparation', 'attendances'] },
+  { role: 'admin', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'expenses', 'invoicing', 'customers', 'reports', 'attendances', 'hr', 'settings', 'calendar', 'manage_inventory', 'manage_session_closing', 'manage_sales', 'manage_hr', 'manage_customers'] },
+  { role: 'manager', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'expenses', 'customers', 'reports', 'attendances', 'calendar', 'manage_inventory'] },
+  { role: 'cashier', permissions: ['dashboard', 'pos', 'preparation', 'attendances', 'calendar'] },
   { role: 'waiter', permissions: ['pos', 'preparation', 'attendances'] }
 ];
 
@@ -96,10 +97,10 @@ const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState(false);
-  const [isUserListOpen, setIsUserListOpen] = useState(false);
 
   const [signupName, setSignupName] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
@@ -121,6 +122,7 @@ const App: React.FC = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => loadStored('attendance', []));
   const [employees, setEmployees] = useState<Employee[]>(() => loadStored('employees', INITIAL_EMPLOYEES));
   const [notifications, setNotifications] = useState<AppNotification[]>(() => loadStored('notifications', []));
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => loadStored('calendarEvents', []));
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => loadStored('currentUser', null));
@@ -142,6 +144,7 @@ const App: React.FC = () => {
       { id: 'dashboard', icon: LayoutDashboard, label: t('dashboard') },
       { id: 'pos', icon: UtensilsCrossed, label: currentUser?.role === 'waiter' ? 'Prise de Commande' : t('pos') },
       { id: 'preparation', icon: ChefHat, label: 'Suivi Cuisine' },
+      { id: 'calendar', icon: CalendarIcon, label: 'Agenda & Alertes' },
       { id: 'sales', icon: ShoppingCart, label: t('sales') },
       { id: 'inventory', icon: Package, label: t('inventory') },
       { id: 'expenses', icon: Wallet, label: t('expenses') },
@@ -166,6 +169,41 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Alarme et Moteur d'alertes de rendez-vous
+  useEffect(() => {
+    const alertInterval = setInterval(() => {
+      const now = new Date();
+      const todayISO = now.toISOString().split('T')[0];
+      const currentHHmm = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      
+      const upcomingEvents = calendarEvents.filter(event => {
+        if (event.alertTriggered || event.date !== todayISO) return false;
+        
+        const [eventH, eventM] = event.time.split(':').map(Number);
+        const [nowH, nowM] = currentHHmm.split(':').map(Number);
+        
+        const eventTotalMins = eventH * 60 + eventM;
+        const nowTotalMins = nowH * 60 + nowM;
+        const diff = eventTotalMins - nowTotalMins;
+
+        return diff >= 0 && diff <= 5; // Alerté si rendez-vous dans moins de 5 min
+      });
+
+      if (upcomingEvents.length > 0) {
+        upcomingEvents.forEach(ev => {
+          notifyUser("⏰ ALARME RENDEZ-VOUS", `Rendez-vous imminent : "${ev.title}" à ${ev.time}`, "warning");
+        });
+        
+        const updatedEvents = calendarEvents.map(ev => 
+          upcomingEvents.find(u => u.id === ev.id) ? { ...ev, alertTriggered: true } : ev
+        );
+        setCalendarEvents(updatedEvents);
+      }
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(alertInterval);
+  }, [calendarEvents]);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -173,6 +211,11 @@ const App: React.FC = () => {
       if (document.exitFullscreen) document.exitFullscreen();
     }
   };
+
+  const notifyUser = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
+    const newNotif: AppNotification = { id: `notif-${Date.now()}`, title, message, timestamp: new Date().toISOString(), type: type === 'warning' ? 'warning' : type === 'success' ? 'success' : 'info', read: false };
+    setNotifications(prev => [newNotif, ...prev]);
+  }, []);
 
   useEffect(() => { localStorage.setItem('allUsers', JSON.stringify(allUsers)); }, [allUsers]);
   useEffect(() => { localStorage.setItem('config', JSON.stringify(config)); }, [config]);
@@ -188,15 +231,12 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   useEffect(() => { localStorage.setItem('darkMode', JSON.stringify(darkMode)); }, [darkMode]);
   useEffect(() => { localStorage.setItem('notifications', JSON.stringify(notifications)); }, [notifications]);
-
-  const notifyUser = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
-    const newNotif: AppNotification = { id: `notif-${Date.now()}`, title, message, timestamp: new Date().toISOString(), type: type === 'warning' ? 'warning' : type === 'success' ? 'success' : 'info', read: false };
-    setNotifications(prev => [newNotif, ...prev]);
-  }, []);
+  useEffect(() => { localStorage.setItem('calendarEvents', JSON.stringify(calendarEvents)); }, [calendarEvents]);
 
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     setIsEntering(true);
+    setShowPassword(false);
     if (user.role === 'waiter') setActiveView('pos');
     setTimeout(() => {
       setIsEntering(false);
@@ -204,45 +244,43 @@ const App: React.FC = () => {
     }, 2800);
   };
 
-  const handleSaleComplete = (s: Partial<SaleOrder>) => {
-    if (s.status === 'confirmed' && !s.id?.startsWith(config.invoicePrefix)) {
-      const seqStr = String(config.nextInvoiceNumber).padStart(4, '0');
-      const newId = `${config.invoicePrefix}${seqStr}`;
-      const completeSale = { ...s, id: newId } as SaleOrder;
-      setSales([completeSale, ...sales]);
-      setConfig({ ...config, nextInvoiceNumber: config.nextInvoiceNumber + 1 });
-      if (currentUser?.role === 'admin' || currentUser?.role === 'cashier') {
-        notifyUser("Facture émise", `Commande ${newId} enregistrée.`, 'success');
-      }
-    } else {
-      const finalSale = { ...s, id: s.id || `TMP-${Date.now()}` } as SaleOrder;
-      const exists = sales.find(prev => prev.id === finalSale.id);
-      if (exists) {
-        setSales(sales.map(prev => prev.id === finalSale.id ? finalSale : prev));
-      } else {
-        setSales([finalSale, ...sales]);
-      }
-    }
-  };
-
-  const handleRefundSale = (id: string) => {
-    setSales(prev => prev.map(s => s.id === id ? { ...s, status: 'refunded', invoiceStatus: 'refunded' } as SaleOrder : s));
-    notifyUser("Opération annulée", `La commande #${id.slice(-6)} a été annulée.`, "warning");
-  };
-
-  const handleDeleteDraft = (id: string) => {
-    setSales(prev => prev.filter(s => s.id !== id));
-    notifyUser("Brouillon supprimé", "La table a été libérée.", "info");
-  };
-
   const logoutAction = () => {
     setIsLocked(true);
     setCurrentUser(null);
-    setIsNotifOpen(false);
+    setLoginIdentifier('');
+    setPasswordInput('');
+    setShowPassword(false);
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   };
 
+  const switchAccountAction = () => {
+    setIsLocked(true);
+    setCurrentUser(null);
+    setLoginIdentifier('');
+    setPasswordInput('');
+    setShowPassword(false);
+  };
+
   const currentSession = useMemo(() => sessionHistory.find(s => s.status === 'open' && (currentUser?.role === 'admin' ? true : s.cashierId === currentUser?.id || currentUser?.role === 'waiter')), [sessionHistory, currentUser]);
+
+  const handleSaleCompleteAction = (s: Partial<SaleOrder>) => {
+    const sale = s as SaleOrder;
+    setSales([sale, ...sales]);
+    
+    // Mise à jour de la session de caisse en temps réel pour le montant attendu
+    if (sale.status === 'confirmed' && sale.paymentMethod === 'Especes') {
+        setSessionHistory(prev => prev.map(session => {
+            if (session.status === 'open' && (currentUser?.role === 'admin' ? true : session.cashierId === currentUser?.id)) {
+                return {
+                    ...session,
+                    totalCashSales: session.totalCashSales + sale.total,
+                    expectedBalance: session.expectedBalance + sale.total
+                };
+            }
+            return session;
+        }));
+    }
+  };
 
   const renderContent = () => {
     const commonProps = { 
@@ -254,11 +292,12 @@ const App: React.FC = () => {
     
     switch (activeView) {
       case 'dashboard': return <Dashboard leads={[]} sales={sales} expenses={expenses} userRole={currentUser!.role} config={config} products={products} t={t} onNavigate={setActiveView} />;
-      case 'pos': return <POS products={products} customers={customers} onUpdateCustomers={setCustomers} sales={sales} onSaleComplete={handleSaleComplete} onRefundSale={handleRefundSale} onDeleteDraft={handleDeleteDraft} config={config} session={currentSession || null} onOpenSession={(bal, cid) => setSessionHistory([{id:`S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, totalCashSales: 0, status: 'open', cashierName: currentUser!.name, cashierId: cid} as CashSession, ...sessionHistory])} onCloseSession={bal => setSessionHistory(sessionHistory.map(s => s.id === currentSession?.id ? {...s, status: 'closed', closingBalance: bal} as CashSession : s))} userRole={currentUser!.role} userPermissions={commonProps.userPermissions} onUpdateSales={setSales} posLocations={posLocations} onUpdateLocations={setPosLocations} {...commonProps} />;
+      case 'pos': return <POS products={products} customers={customers} onUpdateCustomers={setCustomers} sales={sales} onSaleComplete={handleSaleCompleteAction} onRefundSale={(id) => setSales(sales.map(s => s.id === id ? {...s, status: 'refunded'} as SaleOrder : s))} onDeleteDraft={(id) => setSales(sales.filter(s => s.id !== id))} config={config} session={currentSession || null} onOpenSession={(bal, cid) => setSessionHistory([{id:`S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, totalCashSales: 0, status: 'open', cashierName: currentUser!.name, cashierId: cid} as CashSession, ...sessionHistory])} onCloseSession={bal => setSessionHistory(sessionHistory.map(s => s.id === currentSession?.id ? {...s, status: 'closed', closedAt: new Date().toISOString(), closingBalance: bal, difference: bal - s.expectedBalance} as CashSession : s))} userRole={currentUser!.role} userPermissions={commonProps.userPermissions} onUpdateSales={setSales} posLocations={posLocations} onUpdateLocations={setPosLocations} {...commonProps} />;
       case 'preparation': return <Kitchen sales={sales} onUpdateSales={setSales} config={config} notify={notifyUser} />;
+      case 'calendar': return <CalendarView config={config} t={t} notify={notifyUser} events={calendarEvents} onUpdateEvents={setCalendarEvents} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser!.role} t={t} userPermissions={commonProps.userPermissions} />;
       case 'expenses': return <Expenses expenses={expenses} setExpenses={setExpenses} purchases={[]} onAddPurchase={()=>{}} onDeletePurchase={()=>{}} suppliers={[]} setSuppliers={()=>{}} products={products} config={config} userRole={currentUser!.role} {...commonProps} />;
-      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={handleRefundSale} config={config} products={products} userRole={currentUser!.role} currentUser={currentUser!} onAddSale={handleSaleComplete} {...commonProps} />;
+      case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={(id) => setSales(sales.map(s => s.id === id ? {...s, status: 'refunded'} as SaleOrder : s))} config={config} products={products} userRole={currentUser!.role} currentUser={currentUser!} onAddSale={handleSaleCompleteAction} {...commonProps} />;
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser!.role} onAddSale={() => {}} {...commonProps} />;
       case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} sessions={sessionHistory} />;
       case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} expenses={expenses} onAddExpense={(exp) => setExpenses([exp, ...expenses])} {...commonProps} />;
@@ -290,7 +329,10 @@ const App: React.FC = () => {
             {authMode === 'login' ? (
               <form onSubmit={(e) => {
                 e.preventDefault();
-                const user = allUsers.find(u => u.id === selectedUserId && u.password === passwordInput);
+                const user = allUsers.find(u => 
+                  (u.name.toLowerCase() === loginIdentifier.toLowerCase() || u.id === loginIdentifier) && 
+                  u.password === passwordInput
+                );
                 if (user) {
                   handleLoginSuccess(user);
                 } else {
@@ -303,41 +345,40 @@ const App: React.FC = () => {
                   <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Connectez-vous pour commencer</p>
                 </div>
                 <div className="space-y-6">
-                  <div className="space-y-2 relative">
+                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2 flex items-center"><Users size={12} className="mr-2" /> IDENTIFIANT</label>
-                    <button type="button" onClick={() => setIsUserListOpen(!isUserListOpen)} className="w-full bg-black/40 border-2 border-white/5 hover:border-purple-500 rounded-2xl py-4 px-6 text-white flex items-center justify-between transition-all group">
-                      {selectedUserId ? (
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${allUsers.find(u => u.id === selectedUserId)?.color} flex items-center justify-center text-white font-black text-[10px]`}>{allUsers.find(u => u.id === selectedUserId)?.initials}</div>
-                          <span className="font-bold text-sm uppercase">{allUsers.find(u => u.id === selectedUserId)?.name}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-500 font-black uppercase text-[10px] tracking-widest">SÉLECTIONNER IDENTIFIANT</span>
-                      )}
-                      <ChevronDown size={20} className={`text-slate-500 transition-transform ${isUserListOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {isUserListOpen && (
-                      <div className="absolute top-full left-0 w-full mt-2 bg-slate-900 border-2 border-white/10 rounded-[1.5rem] shadow-2xl overflow-hidden z-50 animate-scaleIn origin-top">
-                        <div className="max-h-60 overflow-y-auto scrollbar-hide py-2">
-                          {allUsers.map(user => (
-                            <button key={user.id} type="button" onClick={() => { setSelectedUserId(user.id); setIsUserListOpen(false); }} className="w-full p-4 hover:bg-white/5 flex items-center justify-between text-left transition-all group">
-                              <div className="flex items-center space-x-4">
-                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${user.color} flex items-center justify-center text-white font-black text-xs`}>{user.initials}</div>
-                                <div><p className="font-black text-white text-[11px] uppercase">{user.name}</p><p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{user.role}</p></div>
-                              </div>
-                              {selectedUserId === user.id && <ShieldCheck size={18} className="text-purple-500" />}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <input 
+                      type="text" 
+                      required
+                      autoFocus
+                      value={loginIdentifier} 
+                      onChange={e => setLoginIdentifier(e.target.value)} 
+                      className="w-full bg-black/40 border-2 border-white/5 hover:border-purple-500 focus:border-purple-500 rounded-2xl py-4 px-6 text-white font-bold uppercase outline-none transition-all" 
+                      placeholder="ENTREZ VOTRE NOM" 
+                    />
                   </div>
-                  <div className={`space-y-2 transition-all duration-500 ${selectedUserId ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2 flex items-center"><Key size={12} className="mr-2" /> MOT DE PASSE</label>
-                    <input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full bg-black/40 border-2 border-transparent focus:border-purple-500 rounded-2xl py-4 px-6 text-white font-black tracking-[0.5em] outline-none transition-all text-center" placeholder="••••" />
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        required
+                        value={passwordInput} 
+                        onChange={e => setPasswordInput(e.target.value)} 
+                        className={`w-full bg-black/40 border-2 border-white/5 hover:border-purple-500 focus:border-purple-500 rounded-2xl py-4 px-6 text-white font-black outline-none transition-all text-center ${showPassword ? 'tracking-normal' : 'tracking-[0.5em]'}`} 
+                        placeholder="••••" 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-500 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <button type="submit" disabled={!selectedUserId || !passwordInput} className="w-full py-5 bg-purple-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-purple-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-3">
+                <button type="submit" disabled={!loginIdentifier || !passwordInput} className="w-full py-5 bg-purple-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-purple-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-3">
                   <span>Ouvrir la session</span>
                   <ArrowRight size={18} />
                 </button>
@@ -372,12 +413,28 @@ const App: React.FC = () => {
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">IDENTIFIANT</label>
-                    <input required value={signupName} onChange={e => setSignupName(e.target.value)} className="w-full bg-black/40 border-2 border-transparent focus:border-emerald-500 rounded-2xl py-4 px-6 text-white font-bold outline-none transition-all uppercase" placeholder="IDENTIFIANT" />
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">NOM COMPLET</label>
+                    <input required value={signupName} onChange={e => setSignupName(e.target.value)} className="w-full bg-black/40 border-2 border-transparent focus:border-emerald-500 rounded-2xl py-4 px-6 text-white font-bold outline-none transition-all uppercase" placeholder="EX: AMY NDAW" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">MOT DE PASSE</label>
-                    <input type="password" required value={signupPassword} onChange={e => setSignupPassword(e.target.value)} className="w-full bg-black/40 border-2 border-transparent focus:border-emerald-500 rounded-2xl py-4 px-6 text-white font-black tracking-[0.5em] outline-none transition-all" placeholder="••••" />
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"} 
+                        required 
+                        value={signupPassword} 
+                        onChange={e => setSignupPassword(e.target.value)} 
+                        className={`w-full bg-black/40 border-2 border-transparent focus:border-emerald-500 rounded-2xl py-4 px-6 text-white font-black outline-none transition-all ${showPassword ? 'tracking-normal' : 'tracking-[0.5em]'}`} 
+                        placeholder="••••" 
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-500 hover:text-white transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">ACCÈS</label>
@@ -393,7 +450,7 @@ const App: React.FC = () => {
                   <ShieldCheck size={18} />
                 </button>
                 <div className="text-center pt-2">
-                  <button type="button" onClick={() => setAuthMode('login')} className="text-[10px] font-black uppercase text-slate-500 hover:text-emerald-400 transition-colors flex items-center justify-center mx-auto">
+                  <button type="button" onClick={() => { setAuthMode('login'); setShowPassword(false); }} className="text-[10px] font-black uppercase text-slate-500 hover:text-emerald-400 transition-colors flex items-center justify-center mx-auto">
                     <LogIn size={14} className="mr-2"/> Se connecter
                   </button>
                 </div>
@@ -427,7 +484,10 @@ const App: React.FC = () => {
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 space-y-2">
+           <button onClick={switchAccountAction} className={`w-full flex items-center p-4 rounded-2xl text-purple-400 hover:bg-purple-500/10 transition-all font-bold text-sm ${!isSidebarOpen ? 'justify-center' : ''}`}>
+             <ArrowRightLeft size={20} className={isSidebarOpen ? "mr-3" : ""} /> {isSidebarOpen && 'Changer de compte'}
+           </button>
            <button onClick={logoutAction} className={`w-full flex items-center p-4 rounded-2xl text-rose-500 hover:bg-rose-500/10 transition-all font-bold text-sm ${!isSidebarOpen ? 'justify-center' : ''}`}>
              <LogOut size={20} className={isSidebarOpen ? "mr-3" : ""} /> {isSidebarOpen && 'Déconnexion'}
            </button>
@@ -435,19 +495,36 @@ const App: React.FC = () => {
       </aside>
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 relative">
         <header className="h-24 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 z-10 animate-entryHeader">
-          <div className="flex items-center space-x-6">
-            <div className="flex flex-col">
-              <h2 className="text-xl font-black uppercase tracking-tight text-slate-800 dark:text-white leading-none">{config.companyName}</h2>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">{config.companySlogan}</span>
+          <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-4 pr-6 border-r border-slate-200 dark:border-slate-800">
+               <div className="flex flex-col">
+                 <span className="text-2xl font-black text-slate-900 dark:text-white tabular-nums leading-none">
+                   {currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                 </span>
+                 <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1">
+                   {currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                 </span>
+               </div>
+            </div>
+            <div className="hidden md:flex flex-col">
+              <h2 className="text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white leading-none">{config.companyName}</h2>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{config.companySlogan}</span>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <button onClick={toggleFullscreen} className="p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl transition-all text-slate-500 hover:text-purple-600 shadow-sm"><Maximize size={20}/></button>
             <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl transition-colors text-slate-600 dark:text-slate-400 hover:text-purple-600">{darkMode ? <Sun size={20}/> : <Moon size={20}/>}</button>
             <div className="flex items-center space-x-1">
-              <div className="flex items-center space-x-3 bg-white dark:bg-slate-800 p-2 pr-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex items-center space-x-3 bg-white dark:bg-slate-800 p-2 pr-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative group">
                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser?.color} flex items-center justify-center text-white font-black shadow-lg text-xs`}>{currentUser?.initials}</div>
                  <div className="flex flex-col"><span className="text-xs font-black dark:text-white leading-tight">{currentUser?.name}</span><span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest">{currentUser?.role}</span></div>
+                 <button 
+                  onClick={switchAccountAction}
+                  className="absolute -right-1 -top-1 p-1.5 bg-purple-600 text-white rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:scale-110 active:scale-95"
+                  title="Changer de compte"
+                 >
+                    <ArrowRightLeft size={12} />
+                 </button>
               </div>
             </div>
           </div>

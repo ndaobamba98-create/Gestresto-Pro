@@ -10,6 +10,16 @@ export interface AppNotification {
   read: boolean;
 }
 
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  type: 'meeting' | 'delivery' | 'maintenance' | 'service';
+  description?: string;
+  alertTriggered?: boolean;
+}
+
 export interface Attachment {
   id: string;
   name: string;
@@ -31,7 +41,7 @@ export type UserRole = 'admin' | 'cashier' | 'manager' | 'waiter';
 export type ViewType = 
   | 'dashboard' | 'pos' | 'sales' | 'inventory' | 'expenses' | 'hr' 
   | 'attendances' | 'settings' | 'invoicing' | 'reports' | 'customers' 
-  | 'preparation' | 'manage_inventory' | 'manage_session_closing' | 'manage_sales' | 'manage_hr' | 'manage_customers';
+  | 'preparation' | 'manage_inventory' | 'manage_session_closing' | 'manage_sales' | 'manage_hr' | 'manage_customers' | 'calendar';
 
 export type AppTheme = 'purple' | 'emerald' | 'blue' | 'rose' | 'amber' | 'slate';
 
