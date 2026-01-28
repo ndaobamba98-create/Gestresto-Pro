@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod, Customer, UserRole, ViewType, User as AppUser, POSLocations } from '../types';
+import { Product, SaleOrder, ERPConfig, CashSession, PaymentMethod, Customer, UserRole, User as AppUser, POSLocations } from '../types';
 import { 
   Search, Plus, Minus, ChevronLeft, ChevronRight, LayoutGrid, Coins, Utensils, 
   Package, Truck, Wallet, Smartphone, Send, Clock, ClipboardList, 
-  LayoutList, CheckCircle2, History, Timer, Save, Banknote, Calculator, X, Lock, Unlock, AlertTriangle, Car, Armchair, Trash2, RotateCcw, ShoppingCart
+  LayoutList, CheckCircle2, History, Timer, Save, Banknote, Calculator, X, Lock, Unlock, AlertTriangle, Car, Armchair, Trash2, RotateCcw, ShoppingCart, Eye, ArrowLeft, Users as UsersIcon,
+  ArrowRightLeft
 } from 'lucide-react';
 
 const DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10, 5];
@@ -29,7 +30,7 @@ interface Props {
   notify: (title: string, message: string, type?: 'success' | 'info' | 'warning') => void;
   userRole: UserRole;
   currentUser: AppUser;
-  onUpdateSales?: (sales: SaleOrder[]) => void;
+  onUpdateSales: (sales: SaleOrder[]) => void;
   posLocations: POSLocations;
   onUpdateLocations: (locations: POSLocations) => void;
   userPermissions: any;
@@ -45,6 +46,8 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
   const [draftStartTime, setDraftStartTime] = useState<string | null>(null);
   
   const [isClosingSession, setIsClosingSession] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [billetage, setBilletage] = useState<Record<number, number>>({});
   
   const [isAddTableOpen, setIsAddTableOpen] = useState<{ isOpen: boolean, categoryId: string | null }>({ isOpen: false, categoryId: null });
@@ -58,6 +61,23 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
 
   const isWaiter = userRole === 'waiter';
   const activeDrafts = useMemo(() => sales.filter(s => s.status === 'draft'), [sales]);
+  const recentSales = useMemo(() => 
+    sales.filter(s => s.status !== 'draft' && s.status !== 'quotation')
+         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+         .slice(0, 20)
+  , [sales]);
+
+  // Liste de tous les emplacements disponibles pour un transfert (ceux qui ne sont pas occupés)
+  const availableLocations = useMemo(() => {
+    const occupied = new Set(activeDrafts.map(d => d.orderLocation));
+    const all: string[] = [];
+    posLocations.categories.forEach(cat => {
+      cat.items.forEach(item => {
+        if (!occupied.has(item)) all.push(item);
+      });
+    });
+    return all;
+  }, [posLocations, activeDrafts]);
 
   const countedTotal = useMemo(() => {
     return Object.entries(billetage).reduce((acc: number, [denom, qty]) => acc + (parseInt(denom) * (qty as number)), 0);
@@ -105,14 +125,14 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
 
   const getTableStatus = (loc: string) => {
     const draft = activeDrafts.find(d => d.orderLocation === loc);
-    return draft ? { isDraft: true, sale: draft } : { isDraft: false };
+    return draft ? { isOccupied: true, sale: draft } : { isOccupied: false };
   };
 
   const handleSelectLocation = (loc: string) => {
     const status = getTableStatus(loc);
     setActiveLocation(loc);
     
-    if (status.isDraft && status.sale) {
+    if (status.isOccupied && status.sale) {
       const items: CartItem[] = (status.sale.items || []).map(si => {
         const product = products.find(p => p.id === si.productId);
         return {
@@ -133,6 +153,26 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
       setDraftStartTime(null);
       setSelectedCustomer(null);
     }
+  };
+
+  const handleTransfer = (newLoc: string) => {
+    if (!isResumingDraft || !activeLocation) return;
+    
+    const updatedSales = sales.map(s => {
+      if (s.id === isResumingDraft) {
+        return { 
+          ...s, 
+          orderLocation: newLoc,
+          customer: s.customer === activeLocation ? newLoc : s.customer // Maj du nom client si c'était le nom de la table
+        };
+      }
+      return s;
+    });
+
+    onUpdateSales(updatedSales);
+    notify("Transfert réussi", `Commande déplacée de ${activeLocation} vers ${newLoc}`, "success");
+    setActiveLocation(newLoc);
+    setIsTransferModalOpen(false);
   };
 
   const handleCancelOrder = () => {
@@ -191,13 +231,13 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
       date: new Date().toISOString(),
       openedAt: draftStartTime || new Date().toISOString(),
       status: (isWaiter || !method) ? 'draft' : 'confirmed', 
-      preparationStatus: 'pending', // Set to pending when sent to kitchen
+      preparationStatus: 'pending',
       paymentMethod: method || undefined,
       cashierId: currentUser.id,
       payments: method ? [{ method, amount: total }] : []
     };
 
-    if (isResumingDraft && onUpdateSales) {
+    if (isResumingDraft) {
       const updatedSales = sales.map(s => s.id === isResumingDraft ? { ...s, ...saleData } as SaleOrder : s);
       onUpdateSales(updatedSales);
     } else {
@@ -212,6 +252,17 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
         notify("Cuisine Alertée", `Commande #${saleData.id?.slice(-6)} envoyée en préparation.`, "info");
         setActiveLocation(null);
         setLocalCart([]);
+    }
+  };
+
+  const getIcon = (iconName: string) => {
+    switch (iconName) {
+      case 'Utensils': return <Utensils size={24} />;
+      case 'Armchair': return <Armchair size={24} />;
+      case 'Package': return <Package size={24} />;
+      case 'Truck': return <Truck size={24} />;
+      case 'Car': return <Car size={24} />;
+      default: return <LayoutGrid size={24} />;
     }
   };
 
@@ -292,17 +343,6 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
     </div>
   );
 
-  const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Utensils': return <Utensils size={24} />;
-      case 'Armchair': return <Armchair size={24} />;
-      case 'Package': return <Package size={24} />;
-      case 'Truck': return <Truck size={24} />;
-      case 'Car': return <Car size={24} />;
-      default: return <LayoutGrid size={24} />;
-    }
-  };
-
   const LocationGroup: React.FC<{ title: string; categoryId: string; items: string[]; iconName: string }> = ({ title, categoryId, items, iconName }) => (
     <div className="space-y-6">
       <div className="flex items-center space-x-4 border-l-4 border-purple-600 pl-4">
@@ -311,10 +351,10 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-6">
         {items.map(loc => {
            const status = getTableStatus(loc);
-           const itemCount = status.isDraft ? (status.sale?.items?.reduce((acc, i) => acc + i.quantity, 0) || 0) : 0;
+           const itemCount = status.isOccupied ? (status.sale?.items?.reduce((acc, i) => acc + i.quantity, 0) || 0) : 0;
            
            let durationStr = "";
-           if (status.isDraft && status.sale?.openedAt) {
+           if (status.isOccupied && status.sale?.openedAt) {
                const diff = now.getTime() - new Date(status.sale.openedAt).getTime();
                const mins = Math.floor(diff / 60000);
                const hrs = Math.floor(mins / 60);
@@ -325,12 +365,17 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
              <button 
                key={loc} 
                onClick={() => handleSelectLocation(loc)} 
-               className={`relative w-32 h-32 mx-auto rounded-[2rem] border-2 transition-all flex flex-col items-center justify-center space-y-2 group shadow-sm
-                 ${status.isDraft 
-                   ? 'bg-blue-600 border-blue-400 text-white shadow-lg scale-105 z-10' 
-                   : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-purple-500 hover:shadow-md'}`}
+               className={`relative w-32 h-32 mx-auto rounded-[2.5rem] border-2 transition-all flex flex-col items-center justify-center space-y-2 group shadow-sm
+                 ${status.isOccupied 
+                   ? 'bg-blue-600 border-blue-400 text-white shadow-lg scale-105 z-10 animate-pulse-subtle' 
+                   : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-emerald-500 hover:shadow-md'}`}
              >
-               {status.isDraft ? (
+               <div className={`absolute -top-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[7px] font-black uppercase tracking-widest shadow-md border-2 border-white dark:border-slate-900
+                 ${status.isOccupied ? 'bg-rose-600 text-white' : 'bg-emerald-50 text-white'}`}>
+                 {status.isOccupied ? 'Occupé' : 'Libre'}
+               </div>
+
+               {status.isOccupied ? (
                  <div className="flex flex-col items-center">
                    <div className="mb-1 text-white">{getIcon(iconName)}</div>
                    <div className="flex items-center space-x-1 bg-blue-700/50 px-2 py-0.5 rounded-full text-[7px] font-black uppercase">
@@ -338,19 +383,21 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
                    </div>
                  </div>
                ) : (
-                <div className="text-slate-300 dark:text-slate-700 group-hover:text-purple-500 transition-colors">
+                <div className="text-slate-200 dark:text-slate-800 group-hover:text-emerald-500 transition-colors">
                   {getIcon(iconName)}
                 </div>
                )}
                
-               <span className="font-black uppercase text-[9px] tracking-widest px-2 text-center truncate w-full">{loc}</span>
+               <span className={`font-black uppercase text-[9px] tracking-widest px-2 text-center truncate w-full ${status.isOccupied ? 'text-white' : 'text-slate-400'}`}>
+                 {loc}
+               </span>
                
-               {status.isDraft && (
+               {status.isOccupied && (
                  <>
-                   <div className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white w-7 h-7 rounded-xl text-[9px] font-black border-2 border-white dark:border-slate-900 flex items-center justify-center shadow-lg transform rotate-12">
+                   <div className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white w-7 h-7 rounded-xl text-[9px] font-black border-2 border-white flex items-center justify-center shadow-lg transform rotate-12">
                      {itemCount}
                    </div>
-                   <div className="absolute -bottom-1.5 bg-white text-blue-600 px-2 py-0.5 rounded-lg text-[7px] font-black border border-blue-600 shadow-md whitespace-nowrap">
+                   <div className="absolute -bottom-2.5 bg-white text-blue-600 px-3 py-1 rounded-full text-[8px] font-black border-2 border-blue-600 shadow-xl whitespace-nowrap">
                      {status.sale?.total.toLocaleString()} {config.currency}
                    </div>
                  </>
@@ -360,10 +407,10 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
         })}
         <button 
            onClick={() => setIsAddTableOpen({ isOpen: true, categoryId })}
-           className="w-32 h-32 mx-auto rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center space-y-2 text-slate-300 hover:text-purple-500 hover:border-purple-500 transition-all bg-transparent group"
+           className="w-32 h-32 mx-auto rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center space-y-2 text-slate-300 hover:text-purple-500 hover:border-purple-500 transition-all bg-transparent group"
         >
            <Plus size={24} className="group-hover:scale-125 transition-transform" />
-           <span className="font-black uppercase text-[8px] tracking-widest">Nouveau</span>
+           <span className="font-black uppercase text-[8px] tracking-widest">Ajouter</span>
         </button>
       </div>
     </div>
@@ -376,7 +423,7 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
           <div className="bg-white dark:bg-slate-900 p-12 rounded-[4rem] border-2 border-slate-100 dark:border-slate-800 shadow-2xl text-center space-y-6 max-w-md">
              <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2.5rem] flex items-center justify-center mx-auto"><Lock size={48}/></div>
              <h2 className="text-2xl font-black uppercase tracking-tighter">Caisse Fermée</h2>
-             <p className="text-sm font-medium text-slate-500 uppercase tracking-widest leading-relaxed">Attendez l'ouverture de la session par le caissier pour prendre les commandes.</p>
+             <p className="text-sm font-medium text-slate-500 uppercase tracking-widest leading-relaxed">Attendez l'ouverture de la session par le caissier.</p>
           </div>
         </div>
       );
@@ -386,6 +433,78 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
 
   if (isClosingSession) {
     return <BilletageView title="Clôture de Caisse" expected={session.expectedBalance} onConfirm={handleCloseSessionWithBilletage} onCancel={() => setIsClosingSession(false)} />;
+  }
+
+  if (isHistoryOpen) {
+    return (
+      <div className="h-full flex flex-col space-y-8 animate-fadeIn pr-2 overflow-y-auto scrollbar-hide pb-20">
+         <div className="bg-white dark:bg-slate-900 p-8 rounded-[3.5rem] border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-sm sticky top-0 z-[100] backdrop-blur-xl">
+           <div className="flex items-center space-x-5">
+              <button onClick={() => setIsHistoryOpen(false)} className="p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl hover:bg-slate-200 transition-all">
+                <ArrowLeft size={24} />
+              </button>
+              <div>
+                 <h2 className="text-xl font-black uppercase tracking-tighter">Dernières Ventes</h2>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Historique récent de la caisse</p>
+              </div>
+           </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+                <th className="px-8 py-5">Heure</th>
+                <th className="px-8 py-5">Référence</th>
+                <th className="px-8 py-5">Client / Zone</th>
+                <th className="px-8 py-5 text-right">Total</th>
+                <th className="px-8 py-5 text-center">Paiement</th>
+                <th className="px-8 py-5 text-center">Statut</th>
+                <th className="px-8 py-5 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {recentSales.map(s => (
+                <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${s.status === 'refunded' ? 'bg-rose-50/20 grayscale-[0.5]' : ''}`}>
+                  <td className="px-8 py-6 text-[10px] font-bold text-slate-400">{new Date(s.date).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</td>
+                  <td className="px-8 py-6 font-mono text-xs font-black text-purple-600">#{s.id.slice(-8)}</td>
+                  <td className="px-8 py-6">
+                    <div className="flex flex-col">
+                       <span className="text-xs font-black uppercase">{s.customer}</span>
+                       <span className="text-[9px] font-bold text-slate-400 uppercase">{s.orderLocation || 'Comptoir'}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6 text-right font-black text-sm">
+                    <span className={s.status === 'refunded' ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}>
+                      {s.total.toLocaleString()} {config.currency}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 text-center">
+                    <span className="text-[10px] font-black uppercase text-slate-400">{s.paymentMethod || 'Espèces'}</span>
+                  </td>
+                  <td className="px-8 py-6 text-center">
+                    <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${s.status === 'refunded' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                      {s.status === 'refunded' ? 'Annulée' : 'Validée'}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    {s.status !== 'refunded' && (userRole === 'admin' || userRole === 'manager' || userRole === 'cashier') && (
+                      <button 
+                        onClick={() => { if(confirm("Annuler définitivement cette vente ?")) onRefundSale(s.id); }}
+                        className="p-2.5 bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all shadow-sm"
+                        title="Annuler la vente"
+                      >
+                        <RotateCcw size={18} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   }
 
   if (!activeLocation) {
@@ -400,12 +519,13 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
               </div>
            </div>
            
-           <div className="flex items-center space-x-8">
+           <div className="flex items-center space-x-4">
+              <button onClick={() => setIsHistoryOpen(true)} className="p-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl hover:bg-slate-200 transition-all flex items-center space-x-2">
+                <History size={24}/>
+                <span className="text-[10px] font-black uppercase hidden md:inline">Historique</span>
+              </button>
               {!isWaiter && (
-                <button 
-                  onClick={() => { setBilletage({}); setIsClosingSession(true); }}
-                  className="px-8 py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-900/20 hover:bg-rose-700 transition-all flex items-center"
-                >
+                <button onClick={() => { setBilletage({}); setIsClosingSession(true); }} className="px-8 py-4 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-rose-700 transition-all flex items-center">
                   <Lock size={16} className="mr-2"/> Clôturer Caisse
                 </button>
               )}
@@ -428,31 +548,20 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
              <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                 <div className="flex items-center space-x-3">
                    <ClipboardList size={20} className="text-blue-600"/>
-                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">File d'attente</h3>
+                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">En attente</h3>
                 </div>
                 <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-[10px] font-black">{activeDrafts.length}</span>
              </div>
              <div className="max-h-[500px] overflow-y-auto p-6 space-y-4 scrollbar-hide">
-                {activeDrafts.length > 0 ? (
-                  activeDrafts.map(draft => (
-                    <button 
-                      key={draft.id} 
-                      onClick={() => handleSelectLocation(draft.orderLocation || "")} 
-                      className="w-full p-6 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-transparent hover:border-blue-500 transition-all flex items-center justify-between group shadow-sm text-left"
-                    >
-                       <div className="space-y-1">
-                          <span className="text-sm font-black uppercase text-slate-800 dark:text-white group-hover:text-blue-600 transition-colors">{draft.orderLocation}</span>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">{draft.total.toLocaleString()} {config.currency}</p>
-                       </div>
-                       <ChevronRight size={18} className="text-slate-300 group-hover:text-blue-500 transition-all"/>
-                    </button>
-                  ))
-                ) : (
-                  <div className="py-20 text-center space-y-4 opacity-20">
-                     <LayoutList size={48} className="mx-auto" />
-                     <p className="text-[10px] font-black uppercase tracking-widest">Tout est servi</p>
-                  </div>
-                )}
+                {activeDrafts.map(draft => (
+                  <button key={draft.id} onClick={() => handleSelectLocation(draft.orderLocation || "")} className="w-full p-6 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-transparent hover:border-blue-500 transition-all flex items-center justify-between group shadow-sm text-left">
+                     <div className="space-y-1">
+                        <span className="text-sm font-black uppercase text-slate-800 dark:text-white group-hover:text-blue-600 transition-colors">{draft.orderLocation}</span>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">{draft.total.toLocaleString()} {config.currency}</p>
+                     </div>
+                     <ChevronRight size={18} className="text-slate-300 group-hover:text-blue-500 transition-all"/>
+                  </button>
+                ))}
              </div>
           </div>
         </div>
@@ -465,11 +574,8 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
                   <button onClick={() => setIsAddTableOpen({ isOpen: false, categoryId: null })}><X size={24}/></button>
                </div>
                <form onSubmit={handleAddLocation} className="p-10 space-y-6">
-                  <div className="space-y-2">
-                     <label className="text-[10px] font-black uppercase text-slate-400">Nom / Numéro</label>
-                     <input required autoFocus value={newTableName} onChange={e => setNewTableName(e.target.value)} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-black outline-none border-2 border-transparent focus:border-purple-500 transition-all" placeholder="ex: Table 12, Livraison Express..." />
-                  </div>
-                  <button type="submit" className="w-full py-5 bg-purple-600 text-white rounded-3xl font-black uppercase text-xs shadow-xl shadow-purple-900/20 active:scale-95 transition-all">Ajouter au plan</button>
+                  <input required autoFocus value={newTableName} onChange={e => setNewTableName(e.target.value)} className="w-full px-6 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-black outline-none border-2 border-transparent focus:border-purple-500 transition-all" placeholder="ex: Table 12, Livraison..." />
+                  <button type="submit" className="w-full py-5 bg-purple-600 text-white rounded-3xl font-black uppercase text-xs shadow-xl transition-all">Ajouter au plan</button>
                </form>
             </div>
           </div>
@@ -482,34 +588,24 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
     <div className="h-full grid grid-cols-12 gap-8 overflow-hidden animate-fadeIn">
       <div className="col-span-12 lg:col-span-8 flex flex-col space-y-6 overflow-hidden">
         <div className="flex items-center space-x-4">
-          <button 
-            onClick={() => {
-              handleProcessOrder(null);
-              setActiveLocation(null);
-            }} 
-            className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:bg-slate-50 transition-all"
-          >
+          <button onClick={() => { handleProcessOrder(null); setActiveLocation(null); }} className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:bg-slate-50 transition-all">
             <ChevronLeft size={28} />
           </button>
           <div className="flex-1 relative">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={24} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Ajouter au menu..." className="w-full pl-16 pr-8 py-5 bg-white dark:bg-slate-900 rounded-3xl text-md font-bold shadow-sm focus:ring-4 focus:ring-purple-500/10 border-none outline-none" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un produit..." className="w-full pl-16 pr-8 py-5 bg-white dark:bg-slate-900 rounded-3xl text-md font-bold shadow-sm focus:ring-4 focus:ring-purple-500/10 border-none outline-none" />
           </div>
         </div>
 
         <div className="flex space-x-3 overflow-x-auto scrollbar-hide pb-2">
           {categories.map(cat => (
-            <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-10 py-4 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap transition-all border-2 ${activeCategory === cat ? 'bg-purple-600 border-purple-600 text-white shadow-xl' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50'}`}>{cat}</button>
+            <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-10 py-4 rounded-2xl text-[11px] font-black uppercase whitespace-nowrap transition-all border-2 ${activeCategory === cat ? 'bg-purple-600 border-purple-600 text-white shadow-xl' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}>{cat}</button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4 scrollbar-hide pb-10">
           {filteredProducts.map(p => (
-            <button 
-              key={p.id} 
-              onClick={() => addToCart(p)} 
-              className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm text-left flex flex-col justify-between hover:border-purple-500 hover:shadow-xl transition-all h-56 group relative overflow-hidden"
-            >
+            <button key={p.id} onClick={() => addToCart(p)} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm text-left flex flex-col justify-between hover:border-purple-500 hover:shadow-xl transition-all h-56 group relative overflow-hidden">
               <div>
                 <span className="text-[8px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest block mb-1">{p.category}</span>
                 <h4 className="text-[13px] font-black uppercase leading-tight text-slate-800 dark:text-slate-100 group-hover:text-purple-600 transition-colors line-clamp-2">{p.name}</h4>
@@ -527,29 +623,19 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col flex-1">
           <div className={`p-6 border-b dark:border-slate-800 text-white flex items-center justify-between ${isResumingDraft ? 'bg-blue-600' : 'bg-slate-900'}`}>
             <div className="flex items-center space-x-4">
-               <div className={`p-2.5 rounded-xl bg-white/20 shadow-lg`}>
-                  <LayoutGrid size={22}/>
-               </div>
+               <div className="p-2.5 rounded-xl bg-white/20 shadow-lg"><LayoutGrid size={22}/></div>
                <div>
                   <h3 className="text-sm font-black uppercase tracking-widest">{activeLocation}</h3>
                   <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest">En service</p>
                </div>
             </div>
-            
             <div className="flex items-center space-x-2">
                {isResumingDraft && (
-                 <div className="flex items-center space-x-2 bg-white/10 px-3 py-1.5 rounded-xl border border-white/20 mr-2">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    <span className="text-[9px] font-black text-white uppercase tracking-widest">Draft</span>
-                 </div>
+                 <button onClick={() => setIsTransferModalOpen(true)} className="p-2.5 bg-white/20 hover:bg-white text-white hover:text-blue-600 rounded-xl transition-all flex items-center space-x-2" title="Transférer Table">
+                    <ArrowRightLeft size={18} />
+                 </button>
                )}
-               <button 
-                 onClick={handleCancelOrder} 
-                 className="p-2.5 bg-rose-500/20 hover:bg-rose-500 text-white rounded-xl transition-all"
-                 title="Annuler/Vider la table"
-               >
-                 <Trash2 size={20} />
-               </button>
+               <button onClick={handleCancelOrder} className="p-2.5 bg-rose-500/20 hover:bg-rose-500 text-white rounded-xl transition-all"><Trash2 size={20} /></button>
             </div>
           </div>
 
@@ -570,38 +656,64 @@ const POS: React.FC<Props> = ({ products, customers, config, session, onOpenSess
             {localCart.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center opacity-20 py-20 text-center space-y-4">
                 <ShoppingCart size={48} />
-                <p className="text-[10px] font-black uppercase tracking-widest">Table vide</p>
+                <p className="text-[10px] font-black uppercase tracking-widest">Panier vide</p>
               </div>
             )}
           </div>
 
           <div className="p-8 bg-slate-950 text-white rounded-t-3xl space-y-8 shadow-[0_-20px_40px_rgba(0,0,0,0.3)]">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Commande</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total</span>
               <span className="text-4xl font-black tracking-tighter">{total.toLocaleString()} <span className="text-sm font-bold text-purple-500">{config.currency}</span></span>
             </div>
 
             {isWaiter ? (
                <div className="grid grid-cols-2 gap-3">
-                 <button onClick={() => handleProcessOrder(null)} className="py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center justify-center space-x-2">
-                    <Save size={18} />
-                    <span>En attente</span>
-                 </button>
-                 <button disabled={localCart.length === 0} onClick={() => handleProcessOrder(null)} className="py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest shadow-xl transition-all flex items-center justify-center space-x-2">
-                    <Send size={18} />
-                    <span>Cuisine</span>
-                 </button>
+                 <button onClick={() => handleProcessOrder(null)} className="py-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest transition-all flex items-center justify-center space-x-2"><Save size={18} /><span>Attente</span></button>
+                 <button disabled={localCart.length === 0} onClick={() => handleProcessOrder(null)} className="py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white rounded-2xl font-black uppercase text-[9px] tracking-widest shadow-xl transition-all flex items-center justify-center space-x-2"><Send size={18} /><span>Cuisine</span></button>
                </div>
             ) : (
               <div className="grid grid-cols-3 gap-3">
-                <button disabled={localCart.length === 0} onClick={() => handleProcessOrder('Especes')} className="py-4 bg-emerald-600 hover:bg-emerald-700 rounded-2xl font-black uppercase text-[8px] flex flex-col items-center space-y-2 transition-all shadow-lg"><Coins size={20}/><span>Espèces</span></button>
-                <button disabled={localCart.length === 0} onClick={() => handleProcessOrder('Masrvi')} className="py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black uppercase text-[8px] flex flex-col items-center space-y-2 transition-all shadow-lg"><Wallet size={20}/><span>Masrvi</span></button>
-                <button disabled={localCart.length === 0} onClick={() => handleProcessOrder('Bankily')} className="py-4 bg-orange-600 hover:bg-orange-700 rounded-2xl font-black uppercase text-[8px] flex flex-col items-center space-y-2 transition-all shadow-lg"><Smartphone size={20}/><span>Bankily</span></button>
+                <button disabled={localCart.length === 0} onClick={() => handleProcessOrder('Especes')} className="py-4 bg-emerald-600 hover:bg-emerald-700 rounded-2xl font-black uppercase text-[8px] flex flex-col items-center space-y-2 shadow-lg"><Coins size={20}/><span>Espèces</span></button>
+                <button disabled={localCart.length === 0} onClick={() => handleProcessOrder('Masrvi')} className="py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl font-black uppercase text-[8px] flex flex-col items-center space-y-2 shadow-lg"><Wallet size={20}/><span>Masrvi</span></button>
+                <button disabled={localCart.length === 0} onClick={() => handleProcessOrder('Bankily')} className="py-4 bg-orange-600 hover:bg-orange-700 rounded-2xl font-black uppercase text-[8px] flex flex-col items-center space-y-2 shadow-lg"><Smartphone size={20}/><span>Bankily</span></button>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* MODAL DE TRANSFERT */}
+      {isTransferModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[3rem] shadow-2xl border border-white/10 overflow-hidden animate-scaleIn">
+             <div className="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                <div className="flex items-center space-x-4">
+                   <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg"><ArrowRightLeft size={24}/></div>
+                   <h3 className="text-xl font-black uppercase tracking-tighter">Transférer Commande</h3>
+                </div>
+                <button onClick={() => setIsTransferModalOpen(false)}><X size={28} className="text-slate-400 hover:text-rose-500"/></button>
+             </div>
+             <div className="p-10 space-y-6">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sélectionner la table de destination (Libres uniquement)</p>
+                <div className="grid grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
+                   {availableLocations.map(loc => (
+                     <button 
+                        key={loc}
+                        onClick={() => handleTransfer(loc)}
+                        className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-transparent hover:border-blue-500 hover:bg-white dark:hover:bg-slate-700 transition-all text-center"
+                     >
+                        <span className="text-[11px] font-black uppercase truncate block">{loc}</span>
+                     </button>
+                   ))}
+                   {availableLocations.length === 0 && (
+                     <div className="col-span-3 py-10 text-center opacity-40 italic text-xs font-bold">Aucune table libre disponible.</div>
+                   )}
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

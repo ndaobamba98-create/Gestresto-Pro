@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  LayoutDashboard, ShoppingCart, Package, BarChart3, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Search, ArrowRight, Users, ChevronLeft, ChevronRight, UserPlus, LogIn, Key, ShieldCheck, ChevronDown, ArrowRightLeft, Bell, X, Check, Trash2, BellOff, Info, AlertTriangle, CheckCircle, Maximize, Minimize, Calendar as CalendarIcon, Shield, UtensilsCrossed, ChefHat, Wifi, Sparkles
+  LayoutDashboard, ShoppingCart, Package, BarChart3, Settings as SettingsIcon, Sun, Moon, IdCard, LogOut, Clock as ClockIcon, FileText, Search, ArrowRight, Users, ChevronLeft, ChevronRight, UserPlus, LogIn, Key, ShieldCheck, ChevronDown, ArrowRightLeft, Bell, X, Check, Trash2, BellOff, Info, AlertTriangle, CheckCircle, Maximize, Minimize, Calendar as CalendarIcon, Shield, UtensilsCrossed, ChefHat, Wifi, Sparkles, Wallet
 } from 'lucide-react';
 import { ViewType, Product, SaleOrder, Employee, ERPConfig, AttendanceRecord, User, CashSession, Expense, Customer, UserRole, AppNotification, RolePermission, POSLocations } from './types';
 import { INITIAL_PRODUCTS, INITIAL_EMPLOYEES, INITIAL_CONFIG, APP_USERS, INITIAL_CUSTOMERS, POS_LOCATIONS as INITIAL_LOCATIONS } from './constants';
@@ -17,6 +17,7 @@ import HR from './components/HR';
 import Attendances from './components/Attendances';
 import Customers from './components/Customers';
 import Kitchen from './components/Kitchen';
+import Expenses from './components/Expenses';
 
 const loadStored = <T extends unknown>(key: string, initial: T): T => {
   const saved = localStorage.getItem(key);
@@ -25,8 +26,8 @@ const loadStored = <T extends unknown>(key: string, initial: T): T => {
 };
 
 const DEFAULT_PERMISSIONS: RolePermission[] = [
-  { role: 'admin', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'invoicing', 'customers', 'reports', 'attendances', 'hr', 'settings', 'manage_inventory', 'manage_session_closing', 'manage_sales', 'manage_hr', 'manage_customers'] },
-  { role: 'manager', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'customers', 'reports', 'attendances', 'manage_inventory'] },
+  { role: 'admin', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'expenses', 'invoicing', 'customers', 'reports', 'attendances', 'hr', 'settings', 'manage_inventory', 'manage_session_closing', 'manage_sales', 'manage_hr', 'manage_customers'] },
+  { role: 'manager', permissions: ['dashboard', 'pos', 'preparation', 'sales', 'inventory', 'expenses', 'customers', 'reports', 'attendances', 'manage_inventory'] },
   { role: 'cashier', permissions: ['dashboard', 'pos', 'preparation', 'attendances'] },
   { role: 'waiter', permissions: ['pos', 'preparation', 'attendances'] }
 ];
@@ -67,24 +68,10 @@ export const AppLogo = ({ className = "w-14 h-14", iconOnly = false, light = fal
 
 const WelcomeSplash = ({ user, theme }: { user: User, theme: string }) => (
   <div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden">
-    {/* Background cinématique */}
     <div className="absolute inset-0 bg-slate-950">
       <div className="absolute top-1/4 left-1/4 w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[120px] animate-float"></div>
       <div className="absolute bottom-1/4 right-1/4 w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[120px] animate-float" style={{ animationDelay: '2s' }}></div>
-      {/* Particules */}
-      {[...Array(20)].map((_, i) => (
-        <div key={i} 
-             className="absolute w-1 h-1 bg-white/20 rounded-full animate-float"
-             style={{ 
-               top: `${Math.random() * 100}%`, 
-               left: `${Math.random() * 100}%`,
-               animationDuration: `${3 + Math.random() * 5}s`,
-               animationDelay: `${Math.random() * 5}s`
-             }}
-        ></div>
-      ))}
     </div>
-
     <div className="relative z-10 text-center space-y-8 animate-welcomeScale">
        <div className={`w-32 h-32 mx-auto rounded-[3rem] bg-gradient-to-br ${user.color} flex items-center justify-center text-white text-4xl font-black shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-2 border-white/20 relative`}>
           {user.initials}
@@ -92,22 +79,11 @@ const WelcomeSplash = ({ user, theme }: { user: User, theme: string }) => (
             <Sparkles size={20} className="text-purple-600" />
           </div>
        </div>
-       
        <div className="space-y-4">
           <h1 className="text-6xl font-black text-white uppercase tracking-tighter">
             BIENVENUE <span className="text-shimmer italic">{user.name.split(' ')[0]}</span>
           </h1>
-          <div className="flex items-center justify-center space-x-4">
-             <div className="h-px w-12 bg-white/20"></div>
-             <p className="text-slate-400 font-black uppercase text-xs tracking-[0.5em]">Initialisation TerraPOS+</p>
-             <div className="h-px w-12 bg-white/20"></div>
-          </div>
-       </div>
-
-       <div className="flex items-center justify-center space-x-2 pt-10">
-          <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-          <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-          <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+          <p className="text-slate-400 font-black uppercase text-xs tracking-[0.5em]">Initialisation TerraPOS+</p>
        </div>
     </div>
   </div>
@@ -115,7 +91,7 @@ const WelcomeSplash = ({ user, theme }: { user: User, theme: string }) => (
 
 const App: React.FC = () => {
   const [isLocked, setIsLocked] = useState(true);
-  const [isEntering, setIsEntering] = useState(false); // Nouvel état pour l'animation
+  const [isEntering, setIsEntering] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -168,6 +144,7 @@ const App: React.FC = () => {
       { id: 'preparation', icon: ChefHat, label: 'Suivi Cuisine' },
       { id: 'sales', icon: ShoppingCart, label: t('sales') },
       { id: 'inventory', icon: Package, label: t('inventory') },
+      { id: 'expenses', icon: Wallet, label: t('expenses') },
       { id: 'invoicing', icon: FileText, label: t('invoicing') },
       { id: 'customers', icon: Users, label: t('customer') + 's' },
       { id: 'reports', icon: BarChart3, label: t('reports') },
@@ -213,7 +190,7 @@ const App: React.FC = () => {
   useEffect(() => { localStorage.setItem('notifications', JSON.stringify(notifications)); }, [notifications]);
 
   const notifyUser = useCallback((title: string, message: string, type: 'success' | 'info' | 'warning' = 'info') => {
-    const newNotif: AppNotification = { id: `notif-${Date.now()}`, title, message, timestamp: new Date().toISOString(), type: type === 'warning' ? 'warning' : 'info', read: false };
+    const newNotif: AppNotification = { id: `notif-${Date.now()}`, title, message, timestamp: new Date().toISOString(), type: type === 'warning' ? 'warning' : type === 'success' ? 'success' : 'info', read: false };
     setNotifications(prev => [newNotif, ...prev]);
   }, []);
 
@@ -221,8 +198,6 @@ const App: React.FC = () => {
     setCurrentUser(user);
     setIsEntering(true);
     if (user.role === 'waiter') setActiveView('pos');
-    
-    // Séquence cinématique
     setTimeout(() => {
       setIsEntering(false);
       setIsLocked(false);
@@ -282,10 +257,11 @@ const App: React.FC = () => {
       case 'pos': return <POS products={products} customers={customers} onUpdateCustomers={setCustomers} sales={sales} onSaleComplete={handleSaleComplete} onRefundSale={handleRefundSale} onDeleteDraft={handleDeleteDraft} config={config} session={currentSession || null} onOpenSession={(bal, cid) => setSessionHistory([{id:`S-${Date.now()}`, openedAt: new Date().toISOString(), openingBalance: bal, expectedBalance: bal, totalCashSales: 0, status: 'open', cashierName: currentUser!.name, cashierId: cid} as CashSession, ...sessionHistory])} onCloseSession={bal => setSessionHistory(sessionHistory.map(s => s.id === currentSession?.id ? {...s, status: 'closed', closingBalance: bal} as CashSession : s))} userRole={currentUser!.role} userPermissions={commonProps.userPermissions} onUpdateSales={setSales} posLocations={posLocations} onUpdateLocations={setPosLocations} {...commonProps} />;
       case 'preparation': return <Kitchen sales={sales} onUpdateSales={setSales} config={config} notify={notifyUser} />;
       case 'inventory': return <Inventory products={products} onUpdate={setProducts} config={config} userRole={currentUser!.role} t={t} userPermissions={commonProps.userPermissions} />;
+      case 'expenses': return <Expenses expenses={expenses} setExpenses={setExpenses} purchases={[]} onAddPurchase={()=>{}} onDeletePurchase={()=>{}} suppliers={[]} setSuppliers={()=>{}} products={products} config={config} userRole={currentUser!.role} {...commonProps} />;
       case 'sales': return <Sales sales={sales} expenses={expenses} onUpdate={setSales} onRefundSale={handleRefundSale} config={config} products={products} userRole={currentUser!.role} currentUser={currentUser!} onAddSale={handleSaleComplete} {...commonProps} />;
       case 'invoicing': return <Invoicing sales={sales} config={config} onUpdate={setSales} products={products} userRole={currentUser!.role} onAddSale={() => {}} {...commonProps} />;
       case 'reports': return <Reports sales={sales} expenses={expenses} config={config} products={products} t={t} notify={notifyUser} sessions={sessionHistory} />;
-      case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} {...commonProps} />;
+      case 'hr': return <HR employees={employees} onUpdate={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} config={config} expenses={expenses} onAddExpense={(exp) => setExpenses([exp, ...expenses])} {...commonProps} />;
       case 'attendances': return <Attendances employees={employees} onUpdateEmployees={setEmployees} attendance={attendance} onUpdateAttendance={setAttendance} currentUser={currentUser!} notify={notifyUser} />;
       case 'customers': return <Customers customers={customers} onUpdate={setCustomers} config={config} userRole={currentUser!.role} t={t} userPermissions={commonProps.userPermissions} notify={notifyUser} />;
       case 'settings': return <Settings products={products} onUpdateProducts={setProducts} config={config} onUpdateConfig={setConfig} posLocations={posLocations} onUpdateLocations={setPosLocations} rolePermissions={rolePermissions} onUpdatePermissions={setRolePermissions} currentUser={currentUser!} allUsers={allUsers} onUpdateUsers={setAllUsers} userPermissions={commonProps.userPermissions} t={t} notify={notifyUser} />;
@@ -451,27 +427,6 @@ const App: React.FC = () => {
             </button>
           ))}
         </nav>
-        
-        {/* WIFI WIDGET IN SIDEBAR */}
-        {config.wifiName && isSidebarOpen && (
-          <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/40">
-             <div className="flex items-center space-x-3 mb-2 text-purple-400">
-                <Wifi size={14} />
-                <span className="text-[10px] font-black uppercase tracking-widest">Accès WiFi</span>
-             </div>
-             <div className="space-y-1">
-                <div className="flex justify-between items-center text-[9px] font-bold">
-                   <span className="text-slate-500 uppercase">SSID</span>
-                   <span className="text-white">{config.wifiName}</span>
-                </div>
-                <div className="flex justify-between items-center text-[9px] font-bold">
-                   <span className="text-slate-500 uppercase">PASS</span>
-                   <span className="text-white font-mono">{config.wifiPassword}</span>
-                </div>
-             </div>
-          </div>
-        )}
-
         <div className="p-4 border-t border-slate-800">
            <button onClick={logoutAction} className={`w-full flex items-center p-4 rounded-2xl text-rose-500 hover:bg-rose-500/10 transition-all font-bold text-sm ${!isSidebarOpen ? 'justify-center' : ''}`}>
              <LogOut size={20} className={isSidebarOpen ? "mr-3" : ""} /> {isSidebarOpen && 'Déconnexion'}
@@ -485,34 +440,15 @@ const App: React.FC = () => {
               <h2 className="text-xl font-black uppercase tracking-tight text-slate-800 dark:text-white leading-none">{config.companyName}</h2>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">{config.companySlogan}</span>
             </div>
-            <div className="hidden lg:flex items-center pl-6 border-l-2 border-slate-100 dark:border-slate-800 h-10 space-x-6">
-              <div className="flex flex-col">
-                <div className="flex items-center text-slate-800 dark:text-white"><ClockIcon size={14} className="mr-2 text-purple-600" /><span className="text-sm font-black font-mono tracking-tighter">{currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span></div>
-                <div className="flex items-center mt-0.5"><CalendarIcon size={10} className="mr-1.5 text-slate-400" /><span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
-              </div>
-            </div>
           </div>
           <div className="flex items-center space-x-4">
-            <button onClick={toggleFullscreen} className="p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl transition-all text-slate-500 hover:text-purple-600 shadow-sm hover:scale-105 active:scale-95" title={isFullscreen ? "Réduire l'écran" : "Mettre en plein écran"}>{isFullscreen ? <Minimize size={20}/> : <Maximize size={20}/>}</button>
+            <button onClick={toggleFullscreen} className="p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl transition-all text-slate-500 hover:text-purple-600 shadow-sm"><Maximize size={20}/></button>
             <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl transition-colors text-slate-600 dark:text-slate-400 hover:text-purple-600">{darkMode ? <Sun size={20}/> : <Moon size={20}/>}</button>
-            <div className="relative">
-               <button onClick={() => setIsNotifOpen(!isNotifOpen)} className={`p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm relative transition-all hover:scale-105 active:scale-95 ${unreadCount > 0 ? 'animate-pulse' : ''}`}>
-                 <Bell size={20} className={unreadCount > 0 ? 'text-rose-500 fill-rose-500/10' : 'text-slate-500'} />
-                 {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-600 text-white rounded-full text-[10px] font-black flex items-center justify-center border-2 border-white dark:border-slate-900 animate-bounce">{unreadCount}</span>}
-               </button>
-               {isNotifOpen && (
-                 <div className="absolute top-full right-0 mt-4 w-96 bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl border-2 border-slate-100 dark:border-slate-800 z-[100] animate-scaleIn origin-top-right overflow-hidden">
-                    <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50"><h3 className="text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">Alertes & Notifications</h3><div className="flex items-center space-x-2"><button onClick={() => setNotifications([])} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><Trash2 size={16} /></button></div></div>
-                    <div className="max-h-[450px] overflow-y-auto scrollbar-hide py-2">{notifications.length === 0 ? (<div className="py-20 text-center space-y-3"><BellOff size={40} className="mx-auto text-slate-300 dark:text-slate-700" /><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aucune notification</p></div>) : (notifications.map(notif => (<div key={notif.id} className={`p-6 border-b border-slate-50 dark:border-slate-800 flex items-start space-x-4 transition-all hover:bg-slate-50/50 dark:hover:bg-slate-800/30 group ${!notif.read ? 'bg-purple-50/20 dark:bg-purple-900/5' : ''}`}><div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${notif.type === 'warning' ? 'bg-rose-100 text-rose-500' : notif.type === 'success' ? 'bg-emerald-100 text-emerald-500' : 'bg-blue-100 text-blue-500'}`}>{notif.type === 'warning' ? <AlertTriangle size={18} /> : notif.type === 'success' ? <CheckCircle size={18} /> : <Info size={18} />}</div><div className="flex-1 min-w-0"><div className="flex justify-between items-start"><h4 className={`text-xs font-black uppercase tracking-tight truncate ${notif.read ? 'text-slate-500' : 'text-slate-900 dark:text-white'}`}>{notif.title}</h4><span className="text-[8px] font-bold text-slate-400 uppercase whitespace-nowrap ml-2">{new Date(notif.timestamp).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'})}</span></div><p className={`text-[10px] font-medium leading-relaxed mt-1 ${notif.read ? 'text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>{notif.message}</p><div className="flex items-center space-x-4 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">{!notif.read && (<button onClick={() => setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))} className="text-[8px] font-black uppercase text-emerald-600 flex items-center"><Check size={12} className="mr-1"/> Marquer lu</button>)}<button onClick={() => setNotifications(prev => prev.filter(n => n.id !== notif.id))} className="text-[8px] font-black uppercase text-rose-500 flex items-center"><X size={12} className="mr-1"/> Supprimer</button></div></div></div>)))}</div>
-                 </div>
-               )}
-            </div>
             <div className="flex items-center space-x-1">
               <div className="flex items-center space-x-3 bg-white dark:bg-slate-800 p-2 pr-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentUser?.color} flex items-center justify-center text-white font-black shadow-lg text-xs`}>{currentUser?.initials}</div>
                  <div className="flex flex-col"><span className="text-xs font-black dark:text-white leading-tight">{currentUser?.name}</span><span className="text-[8px] font-bold text-purple-600 uppercase tracking-widest">{currentUser?.role}</span></div>
               </div>
-              <button onClick={logoutAction} className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-all shadow-sm flex items-center justify-center group" title="Changer d'IDENTIFIANT / Quitter la session"><ArrowRightLeft size={18} className="group-hover:rotate-180 transition-transform duration-500" /></button>
             </div>
           </div>
         </header>
